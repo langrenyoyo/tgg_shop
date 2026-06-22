@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TGG Shop 流程原型</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: #f5f6f8;
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e8e8e8;
+      padding: 20px 32px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 22px; font-weight: 600; }
+    header p { font-size: 13px; color: #666; margin-top: 4px; }
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #e8e8e8;
+      padding: 12px 32px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      position: sticky;
+      top: 72px;
+      z-index: 99;
+    }
+    nav a {
+      font-size: 13px;
+      color: #1677ff;
+      text-decoration: none;
+      padding: 4px 12px;
+      border-radius: 4px;
+      background: #f0f5ff;
+    }
+    nav a:hover { background: #d6e4ff; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 32px 64px; }
+    section {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid #e8e8e8;
+    }
+    section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #1677ff;
+      display: inline-block;
+    }
+    section .desc {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 16px;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      padding: 16px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid #e8e8e8;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th { background: #fafafa; font-weight: 600; }
+    tr:nth-child(even) td { background: #fafafa; }
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #fff7e6;
+      color: #d46b08;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TGG Shop 流程原型</h1>
+    <p>版本 v1.0 · 2026-06-22 · 基于《需求文档.md》生成</p>
+  </header>
+
+  <nav>
+    <a href="#nav">页面导航</a>
+    <a href="#register">注册会员</a>
+    <a href="#order">购物下单</a>
+    <a href="#pay">支付分支</a>
+    <a href="#pickup">自提点</a>
+    <a href="#status">订单状态</a>
+    <a href="#verify">代理核销</a>
+    <a href="#points">赚积分</a>
+    <a href="#invite">邀请分销</a>
+    <a href="#member">会员开通</a>
+    <a href="#refund">退货退款</a>
+    <a href="#agent">代理申请</a>
+    <a href="#audit">后台审核</a>
+  </nav>
+
+  <main>
+    <section id="nav">
+      <h2>1. APP 页面导航架构</h2>
+      <p class="desc">底部 5 Tab 及主要页面跳转关系</p>
+      <div class="mermaid">
+flowchart TB
+    subgraph TabBar["底部 Tab 导航"]
+        Home[首页]
+        Points[赚积分]
+        Category[商城分类]
+        Cart[购物车]
+        Mine[我的]
+    end
+    Home --> Search[搜索页]
+    Home --> QuickSign[签到页]
+    Home --> QuickTask[任务列表]
+    Home --> QuickInvite[我的邀请码]
+    Home --> ProdDetail[商品详情]
+    Points --> TaskList[任务列表]
+    Points --> SignIn[签到页]
+    Category --> CatList[分类商品列表]
+    CatList --> ProdDetail
+    Cart --> Checkout[订单确认/结算]
+    Checkout --> OrderDetail[订单详情]
+    Mine --> OrderList[我的订单]
+    Mine --> Invite[我的邀请码]
+    Mine --> MemberOpen[开通会员]
+    Mine --> AgentScan[代理扫一扫]
+    ProdDetail --> Cart
+    ProdDetail --> Checkout
+      </div>
+    </section>
+
+    <section id="register">
+      <h2>2. 用户注册与会员</h2>
+      <p class="desc">新用户注册赠送 1 个月会员，到期需重新开通</p>
+      <div class="mermaid">
+flowchart TD
+    A[打开 APP] --> B{是否已登录}
+    B -->|否| C[注册/登录]
+    B -->|是| D[进入首页]
+    C --> E{是否填写邀请码}
+    E -->|是| F[绑定邀请关系]
+    E -->|否| G[直接注册]
+    F --> H[注册成功]
+    G --> H
+    H --> I[自动赠送 1 个月会员]
+    I --> J[进入首页]
+    J --> K[会员 30 天倒计时]
+    K --> L{会员是否到期}
+    L -->|未到期| M[正常使用]
+    L -->|已到期| N[会员失效]
+    N --> O[现金购买需重新开通]
+    N --> P[纯积分兑换仍可用]
+      </div>
+    </section>
+
+    <section id="order">
+      <h2>3. 购物下单主流程</h2>
+      <p class="desc">含每日 500 元限额校验、配送费计算、核销码生成</p>
+      <div class="mermaid">
+flowchart TD
+    A[浏览商品] --> B[商品详情]
+    B --> C{操作}
+    C -->|加入购物车| D[购物车]
+    C -->|立即购买| E[订单确认页]
+    D --> F[去结算]
+    F --> E
+    E --> G{校验每日限额 500元}
+    G -->|超限| H[提示超出上限]
+    G -->|通过| I{选择支付方式}
+    I --> J[见支付分支流程]
+    J --> K[计算配送费]
+    K --> L[选择自提点]
+    L --> M[确认下单]
+    M --> N[生成订单与核销码]
+    N --> O[订单状态: 待收货]
+    O --> P[推送取货通知]
+      </div>
+      <table>
+        <tr><th>订单金额</th><th>默认配送费</th></tr>
+        <tr><td>≤ 100 元</td><td>3 元</td></tr>
+        <tr><td>101–200 元</td><td>6 元</td></tr>
+      </table>
+    </section>
+
+    <section id="pay">
+      <h2>4. 支付方式分支</h2>
+      <p class="desc">纯积分免会员；含现金支付必须开通会员</p>
+      <div class="mermaid">
+flowchart TD
+    A[订单确认页] --> B{支付方式}
+    B -->|纯积分| C{积分足够?}
+    C -->|是| D[扣减积分下单]
+    C -->|否| E[引导积分+现金或赚积分]
+    B -->|现金| F{是否会员}
+    F -->|否| G[引导开通会员]
+    G --> H[微信/支付宝开通]
+    H --> I[现金支付]
+    F -->|是| I
+    B -->|积分+现金| J{是否会员}
+    J -->|否| G
+    J -->|是| K[积分扣减+现金补差]
+    D --> L[下单成功]
+    I --> L
+    K --> L
+    L --> M[生成核销码]
+      </div>
+    </section>
+
+    <section id="pickup">
+      <h2>5. 自提点选择</h2>
+      <p class="desc">不支持手动输入地址，从预设站点中选择</p>
+      <div class="mermaid">
+flowchart TD
+    A[订单确认/收货地址] --> B[获取定位]
+    B --> C[匹配附近自提站]
+    C --> D[展示站点列表]
+    D --> E[用户选择站点]
+    E --> F[绑定自提点]
+    F --> G[下单/订单页展示地址]
+    G --> H[消息通知取货地点]
+      </div>
+    </section>
+
+    <section id="status">
+      <h2>6. 订单状态流转</h2>
+      <p class="desc">用户可见：待收货 / 已收货（参考淘宝）</p>
+      <div class="mermaid">
+stateDiagram-v2
+    [*] --> 待支付: 含现金订单
+    [*] --> 待收货: 纯积分订单
+    待支付 --> 已取消: 取消/超时
+    待支付 --> 待收货: 支付成功
+    待收货 --> 待核销: 到达自提点
+    待核销 --> 已收货: 代理核销
+    已收货 --> 退款中: 申请退货
+    退款中 --> 已退款: 退款完成
+      </div>
+    </section>
+
+    <section id="verify">
+      <h2>7. 代理核销流程<span class="tag">时序图</span></h2>
+      <p class="desc">类似抖音核销码，代理扫码后用户提货</p>
+      <div class="mermaid">
+sequenceDiagram
+    participant U as 普通用户
+    participant App as APP
+    participant S as 服务端
+    participant A as 代理用户
+    U->>App: 下单成功
+    App->>S: 创建订单
+    S->>App: 返回核销码
+    U->>A: 到自提点出示核销码
+    A->>App: 打开扫一扫
+    App->>S: 校验代理身份
+    alt 非代理
+        App->>A: 提示您不是代理
+    else 是代理
+        A->>App: 扫描核销码
+        App->>S: 提交核销
+        S->>App: 核销成功
+        App->>U: 订单变为已收货
+        U->>A: 提货
+    end
+      </div>
+    </section>
+
+    <section id="points">
+      <h2>8. 赚积分流程</h2>
+      <p class="desc">签到 / 做任务 / 邀请好友，排行榜每 5 分钟刷新</p>
+      <div class="mermaid">
+flowchart TD
+    A[赚积分入口] --> B{方式}
+    B --> C[签到]
+    C --> C1[获得积分]
+    B --> D[做任务]
+    D --> D1[任务列表 3-8条]
+    D1 --> D2[完成并审核]
+    D2 --> D3[积分入账]
+    B --> E[邀请好友]
+    E --> E1[分享邀请码]
+    E1 --> E2[好友注册 +3积分]
+    D3 --> F[邀请人得10%提成]
+    C1 --> G[积分明细]
+    D3 --> G
+    E2 --> G
+    F --> G
+    G --> H[排行榜更新]
+      </div>
+    </section>
+
+    <section id="invite">
+      <h2>9. 邀请分销流程</h2>
+      <p class="desc">邀请成功 3 积分 + 被邀请人任务积分 10% 提成</p>
+      <div class="mermaid">
+flowchart LR
+    A[邀请码分享] --> B[好友注册绑定]
+    B --> C[邀请人 +3积分]
+    B --> D[被邀请人做任务]
+    D --> E[邀请人 +10%提成]
+    A --> F[查看邀请列表]
+      </div>
+    </section>
+
+    <section id="member">
+      <h2>10. 会员开通与续费</h2>
+      <p class="desc">支持微信/支付宝/积分开通，30 天倒计时</p>
+      <div class="mermaid">
+flowchart TD
+    A[触发开通] --> B{场景}
+    B -->|新用户| C[自动赠送1个月]
+    B -->|现金购买拦截| D[弹窗引导]
+    B -->|主动开通| E[会员开通页]
+    B -->|到期续费| E
+    E --> F{方式}
+    F -->|微信| G[支付成功]
+    F -->|支付宝| G
+    F -->|积分| H{积分够?}
+    H -->|是| G
+    H -->|否| I[积分+现金补差]
+    I --> G
+    G --> J[30天倒计时]
+    J --> K{到期}
+    K -->|是| L[需重新开通]
+      </div>
+    </section>
+
+    <section id="refund">
+      <h2>11. 退货退款流程</h2>
+      <p class="desc">参考朴朴/美团，支持全额/部分退，积分原路返还</p>
+      <div class="mermaid">
+flowchart TD
+    A[已收货订单] --> B[申请退货]
+    B --> C{全额/部分}
+    C --> D[提交申请]
+    D --> E[平台审核]
+    E -->|通过| F[执行退款]
+    E -->|拒绝| G[通知原因]
+    F --> H[积分/现金原路返还]
+    H --> I[已退款]
+      </div>
+    </section>
+
+    <section id="agent">
+      <h2>12. 代理申请流程</h2>
+      <p class="desc">我的 → 申请点位代理 → 后台审核 → 开通扫一扫</p>
+      <div class="mermaid">
+flowchart TD
+    A[申请点位代理] --> B[填写信息提交]
+    B --> C[后台审核]
+    C -->|通过| D[标记为代理]
+    C -->|拒绝| E[通知用户]
+    D --> F[显示扫一扫]
+    G[非代理打开扫一扫] --> H[提示: 您不是代理]
+      </div>
+    </section>
+
+    <section id="audit">
+      <h2>13. 后台任务审核对接<span class="tag">时序图</span></h2>
+      <p class="desc">悬赏平台审核通过后，本系统同步发放积分</p>
+      <div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant App as TGG Shop
+    participant TGG as TGG后台
+    participant RW as 悬赏平台
+    U->>App: 完成任务
+    App->>RW: 提交结果
+    RW->>RW: 平台审核
+    RW->>TGG: 审核结果回调
+    alt 通过
+        TGG->>App: 积分到账
+        TGG->>TGG: 邀请人10%提成
+    else 拒绝
+        TGG->>App: 无奖励
+    end
+      </div>
+    </section>
+  </main>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      flowchart: { curve: 'basis', padding: 16 },
+      sequence: { actorMargin: 60, messageMargin: 30 }
+    });
+  </script>
+</body>
+</html>
