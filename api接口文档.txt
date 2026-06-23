@@ -1,0 +1,660 @@
+--- Page 1 ---
+目录
+1.1 基本URI...........................................................................................................................................2
+1.2 鉴权方式........................................................................................................................................... 2
+1.3 HTTP 响应规范................................................................................................................................ 2
+1.4 HTTP 返回错误说明........................................................................................................................ 2
+2.1 任务列表........................................................................................................................................... 3
+2.2 任务分类........................................................................................................................................... 4
+2.3 任务详情........................................................................................................................................... 5
+2.4 提交任务........................................................................................................................................... 6
+2.5 审核列表........................................................................................................................................... 7
+2.6 查询单审核任务详情....................................................................................................................... 8
+2.7 回调参数......................................................................................................................................... 10
+
+--- Page 2 ---
+一文档说明
+1.1 基本URI
+以标准的http 形式提供接口：http://(URI)，遵循统一的Restful 的设计风格
+1.2 鉴权方式
+（1）请联系运营索要appid、key。
+（2）使用sign 数据签名鉴权：拉取数据时携带appid、sign。
+（3）sign 签名生成算法：当前日期拼接上appid 和key，得到stringA，对stringA 进行MD5
+运算，再将得到的字符串所有字符转换为小写
+得到sign 值signValue。即：MD5(date("Ymd").appid.key)
+密钥生成示例(php 方式)：
+<?Php
+$appid = '1001';
+$key = '4551f7e';
+$date = date("Ymd");
+$string = $date.$appid.$key;
+$sign = md5($string);
+?>
+1.3 HTTP 响应规范
+所有接口响应内容都为UTF-8 编码
+HTTP 响应头信息中的Content-Type 被设为：multipart/form-data; charset=UTF-8
+返回数据格式：
+{
+"code": 0,
+"msg": "success",
+"data": {
+}
+}
+1.4 HTTP 返回错误说明
+返回码code 值为0 时为成功，其他都为失败
+公共接口
+上传图片
+接口URI：/api/common/upload
+请求参数
+参数名
+是否必须
+说明
+示例
+file
+是
+图片
+响应数据：
+正常响应
+{
+"code": 0,
+
+--- Page 3 ---
+"msg": "上传成功",
+"time": "1695349629",
+"data": [
+{
+"url": "/uploads/20230922/4103b502b4d4b561a34dab76fd13a4a3.png",
+"path": "https://www.hltk2023.vip/uploads/20230922/4103b502b4d4b561a34dab76fd13a4a3.png"
+}
+]
+}
+字段说明：
+参数
+类型
+说明
+url
+string
+图片位置
+path
+string
+图片地址
+二接口列表
+2.1 任务列表
+接口URI：index/index/task_list
+请求方式：POST
+请求参数
+参数名
+是否必须
+说明
+示例
+appid
+是
+合作商id
+1001
+page
+是
+分页
+1
+count
+否
+条数
+每页显示多少条
+默认是10 条
+search
+否
+搜索
+交通数字
+c_id
+否
+任务分类ID
+1
+sign
+是
+数据签名，算法
+见说明文档
+82a6f315c11a99811825c20b0fa2126b
+响应数据：
+正常响应
+{ "code": 0, "msg": "获取成功", "data": [ { "id": 526, "tishi": "", "title": "小红书高价版", "image":
+"https://baojia.fengxiangsc.com/uploads/20240902/280626d4075bf05b0468ba8e4b2c2213.png", "reward": "17.00", "option":
+"text1,imgea,mobile", "c_name": "简单注册", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "17.00", "commission_reward": "0.00",
+"commission_sy_reward": "17.00", "agency_ratio": 3.4, "invitation_ratio": 1.7, "users_ratio": "11.90", "is_top_text": "", "p_status_text": "" }, { "id": 487,
+"tishi": "", "title": "立返-工行一拖15", "image": "https://baojia.fengxiangsc.com/uploads/20240808/bdb490c20cd04fb44493e229b0e8a7ec.png",
+"reward": "8.00", "option": "text1,imgea,mobile,name", "c_name": "证券金融", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "8.00",
+"commission_reward": "0.00", "commission_sy_reward": "8.00", "agency_ratio": 1.6, "invitation_ratio": 0.8, "users_ratio": "5.60", "is_top_text": "",
+"p_status_text": "" }, { "id": 470, "tishi": "", "title": "立返-中泰证券限三任意卡", "image":
+"https://baojia.fengxiangsc.com/uploads/20240801/831ba22a96ef8ddbc95341124a6bb637.png", "reward": "18.00", "option": "imgea,name",
+"c_name": "证券金融", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "18.00", "commission_reward": "0.00", "commission_sy_reward": "18.00",
+
+--- Page 4 ---
+"agency_ratio": 3.6, "invitation_ratio": 1.8, "users_ratio": "12.60", "is_top_text": "", "p_status_text": "" }, { "id": 441, "tishi": "", "title": "立返-建行一拖16",
+"image": "https://baojia.fengxiangsc.com/uploads/20240724/bddf5597fce354f33777227a4d9e3a68.png", "reward": "8.00", "option":
+"text2,text1,imgea,mobile,name", "c_name": "证券金融", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "8.00", "commission_reward": "0.00",
+"commission_sy_reward": "8.00", "agency_ratio": 1.6, "invitation_ratio": 0.8, "users_ratio": "5.60", "is_top_text": "", "p_status_text": "" }, { "id": 438,
+"tishi": "", "title": "立返-农行一拖n", "image": "https://baojia.fengxiangsc.com/uploads/20240723/71f48a93cf5e418c05e9aee8e3ebcbb9.png",
+"reward": "14.00", "option": "text1,imgea,mobile,name", "c_name": "证券金融", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "14.00",
+"commission_reward": "0.00", "commission_sy_reward": "14.00", "agency_ratio": 2.8, "invitation_ratio": 1.4, "users_ratio": "9.80", "is_top_text": "",
+"p_status_text": "" }, { "id": 436, "tishi": "", "title": "方块兽", "image":
+"https://baojia.fengxiangsc.com/uploads/20240722/4a47d5bdf6c4b3b227d3e46d84e3c088.png", "reward": "4.50", "option": "imgea,mobile",
+"c_name": "简单注册", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "4.50", "commission_reward": "0.00", "commission_sy_reward": "4.50",
+"agency_ratio": 0.9, "invitation_ratio": 0.45, "users_ratio": "3.15", "is_top_text": "", "p_status_text": "" }, { "id": 363, "tishi": "", "title": "兴业数币三类简单
+版", "image": "https://baojia.fengxiangsc.com/uploads/20240703/9e9fcb0e604ddd2a658f8b1c313656cd.png", "reward": "13.50", "option":
+"imgea,mobile", "c_name": "简单注册", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "13.50", "commission_reward": "0.00",
+"commission_sy_reward": "13.50", "agency_ratio": 2.7, "invitation_ratio": 1.35, "users_ratio": "9.45", "is_top_text": "", "p_status_text": "" }, { "id": 325,
+"tishi": "", "title": "欧意", "image": "https://baojia.fengxiangsc.com/uploads/20240617/d7dbf7dae54d65f9bed734fc0bd954bd.png", "reward":
+"23.00", "option": "text1,imgea", "c_name": "简单注册", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "23.00", "commission_reward": "0.00",
+"commission_sy_reward": "23.00", "agency_ratio": 4.6, "invitation_ratio": 2.3, "users_ratio": "16.10", "is_top_text": "", "p_status_text": "" }, { "id": 192,
+"tishi": "", "title": "京东1 分购", "image": "https://baojia.fengxiangsc.com/uploads/20240530/91833a185a54e66408c9443b09908d94.png", "reward":
+"10.00", "option": "text1,imgea", "c_name": "简单注册", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "10.00", "commission_reward": "0.00",
+"commission_sy_reward": "10.00", "agency_ratio": 2, "invitation_ratio": 1, "users_ratio": "7.00", "is_top_text": "", "p_status_text": "" }, { "id": 169, "tishi":
+"", "title": "交通养老金", "image": "https://baojia.fengxiangsc.com/uploads/20240530/383211919b9be872a6442b62ea1c86c1.png", "reward":
+"50.00", "option": "imgea,mobile,name", "c_name": "简单注册", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward": "50.00", "commission_reward":
+"0.00", "commission_sy_reward": "50.00", "agency_ratio": 10, "invitation_ratio": 5, "users_ratio": "35.00", "is_top_text": "", "p_status_text": "" } ] }
+字段说明：
+参数
+类型
+说明
+id
+Int
+任务id
+tishi
+string
+注意提醒
+title
+string
+任务名称
+image
+string
+任务小图
+reward
+string
+任务金额
+2.2 任务分类
+接口URI：index/index/task_type
+请求方式：POST
+参数名
+是否必须
+说明
+示例
+appid
+是
+合作商id
+1001
+sign
+是
+数据签名，算法
+见说明文档
+82a6f315c11a99811825c20b0fa2126b
+响应数据：
+{ "code": 0, "msg": " 获取成功", "data": [ { "id": 1, "name": " 简单注册", "jieshao": " 流程简单", "image":
+"https://baojia.fengxiangsc.com/uploads/20240516/8199e96e746b89a6c7970a18cfcc032e.png",
+"status_text":
+""
+},
+{
+"id":
+3,
+"name":
+"
+试
+玩
+类
+型
+",
+"jieshao":
+"
+试
+玩
+游
+戏
+",
+"image":
+
+--- Page 5 ---
+"https://baojia.fengxiangsc.com/uploads/20240516/1c19f7fdb0f23d91d878ac5c293334dd.png",
+"status_text":
+""
+},
+{
+"id":
+5,
+"name":
+"
+福
+利
+任
+务
+",
+"jieshao":
+"
+自
+结
+版
+",
+"image":
+"https://baojia.fengxiangsc.com/uploads/20240516/936a276367a7cb146c3bab77e617c52e.png",
+"status_text":
+""
+},
+{
+"id":
+4,
+"name":
+"
+证
+券
+金
+融
+",
+"jieshao":
+"
+完
+成
+任
+务
+",
+"image":
+"https://baojia.fengxiangsc.com/uploads/20240516/c55cba27253448080b97e1106526d9e1.png", "status_text": "" } ] }
+字段说明：
+参数
+类型
+说明
+id
+Int
+分类id
+name
+string
+分类名称
+jieshao
+string
+分类介绍
+image
+string
+分类小图标
+2.3 任务详情
+接口URI：index/index/task_info
+请求方式：POST
+请求参数
+参数名
+是否必须
+说明
+示例
+appid
+是
+合作商id
+1001
+id
+是
+任务id
+1737
+sign
+是
+数据签名，算法
+见说明文档
+82a6f315c11a99811825c20b0fa2126b
+响应数据：
+正常响应
+{ "code": 0, "msg": "获取成功", "data": { "id": 526, "title": "小红书高价版", "image":
+"https://baojia.fengxiangsc.com/uploads/20240902/280626d4075bf05b0468ba8e4b2c2213.png", "content": [ { "txt": "<p
+class=\"MsoNormal\"><span style=\"font-family:\" microsoft=\"\" yahei\";font-size:21px;\"=\"\"><span style=\"font-family:\" microsoft=\"\"
+yahei\";font-size:24px;\"=\"\"><span style=\"font-size: 21px; background-color: rgb(96, 217, 120); font-family: \" microsoft=\"\"
+yahei\";\"=\"\"><span style=\"font-family:Microsoft YaHei;\">一机一单/跟纯下载二选一操作</span><br /></span></span></span></p><p
+class=\"MsoNormal\"><span style=\"font-size: 32px;\" microsoft=\"\" yahei\";\"=\"\">小红书纯高版/限制设备也是新的</span></p><p
+class=\"MsoNormal\" align=\"justify\" style=\"text-align:justify;\"><span style=\"font-size: 21px; font-family: \" microsoft=\"\" yahei\";\"=\"\">本
+广告项目必须本人自愿知晓注册，拒绝一切虚假信息或利用他人信息违规注册。</span></p><p class=\"MsoNormal\"><span
+style=\"font-family:Microsoft YaHei;\"> </span></p><p class=\"MsoNormal\"><span style=\"font-size: 21px; font-family: \" microsoft=\"\"
+yahei\";=\"\" background-color:=\"\" rgb(255,=\"\" 229,=\"\" 0);\"=\"\" yahei\";\"=\"\">扫码填手机号，然后保存跳转的二维码，识别这个二维码下
+载更新到最新版本，然后去登录，登录后点我</span><span style=\"font-size: 21px; font-family: \" microsoft=\"\" yahei\";=\"\"
+background-color:=\"\" rgb(255,=\"\" 229,=\"\" 0);\"=\"\" yahei\";\"=\"\">-</span><span style=\"font-size: 21px; font-family: \" microsoft=\"\"
+yahei\";\"=\"\"><span style=\"background-color:#FFE500;\">点左上角，扫一扫，再扫一下前面保存的二维码。扫完之后完成第一二天的签到，就
+可以了。</span><br /><span style=\"background-color:#00D5FF;\">必须是新用户，老用户直接不合格</span></span></p><p
+class=\"MsoNormal\"><span style=\"font-family:Microsoft YaHei;\"> </span></p><p class=\"MsoNormal\"><span style=\"font-size: 21px;
+font-family: \" microsoft=\"\" yahei\";\"=\"\">必须连续签到两天才算有效，次日搜索红薯见面礼再次签到提交</span></p><p
+
+--- Page 6 ---
+class=\"MsoNormal\"><span style=\"font-size: 21px; font-family: \" microsoft=\"\" yahei\";\"=\"\">必须连续签到两天才算有效，次日搜索红薯见
+面礼再次签到提交</span></p><span style=\"font-family:Microsoft YaHei;\"></span><span style=\"font-family:Microsoft YaHei;\"></span><br
+/><p><br /></p>", "img":
+"/uploads/20240904/d5695d8b668006d667f29455b4fadb2c.png,/uploads/20240902/8d91ef3b4fa53c694d31344596f865d4.png,/uploads/202409
+02/30fedd8b22ee9fc7f7386f80ae566127.png,/uploads/20240902/8485f3ce2d4620328c584d8f1d338025.png,/uploads/20240902/fe1bd996fbf0b
+0f5ae8811d82e977372.png,/uploads/20240902/51ebd7aaea300887d30d1dd0e7e86843.png", "img_list":
+[ "https://baojia.fengxiangsc.com/uploads/20240904/d5695d8b668006d667f29455b4fadb2c.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/8d91ef3b4fa53c694d31344596f865d4.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/30fedd8b22ee9fc7f7386f80ae566127.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/8485f3ce2d4620328c584d8f1d338025.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/fe1bd996fbf0b0f5ae8811d82e977372.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/51ebd7aaea300887d30d1dd0e7e86843.png" ] }, { "txt": "<p class=\"MsoNormal\"><span
+style=\"font-size: 24px;\" microsoft=\"\" yahei\";font-size:32px;\"=\"\">第二天在交单<br /><span style=\"font-size:24px;white-space:normal;\">
+第二天在交单<br /></span><span style=\"font-size:24px;white-space:normal;\">第二天在交单<br /></span><span
+style=\"font-size:24px;white-space:normal;\">第二天在交单<br /></span><span style=\"font-size:24px;white-space:normal;\">第二天在交单
+</span><br /><span style=\"background-color:#00D5FF;font-size:32px;\"></span></span></p><p class=\"MsoNormal\"><span
+style=\"font-size: 24px; background-color: rgb(255, 229, 0);\" microsoft=\"\" yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">交单：手机
+号前三后四（中间用*号代替）</span><span style=\"font-size: 24px; background-color: rgb(255, 229, 0);\" microsoft=\"\"
+yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">+</span><span style=\"font-size: 24px; background-color: rgb(255, 229, 0);\"
+microsoft=\"\" yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">小红书昵称</span><span style=\"font-size: 24px; background-color:
+rgb(255, 229, 0);\" microsoft=\"\" yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">+</span><span style=\"font-size: 24px;
+background-color: rgb(255, 229, 0);\" microsoft=\"\" yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">连续两天签到图
+</span></p><span style=\"font-size: 32px; background-color: rgb(0, 213, 255);\" microsoft=\"\" yahei\";font-size:32px;\"=\"\"></span><p><br
+/></p>", "img": "" } ], "reward": "17.00", "option": [ "text1", "imgea", "mobile" ], "tishi": null, "is_pause": 0, "type_name": "简单注册", "bili": "0.00",
+"bili_reward": "0.00", "bili_sy_reward": "17.00", "commission_reward": "0.00", "commission_sy_reward": "17.00", "agency_ratio": 3.4, "invitation_ratio":
+1.7, "users_ratio": "11.90", "is_top_text": "", "p_status_text": "" } }
+字段说明：
+参数
+类型
+说明
+id
+Int
+任务id
+image
+string
+图标地址
+title
+string
+任务名称
+reward
+string
+金额
+category
+string
+分类名称
+content
+string
+任务详情步骤
+is_stop
+string
+是否暂停
+Option
+string
+收集信息
+name 收集名称
+mobile 收集手机号imgea 收
+集图片text1 备注1text2 备注
+2
+type_name
+string
+分类名称
+2.4 提交任务
+
+--- Page 7 ---
+接口URI：index/index/task_register
+请求方式：POST
+请求参数
+参数名
+是否必须
+说明
+示例
+appid
+是
+APPid
+1001
+task_id
+是
+任务id
+1737
+name
+否
+姓名
+mobile
+否
+手机号
+text1
+否
+备注1
+text2
+否
+备注2
+images
+否
+图片
+截图,多图以逗号隔开
+sf_uid
+否
+平台用户UID
+平台的用户id
+sign
+是
+数据签名，算法
+见说明文档
+82a6f315c11a99811825c20b0fa2126b
+响应数据：
+正常响应
+{
+"code": 0,
+"msg": "提交成功",
+"data": {}
+}
+2.5 审核列表
+接口URI：index/index/get_examine_list
+请求方式：POST
+请求参数
+参数名
+是否必须
+说明
+示例
+appid
+是
+合作商id
+1001
+page
+是
+分页
+1
+status
+是
+状态
+All 全部
+0=审核，1=审核通过，2=
+审核失败
+sf_uid
+是
+平台用户Uid
+平台用户ID
+sign
+是
+数据签名，算法
+见说明文档
+82a6f315c11a99811825c20b0fa2126b
+响应数据：
+
+--- Page 8 ---
+正常响应
+{ "code": 0, "msg": "获取成功", "data": [ { "id": 11767, "task_id": 526, "task_title": "小红书高价版", "name": null, "mobile": "123", "images":
+"123", "text1": "123", "text2": null, "status": 2, "reward": "17.00", "sf_uid": 1, "createtime": "2024-09-07 15:29:21", "updatetime":
+"2024-09-07 15:30:08", "type_name": "简单注册", "task_image": "/uploads/20240902/280626d4075bf05b0468ba8e4b2c2213.png" },
+{ "id": 11748, "task_id": 526, "task_title": "小红书高价版", "name": null, "mobile": "123", "images": "123", "text1": "123", "text2": null,
+"status": 2, "reward": "17.00", "sf_uid": 1, "createtime": "2024-09-07 14:09:50", "updatetime": "2024-09-07 14:26:09", "type_name": "简单
+注册", "task_image": "/uploads/20240902/280626d4075bf05b0468ba8e4b2c2213.png" } ] }
+字段说明：
+参数
+类型
+说明
+id
+Int
+ID
+u_id
+string
+聚邦平台用户id
+name
+string
+交单人姓名
+mobile
+交单人手机号
+images
+交单图片
+status
+状态0=审核，1=审核通过，
+2=审核失败
+task_id
+任务ID
+createtime
+提交时间
+reward
+可得金额
+text1
+备注一
+text2
+备注2
+task_title
+任务名称
+task_image
+任务小图
+reasons
+驳回理由
+is_submit
+是否提交
+0 未提交1 已提
+交
+2.6 查询单审核任务详情
+接口URI：/index/index/get_examine_info
+请求方式：POST
+请求参数
+参
+数
+名
+是否必须
+说明
+示例
+appid
+是
+合作商id
+1001
+id
+是
+分页
+任务ID
+sf_uid
+是
+平台用户ID
+平台用户ID
+sign
+是
+数据签名，算法
+见说明文档
+82a6f315c11a99811825c20b0fa2126
+b
+
+--- Page 9 ---
+响应数据：
+{ "code": 0, "msg": "获取成功", "data": { "id": 526, "title": "小红书高价版", "image":
+"https://baojia.fengxiangsc.com/uploads/20240902/280626d4075bf05b0468ba8e4b2c2213.png", "content": [ { "txt":
+"<p class=\"MsoNormal\"><span style=\"font-family:\" microsoft=\"\" yahei\";font-size:21px;\"=\"\"><span
+style=\"font-family:\" microsoft=\"\" yahei\";font-size:24px;\"=\"\"><span style=\"font-size: 21px; background-color:
+rgb(96, 217, 120); font-family: \" microsoft=\"\" yahei\";\"=\"\"><span style=\"font-family:Microsoft YaHei;\">一机一单
+/跟纯下载二选一操作</span><br /></span></span></span></p><p class=\"MsoNormal\"><span
+style=\"font-size: 32px;\" microsoft=\"\" yahei\";\"=\"\">小红书纯高版/限制设备也是新的</span></p><p
+class=\"MsoNormal\" align=\"justify\" style=\"text-align:justify;\"><span style=\"font-size: 21px; font-family: \"
+microsoft=\"\" yahei\";\"=\"\">本广告项目必须本人自愿知晓注册，拒绝一切虚假信息或利用他人信息违规注册。
+</span></p><p class=\"MsoNormal\"><span style=\"font-family:Microsoft YaHei;\"> </span></p><p
+class=\"MsoNormal\"><span style=\"font-size: 21px; font-family: \" microsoft=\"\" yahei\";=\"\"
+background-color:=\"\" rgb(255,=\"\" 229,=\"\" 0);\"=\"\" yahei\";\"=\"\">扫码填手机号，然后保存跳转的二维码，识
+别这个二维码下载更新到最新版本，然后去登录，登录后点我</span><span style=\"font-size: 21px; font-family: \"
+microsoft=\"\" yahei\";=\"\" background-color:=\"\" rgb(255,=\"\" 229,=\"\" 0);\"=\"\" yahei\";\"=\"\">-</span><span
+style=\"font-size: 21px; font-family: \" microsoft=\"\" yahei\";\"=\"\"><span style=\"background-color:#FFE500;\">点
+左上角，扫一扫，再扫一下前面保存的二维码。扫完之后完成第一二天的签到，就可以了。</span><br /><span
+style=\"background-color:#00D5FF;\">必须是新用户，老用户直接不合格</span></span></p><p
+class=\"MsoNormal\"><span style=\"font-family:Microsoft YaHei;\"> </span></p><p class=\"MsoNormal\"><span
+style=\"font-size: 21px; font-family: \" microsoft=\"\" yahei\";\"=\"\">必须连续签到两天才算有效，次日搜索红薯见面
+礼再次签到提交</span></p><p class=\"MsoNormal\"><span style=\"font-size: 21px; font-family: \" microsoft=\"\"
+yahei\";\"=\"\">必须连续签到两天才算有效，次日搜索红薯见面礼再次签到提交</span></p><span
+style=\"font-family:Microsoft YaHei;\"></span><span style=\"font-family:Microsoft YaHei;\"></span><br /><p><br
+/></p>", "img":
+"/uploads/20240904/d5695d8b668006d667f29455b4fadb2c.png,/uploads/20240902/8d91ef3b4fa53c694d31344596f
+865d4.png,/uploads/20240902/30fedd8b22ee9fc7f7386f80ae566127.png,/uploads/20240902/8485f3ce2d4620328c58
+4d8f1d338025.png,/uploads/20240902/fe1bd996fbf0b0f5ae8811d82e977372.png,/uploads/20240902/51ebd7aaea30
+0887d30d1dd0e7e86843.png", "img_list":
+[ "https://baojia.fengxiangsc.com/uploads/20240904/d5695d8b668006d667f29455b4fadb2c.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/8d91ef3b4fa53c694d31344596f865d4.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/30fedd8b22ee9fc7f7386f80ae566127.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/8485f3ce2d4620328c584d8f1d338025.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/fe1bd996fbf0b0f5ae8811d82e977372.png",
+"https://baojia.fengxiangsc.com/uploads/20240902/51ebd7aaea300887d30d1dd0e7e86843.png" ] }, { "txt": "<p
+class=\"MsoNormal\"><span style=\"font-size: 24px;\" microsoft=\"\" yahei\";font-size:32px;\"=\"\">第二天在交单
+<br /><span style=\"font-size:24px;white-space:normal;\">第二天在交单<br /></span><span
+style=\"font-size:24px;white-space:normal;\">第二天在交单<br /></span><span
+style=\"font-size:24px;white-space:normal;\">第二天在交单<br /></span><span
+style=\"font-size:24px;white-space:normal;\">第二天在交单</span><br /><span
+style=\"background-color:#00D5FF;font-size:32px;\"></span></span></p><p class=\"MsoNormal\"><span
+style=\"font-size: 24px; background-color: rgb(255, 229, 0);\" microsoft=\"\"
+yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">交单：手机号前三后四（中间用*号代替）</span><span
+style=\"font-size: 24px; background-color: rgb(255, 229, 0);\" microsoft=\"\"
+
+--- Page 10 ---
+yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">+</span><span style=\"font-size: 24px; background-color:
+rgb(255, 229, 0);\" microsoft=\"\" yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">小红书昵称</span><span
+style=\"font-size: 24px; background-color: rgb(255, 229, 0);\" microsoft=\"\"
+yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">+</span><span style=\"font-size: 24px; background-color:
+rgb(255, 229, 0);\" microsoft=\"\" yahei\";font-size:24px;background-color:#00d5ff;\"=\"\">连续两天签到图
+</span></p><span style=\"font-size: 32px; background-color: rgb(0, 213, 255);\" microsoft=\"\"
+yahei\";font-size:32px;\"=\"\"></span><p><br /></p>", "img": "" } ], "reward": "17.00", "option": [ "text1", "imgea",
+"mobile" ], "tishi": null, "is_pause": 0, "type_name": "简单注册", "bili": "0.00", "bili_reward": "0.00", "bili_sy_reward":
+"17.00", "commission_reward": "0.00", "commission_sy_reward": "17.00", "agency_ratio": 3.4, "invitation_ratio": 1.7,
+"users_ratio": "11.90", "is_top_text": "", "p_status_text": "" } }
+正常响应
+字段说明：
+参数
+类型
+说明
+id
+Int
+ID
+u_id
+string
+聚邦平台用户id
+name
+string
+交单人姓名
+mobile
+交单人手机号
+images
+交单图片
+status
+状态0=审核，1=审核通过，
+2=审核失败
+task_id
+任务ID
+createtime
+提交时间
+reward
+可得金额
+text1
+备注一
+text2
+备注2
+task_title
+任务名称
+task_image
+任务小图
+reasons
+驳回理由
+is_submit
+是否提交
+0 未提交1 已提
+交
+2.7 回调参数
+回调示例
+{
+"id": "1732",
+"sf_uid": "13",
+"status": "1",
+"remarks":""
+}
+
+--- Page 11 ---
+回调参数
+参数名
+是否必须
+说明
+status
+是
+审核通过1 审核驳回2
+remarks
+是
+驳回理由
+sf_uid
+是
+平台用户ID
+id
+是
+任务订单ID
+回调响应
+{"status":"success"}

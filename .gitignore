@@ -5,3 +5,4 @@ extracted*.txt
 doc_content.txt
 pdf_page_1.png
 md_to_docx.py
+app/js/config.js
