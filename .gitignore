@@ -1,8 +1,34 @@
-# 临时提取脚本与中间文件
+# Runtime data
+dev/backend/data/*.json
+dev/backend/data/*.json.tmp
+dev/backend/data/*.sqlite
+dev/backend/data/*.sqlite-*
+
+# Dependencies
+node_modules/
+dev/backend/node_modules/
+
+# Environment and local config
+.env
+.env.*
+app/js/config.js
+
+# Test and temporary output
+test-results/
+coverage/
+*.log
+*.tmp
+*.temp
+
+# Local extraction scratch files
 extract_docs.py
 inspect_pdf.py
 extracted*.txt
 doc_content.txt
 pdf_page_1.png
-md_to_docx.py
-app/js/config.js
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

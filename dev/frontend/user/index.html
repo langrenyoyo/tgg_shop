@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TGG Shop Dev</title>
+    <link rel="stylesheet" href="/user/styles.css" />
+  </head>
+  <body>
+    <main class="phone">
+      <section class="splash" id="splash">
+        <div class="splash-card">
+          <h1>TGG Shop</h1>
+          <p>开屏广告</p>
+          <span>新鲜、任务、积分和自建配送</span>
+          <button type="button" id="enterApp">进入商城</button>
+        </div>
+      </section>
+
+      <header class="status">
+        <span>9:41</span>
+        <strong id="pageTitle">TGG Shop</strong>
+        <span>5G</span>
+      </header>
+
+      <section class="screen" id="screen"></section>
+
+      <nav class="tabs" aria-label="底部导航">
+        <button type="button" class="active" data-tab="home">首页</button>
+        <button type="button" data-tab="earn">赚积分</button>
+        <button type="button" data-tab="category">分类</button>
+        <button type="button" data-tab="cart">购物车</button>
+        <button type="button" data-tab="profile">我的</button>
+      </nav>
+    </main>
+
+    <div class="toast" id="toast" hidden></div>
+    <script type="module" src="/user/js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "tgg-shop-dev-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "api:check": "node scripts/check-openapi.js",
+    "db:check": "node scripts/check-migrations.js",
+    "test:unit": "node --no-warnings --test test/unit/*.test.js",
+    "test:e2e": "node --no-warnings --test test/e2e/*.test.js",
+    "test": "node scripts/check-migrations.js && node scripts/check-openapi.js && node --no-warnings --test test/unit/*.test.js && node test/smoke.test.js json && node --no-warnings test/smoke.test.js sqlite && node --no-warnings --test test/e2e/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
