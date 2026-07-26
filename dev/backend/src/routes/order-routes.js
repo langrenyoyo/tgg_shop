@@ -17,6 +17,11 @@ async function handleOrderRoutes(ctx) {
     return send(ctx.res, 200, orderService.listUserPayments(state, user.id));
   }
 
+  if (req.method === "POST" && url.pathname === "/api/payment-providers/lfwin/notify") {
+    const result = orderService.handleLfwinPaymentNotification(state, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? "success" : "fail", { "Content-Type": "text/plain; charset=utf-8" });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/orders") {
     const result = orderService.submitOrder(state, user.id, await readBody(req));
     return send(ctx.res, result.ok ? 201 : 400, result.ok ? result.order : { error: result.error });
@@ -32,6 +37,30 @@ async function handleOrderRoutes(ctx) {
   if (req.method === "POST" && paymentMatch) {
     const result = orderService.createOrderPayment(state, paymentMatch[1], await readBody(req));
     return send(ctx.res, result.ok ? 201 : result.status || 400, result.ok ? result.payment : { error: result.error });
+  }
+
+  const lfwinInitiateMatch = url.pathname.match(/^\/api\/payments\/([^/]+)\/lfwin$/);
+  if (req.method === "POST" && lfwinInitiateMatch) {
+    const payment = state.paymentLedger.find((item) => item.payNo === lfwinInitiateMatch[1] || item.id === lfwinInitiateMatch[1]);
+    if (!payment || payment.userId !== user.id) return send(ctx.res, 404, { error: "Payment not found" });
+    const result = await orderService.initiateLfwinPayment(state, lfwinInitiateMatch[1], await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? { payment: result.payment, provider: result.provider } : { error: result.error });
+  }
+
+  const lfwinQueryMatch = url.pathname.match(/^\/api\/payments\/([^/]+)\/lfwin\/query$/);
+  if (req.method === "POST" && lfwinQueryMatch) {
+    const payment = state.paymentLedger.find((item) => item.payNo === lfwinQueryMatch[1] || item.id === lfwinQueryMatch[1]);
+    if (!payment || payment.userId !== user.id) return send(ctx.res, 404, { error: "Payment not found" });
+    const result = await orderService.queryLfwinPayment(state, lfwinQueryMatch[1]);
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result : { error: result.error });
+  }
+
+  const lfwinCloseMatch = url.pathname.match(/^\/api\/payments\/([^/]+)\/lfwin\/close$/);
+  if (req.method === "POST" && lfwinCloseMatch) {
+    const payment = state.paymentLedger.find((item) => item.payNo === lfwinCloseMatch[1] || item.id === lfwinCloseMatch[1]);
+    if (!payment || payment.userId !== user.id) return send(ctx.res, 404, { error: "Payment not found" });
+    const result = await orderService.closeLfwinPayment(state, lfwinCloseMatch[1]);
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result : { error: result.error });
   }
 
   const callbackMatch = url.pathname.match(/^\/api\/payments\/([^/]+)\/mock-callback$/);

@@ -339,6 +339,99 @@ paths:
         "404":
           description: Payment order not found
 
+  /api/payments/{payNo}/lfwin:
+    post:
+      tags: [Payments]
+      summary: Initiate an LFWin payment for a pending payment order
+      description: Uses server-side LFWIN_* configuration only. Returns a QR code or payment URL and does not mark the order as paid.
+      parameters:
+        - name: payNo
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                  enum: [qrcode, h5, wechat_mini, alipay_mini]
+                  default: qrcode
+                appId:
+                  type: string
+                openId:
+                  type: string
+                buyerId:
+                  type: string
+      responses:
+        "200":
+          description: Provider payment details
+        "400":
+          description: Payment is not pending or provider configuration is invalid
+        "502":
+          description: Provider request failed
+
+  /api/payments/{payNo}/lfwin/query:
+    post:
+      tags: [Payments]
+      summary: Query an LFWin payment and settle a verified successful payment
+      parameters:
+        - name: payNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider payment status
+
+  /api/payments/{payNo}/lfwin/close:
+    post:
+      tags: [Payments]
+      summary: Close a pending LFWin payment at the provider
+      parameters:
+        - name: payNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider close result
+
+  /api/payment-providers/lfwin/notify:
+    post:
+      tags: [Payments]
+      summary: LFWin payment notification callback
+      description: Public form callback. Signature and paid amount are verified before the related payment order is settled. Reply is plain text success only after durable processing.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [orderid, mch_orderid, paystatus, paymoney, sign]
+              properties:
+                orderid:
+                  type: string
+                mch_orderid:
+                  type: string
+                trade_no:
+                  type: string
+                paystatus:
+                  type: string
+                paymoney:
+                  type: string
+                sign:
+                  type: string
+      responses:
+        "200":
+          description: success
+        "400":
+          description: Invalid signature, amount, or payment state
+
   /api/orders/{orderId}/refunds:
     post:
       tags: [Orders]

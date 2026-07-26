@@ -100,6 +100,17 @@ POST /api/admin/auth/logout
 POST /api/admin/auth/refresh
 ```
 
+## LFWin Payment Adapter
+
+The backend can initiate LFWin payment requests without exposing provider credentials to the browser. Copy `backend/.env.example` into your deployment environment and set production credentials there. Do not commit `.env` files.
+
+- `POST /api/payments/{payNo}/lfwin` creates a QR, H5, or mini-program payment request for a pending TGG payment order.
+- `POST /api/payments/{payNo}/lfwin/query` actively queries the provider and settles only a verified successful payment.
+- `POST /api/payments/{payNo}/lfwin/close` closes a pending provider payment.
+- `POST /api/payment-providers/lfwin/notify` is the public payment callback. It accepts a form body, verifies the provider signature and amount, then responds with plain-text `success` only after processing.
+
+Use HTTPS for `LFWIN_BASE_URL` and notification URLs. RSA is the default signing mode; MD5 is available only for the provider test environment. The adapter preserves TGG payment scenes: `member_open`, `goods_cash`, and `cash_diff`. Pure-points orders never call LFWin.
+
 Seed users:
 
 - `u_1001`: member user, can use cash shopping.

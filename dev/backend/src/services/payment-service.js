@@ -7,6 +7,7 @@ const orderRepository = require("../repositories/order-repository");
 const productRepository = require("../repositories/product-repository");
 const userRepository = require("../repositories/user-repository");
 const { publicUser } = require("../http/http-utils");
+const { createLfwinClient } = require("./lfwin-payment-client");
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
@@ -75,6 +76,115 @@ function createMemberPayment(state, user, input = {}) {
   ledgerRepository.addPaymentEntry(state, payment);
   saveState();
   return { ok: true, payment };
+}
+
+async function initiateLfwinPayment(state, payNo, input = {}, client = createLfwinClient()) {
+  const payment = state.paymentLedger.find((item) => item.payNo === payNo || item.id === payNo);
+  if (!payment) return { ok: false, status: 404, error: "Payment not found" };
+  if (payment.status !== "pending") return { ok: false, status: 400, error: "Payment is not pending" };
+
+  try {
+    const response = await client.createPayment({
+      method: input.method || "qrcode",
+      service: input.service,
+      amount: payment.amount,
+      merchantOrderNo: payment.payNo,
+      notifyUrl: process.env.LFWIN_NOTIFY_URL,
+      description: input.description || payment.payScene,
+      expireAt: input.expireAt,
+      appId: input.appId,
+      openId: input.openId,
+      buyerId: input.buyerId,
+      buyerOpenId: input.buyerOpenId,
+      attach: payment.payNo
+    });
+    payment.channel = `lfwin_${input.method || "qrcode"}`;
+    payment.metadata = {
+      ...(payment.metadata || {}),
+      lfwin: {
+        providerOrderNo: response.orderid,
+        service: response.service,
+        method: input.method || "qrcode",
+        requestedAt: new Date().toISOString()
+      }
+    };
+    payment.updatedAt = new Date().toISOString();
+    saveState();
+    return {
+      ok: true,
+      payment,
+      provider: {
+        orderId: response.orderid,
+        qrCode: response.qr_code,
+        codeUrl: response.code_url,
+        paymentUrl: response.pay_url || response.code_url,
+        expiresAt: response.time_expire || null
+      }
+    };
+  } catch (error) {
+    return { ok: false, status: 502, error: error.message };
+  }
+}
+
+async function queryLfwinPayment(state, payNo, client = createLfwinClient()) {
+  const payment = state.paymentLedger.find((item) => item.payNo === payNo || item.id === payNo);
+  if (!payment) return { ok: false, status: 404, error: "Payment not found" };
+  if (!payment.metadata?.lfwin?.providerOrderNo) return { ok: false, status: 400, error: "Payment has not been submitted to LFWin" };
+  try {
+    const response = await client.queryPayment({
+      providerOrderNo: payment.metadata.lfwin.providerOrderNo,
+      merchantOrderNo: payment.payNo,
+      orderTime: payment.createdAt
+    });
+    if (String(response.paystatus) === "1") return applyLfwinPaymentNotification(state, response, client);
+    return { ok: true, payment, provider: response };
+  } catch (error) {
+    return { ok: false, status: 502, error: error.message };
+  }
+}
+
+async function closeLfwinPayment(state, payNo, client = createLfwinClient()) {
+  const payment = state.paymentLedger.find((item) => item.payNo === payNo || item.id === payNo);
+  if (!payment) return { ok: false, status: 404, error: "Payment not found" };
+  if (payment.status !== "pending") return { ok: false, status: 400, error: "Payment is not pending" };
+  if (!payment.metadata?.lfwin?.providerOrderNo) return { ok: false, status: 400, error: "Payment has not been submitted to LFWin" };
+  try {
+    const provider = await client.closePayment({
+      providerOrderNo: payment.metadata.lfwin.providerOrderNo,
+      merchantOrderNo: payment.payNo,
+      orderTime: payment.createdAt
+    });
+    return { ok: true, payment, provider };
+  } catch (error) {
+    return { ok: false, status: 502, error: error.message };
+  }
+}
+
+function applyLfwinPaymentNotification(state, payload, client = createLfwinClient()) {
+  if (!client.verifyNotification(payload)) return { ok: false, status: 400, error: "Invalid LFWin signature" };
+  const payment = state.paymentLedger.find((item) => item.payNo === payload.mch_orderid || item.metadata?.lfwin?.providerOrderNo === payload.orderid);
+  if (!payment) return { ok: false, status: 404, error: "Payment not found" };
+  if (payment.status === "paid") return { ok: true, payment, result: getPaymentResult(state, payment), idempotent: true };
+  if (payment.status !== "pending") return { ok: false, status: 400, error: "Payment is not pending" };
+  if (String(payload.paystatus) !== "1") return { ok: false, status: 400, error: "Payment notification is not successful" };
+  if (!sameAmount(payment.amount, payload.pri_paymoney || payload.paymoney)) return { ok: false, status: 400, error: "Payment amount mismatch" };
+
+  payment.status = "paid";
+  payment.callbackTime = new Date().toISOString();
+  payment.updatedAt = payment.callbackTime;
+  payment.thirdTradeNo = payload.trade_no || payload.orderid;
+  payment.metadata = {
+    ...(payment.metadata || {}),
+    lfwin: {
+      ...(payment.metadata?.lfwin || {}),
+      providerOrderNo: payload.orderid || payment.metadata?.lfwin?.providerOrderNo,
+      paidAt: payload.paytime || null
+    }
+  };
+  const result = applyPaidPayment(state, payment);
+  if (!result.ok) return result;
+  saveState();
+  return { ok: true, payment, result };
 }
 
 function mockPaymentCallback(state, payNo, input = {}) {
@@ -270,10 +380,18 @@ function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
 
+function sameAmount(left, right) {
+  return Math.round(Number(left || 0) * 100) === Math.round(Number(right || 0) * 100);
+}
+
 module.exports = {
   listUserPayments,
   createGoodsPayment,
   createMemberPayment,
+  initiateLfwinPayment,
+  queryLfwinPayment,
+  closeLfwinPayment,
+  applyLfwinPaymentNotification,
   mockPaymentCallback,
   cancelTimedOutPayments
 };

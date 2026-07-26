@@ -58,6 +58,22 @@ function listUserPayments(state, userId) {
   return paymentService.listUserPayments(state, userId);
 }
 
+async function initiateLfwinPayment(state, payNo, input) {
+  return paymentService.initiateLfwinPayment(state, payNo, input);
+}
+
+async function queryLfwinPayment(state, payNo) {
+  return paymentService.queryLfwinPayment(state, payNo);
+}
+
+async function closeLfwinPayment(state, payNo) {
+  return paymentService.closeLfwinPayment(state, payNo);
+}
+
+function handleLfwinPaymentNotification(state, payload) {
+  return paymentService.applyLfwinPaymentNotification(state, payload);
+}
+
 function requestRefund(state, userId, orderId, reason) {
   return createRefundRequest(state, userId, orderId, reason);
 }
@@ -70,5 +86,9 @@ module.exports = {
   submitPayment,
   handlePaymentCallback,
   listUserPayments,
+  initiateLfwinPayment,
+  queryLfwinPayment,
+  closeLfwinPayment,
+  handleLfwinPaymentNotification,
   requestRefund
 };
