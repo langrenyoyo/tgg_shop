@@ -113,7 +113,7 @@ async function run() {
     const userModule = await request("/user/js/app.js");
     assert(userModule.res.status === 200 && userModule.body.includes('from "./api.js"'), "user module did not render");
     assert(userModule.body.includes("switchTab") && userModule.body.includes("bindTabs"), "user module missing tab switch handler");
-    assert(userModule.body.includes("/api/payments") && userModule.body.includes("mock-callback"), "user module missing payment flow");
+    assert(userModule.body.includes("/api/payments") && userModule.body.includes("/lfwin"), "user module missing LFWin payment flow");
 
     const userRenderModule = await request("/user/js/render.js");
     assert(userRenderModule.res.status === 200 && userRenderModule.body.includes("orderDetailView") && userRenderModule.body.includes("orderSteps"), "user render missing order detail view");

@@ -62,6 +62,14 @@ async function initiateLfwinPayment(state, payNo, input) {
   return paymentService.initiateLfwinPayment(state, payNo, input);
 }
 
+async function fetchLfwinQrCodeImage(state, payNo) {
+  return paymentService.fetchLfwinQrCodeImage(state, payNo);
+}
+
+function canAccessLfwinQrCode(payment, user, token) {
+  return paymentService.canAccessLfwinQrCode(payment, user, token);
+}
+
 async function queryLfwinPayment(state, payNo) {
   return paymentService.queryLfwinPayment(state, payNo);
 }
@@ -87,6 +95,8 @@ module.exports = {
   handlePaymentCallback,
   listUserPayments,
   initiateLfwinPayment,
+  fetchLfwinQrCodeImage,
+  canAccessLfwinQrCode,
   queryLfwinPayment,
   closeLfwinPayment,
   handleLfwinPaymentNotification,

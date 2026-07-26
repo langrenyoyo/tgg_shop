@@ -16,17 +16,17 @@ INSERT OR IGNORE INTO app_config (config_key, config_value) VALUES
 INSERT OR IGNORE INTO app_user (
   id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak
 ) VALUES
-  ('u_1001', 'James', '138****6688', 'member', '2026-07-25T00:00:00.000Z', 2580, 12850, 'TGG6688', 12),
+  ('u_1001', 'James', '138****6688', 'member', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+18 days'), 2580, 12850, 'TGG6688', 12),
   ('u_1002', '小陈', '139****8821', 'normal', NULL, 360, 1200, 'TGG8821', 4);
 
 INSERT OR IGNORE INTO product (
   id, name, category, cash_price_cents, points_price, stock, tag, image_url, supports_cash, supports_points, pure_points_only, status
 ) VALUES
-  ('p_apple', '山东京富士苹果', '水果', 1280, 368, 126, '今日特惠', '/assets/apple.jpg', 1, 1, 0, 'on'),
-  ('p_grapes', '阳光玫瑰青提', '水果', 850, 188, 86, '热销', '/assets/grapes.jpg', 1, 1, 0, 'on'),
+  ('p_apple', '山东京富士苹果', '水果', 10, 368, 126, '今日特惠', '/assets/apple.jpg', 1, 1, 0, 'on'),
+  ('p_grapes', '阳光玫瑰青提', '水果', 10, 188, 86, '热销', '/assets/grapes.jpg', 1, 1, 0, 'on'),
   ('p_banana', '精品香蕉 2斤', '纯积分', NULL, 188, 220, '兑换', '/assets/banana.jpg', 0, 1, 1, 'on'),
   ('p_bokchoy', '有机青菜 1份', '纯积分', NULL, 99, 18, '新鲜', '/assets/bokchoy.jpg', 0, 1, 1, 'on'),
-  ('p_strawberry', '丹东草莓 500g', '水果', 2990, 299, 42, '热门', '/assets/strawberry.jpg', 1, 1, 0, 'on');
+  ('p_strawberry', '丹东草莓 500g', '水果', 10, 299, 42, '热门', '/assets/strawberry.jpg', 1, 1, 0, 'on');
 
 INSERT OR IGNORE INTO pickup_site (id, name, address, contact_name, contact_phone, enabled, verify_mode) VALUES
   ('site_001', '师大自提站', '师大东门生活服务中心 1 楼', '站点代理', '13800001111', 1, 'pickup_code');

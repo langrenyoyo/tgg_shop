@@ -17,6 +17,7 @@ export const pageTitles = {
   checkoutDelivery: "送货上门",
   orders: "我的订单",
   orderDetail: "订单详情",
+  payment: "扫码支付",
   pickupSite: "自提点",
   address: "收货地址",
   profile: "我的",
@@ -80,6 +81,7 @@ function renderPageNow(state) {
     checkoutDelivery: () => checkoutView(state, "delivery"),
     orders: () => ordersView(state),
     orderDetail: () => orderDetailView(state),
+    payment: () => paymentView(state),
     pickupSite: () => pickupSiteView(state),
     address: () => addressView(state),
     profile: () => profileView(state),
@@ -410,6 +412,31 @@ function orderDetailView(state) {
   `;
 }
 
+function paymentView(state) {
+  const payment = currentPayment(state);
+  if (!payment) return `<div class="empty">暂无待支付单</div>`;
+  const lfwin = payment.metadata?.lfwin || {};
+  const qrUrl = lfwin.qrProxyUrl || "";
+  const amount = payment.amount ? money(payment.amount) : `${payment.pointAmount || 0}积分`;
+  const payNo = payment.payNo || payment.id;
+  return `
+    <section class="payment-head">
+      <span class="state ${payment.status === "paid" ? "" : "warn"}">${paymentStatusLabel(payment.status)}</span>
+      <h2>${amount}</h2>
+      <p>${paySceneLabel(payment.payScene)} · ${payNo}</p>
+    </section>
+    <section class="payment-qr-panel">
+      ${qrUrl ? `<img src="${escapeAttr(qrUrl)}" alt="支付二维码" loading="eager" decoding="async" />` : `<div class="empty">二维码生成失败，请返回支付记录重试</div>`}
+    </section>
+    <section class="field-card">
+      <h3>支付信息</h3>
+      <p>${channelLabel(payment.channel)} · ${lfwin.providerOrderNo || "待提交"}</p>
+      <p class="muted">支付完成后刷新状态，回调成功后订单会自动进入履约。</p>
+    </section>
+    <section class="total-bar"><button type="button" class="chip active" data-page="${payment.orderId ? "orderDetail" : "payments"}">返回</button><button type="button" class="primary" data-payment-refresh="${escapeAttr(payNo)}">刷新状态</button></section>
+  `;
+}
+
 function pickupSiteView(state) {
   return `<div class="stack">${(state.pickupSites || []).map((site) => `<article class="field-card"><h3>${site.name}</h3><p>${site.address}</p><p class="muted">${site.contactName || "站点代理"} · ${site.contactPhone || ""}</p></article>`).join("") || `<div class="empty">暂无自提点</div>`}</div>`;
 }
@@ -582,11 +609,17 @@ function orderCard(order, state = {}) {
 }
 
 function paymentCard(payment) {
-  return `<article class="ledger-row"><span class="state ${payment.status === "paid" ? "" : "warn"}">${paymentStatusLabel(payment.status)}</span><span><strong>${payment.payNo || payment.id}</strong><p class="muted">${paySceneLabel(payment.payScene)} / ${channelLabel(payment.channel)} / ${payment.thirdTradeNo || "待回调"}</p></span><strong>${payment.amount ? money(payment.amount) : `${payment.pointAmount || 0}积分`}</strong></article>`;
+  return `<article class="ledger-row"><span class="state ${payment.status === "paid" ? "" : "warn"}">${paymentStatusLabel(payment.status)}</span><span><strong>${payment.payNo || payment.id}</strong><p class="muted">${paySceneLabel(payment.payScene)} / ${channelLabel(payment.channel)} / ${payment.thirdTradeNo || "待回调"}</p>${paymentAction(payment)}</span><strong>${payment.amount ? money(payment.amount) : `${payment.pointAmount || 0}积分`}</strong></article>`;
 }
 
 function paymentDetail(payment) {
-  return `<p><strong>${payment.payNo || payment.id}</strong></p><p class="muted">${paySceneLabel(payment.payScene)} · ${channelLabel(payment.channel)} · ${paymentStatusLabel(payment.status)}</p><p class="muted">三方单号：${payment.thirdTradeNo || "待回调"}</p><p class="muted">幂等键：${payment.idempotencyKey || "-"}</p>`;
+  return `<p><strong>${payment.payNo || payment.id}</strong></p><p class="muted">${paySceneLabel(payment.payScene)} · ${channelLabel(payment.channel)} · ${paymentStatusLabel(payment.status)}</p><p class="muted">三方单号：${payment.thirdTradeNo || "待回调"}</p><p class="muted">幂等键：${payment.idempotencyKey || "-"}</p>${paymentAction(payment)}`;
+}
+
+function paymentAction(payment = {}) {
+  const hasQr = Boolean(payment.metadata?.lfwin?.qrProxyUrl || payment.metadata?.lfwin?.codeUrl || payment.metadata?.lfwin?.paymentUrl);
+  if (payment.status !== "pending" || !hasQr) return "";
+  return `<p style="margin-top:8px"><button type="button" class="primary payment-open-button" data-payment-open="${escapeAttr(payment.payNo || payment.id)}">打开支付页面</button></p>`;
 }
 
 function fulfillmentDetail(order) {
@@ -683,6 +716,14 @@ function findOrderPayment(state = {}, order = {}) {
   return (state.payments || []).find((payment) => payment.orderId === order.id);
 }
 
+function currentPayment(state = {}) {
+  const selected = state.selectedPaymentId;
+  const payments = state.payments || [];
+  return payments.find((payment) => payment.payNo === selected || payment.id === selected)
+    || payments.find((payment) => payment.status === "pending" && payment.metadata?.lfwin)
+    || payments[0];
+}
+
 function canRequestRefund(order) {
   return ["paid", "completed"].includes(order.status) && !["refunding", "refunded", "cancelled", "closed"].includes(order.status);
 }
@@ -757,7 +798,19 @@ function paySceneLabel(scene) {
 }
 
 function channelLabel(channel) {
-  return ({ mock_pay: "模拟支付", mock_refund: "模拟退款", wechat: "微信", alipay: "支付宝" })[channel] || channel || "-";
+  return ({
+    mock_pay: "模拟支付",
+    mock_refund: "模拟退款",
+    wechat: "微信",
+    alipay: "支付宝",
+    lfwin_qrcode: "LFWin扫码",
+    lfwin_wechat_qrcode: "微信扫码",
+    lfwin_alipay_qrcode: "支付宝扫码"
+  })[channel] || channel || "-";
+}
+
+function escapeAttr(value) {
+  return String(value || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
 function withdrawStatusLabel(status) {

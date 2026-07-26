@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, loginUser } from "./api.js";
 import { renderPage, toast } from "./render.js";
 
 const state = {
@@ -26,6 +26,7 @@ const state = {
   selectedProduct: null,
   selectedTask: null,
   selectedOrderId: null,
+  selectedPaymentId: null,
   editingAddressId: null,
   categoryName: "全部",
   categoryMode: "all",
@@ -141,9 +142,17 @@ async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
   };
   const order = await api("/api/orders", { method: "POST", body: JSON.stringify(payload) });
   if (order.status === "pending_payment") {
-    const payment = await api(`/api/orders/${order.id}/payments`, { method: "POST", body: JSON.stringify({ channel: "mock_pay" }) });
-    await api(`/api/payments/${payment.payNo}/mock-callback`, { method: "POST", body: JSON.stringify({ status: "paid" }) });
-    toast(`支付单 ${payment.payNo} 已模拟回调成功`);
+    const payment = await api(`/api/orders/${order.id}/payments`, { method: "POST", body: JSON.stringify({ channel: "lfwin_wechat_qrcode" }) });
+    const lfwin = await api(`/api/payments/${payment.payNo}/lfwin`, {
+      method: "POST",
+      body: JSON.stringify({ method: "wechat_qrcode", description: "TGG Shop 商品微信支付" })
+    });
+    toast("请扫码完成支付");
+    await refreshUser();
+    state.selectedOrderId = order.id;
+    state.cart = state.cart.filter((cartItem) => !items.some((item) => item.id === cartItem.id));
+    showPaymentPage(lfwin.payment || payment);
+    return;
   } else {
     toast("纯积分兑换成功，已生成核销码");
   }
@@ -174,9 +183,29 @@ async function startSignin() {
 }
 
 async function subscribeMember() {
-  state.user = await api("/api/member/subscribe", { method: "POST", body: JSON.stringify({ months: 1 }) });
-  state.payments = await safeApi("/api/payments", state.payments);
-  toast("月会员已开通，可以使用现金购物");
+  const result = await api("/api/member/subscribe", { method: "POST", body: JSON.stringify({ months: 1, channel: "lfwin_wechat_qrcode", autoPay: false }) });
+  const lfwin = await api(`/api/payments/${result.payment.payNo}/lfwin`, {
+    method: "POST",
+    body: JSON.stringify({ method: "wechat_qrcode", description: "TGG Shop 月会员微信支付" })
+  });
+  await refreshUser();
+  toast("请扫码完成会员支付");
+  showPaymentPage(lfwin.payment || result.payment);
+}
+
+function showPaymentPage(payment = {}) {
+  state.selectedPaymentId = payment.payNo || payment.id || state.selectedPaymentId;
+  if (payment.orderId) state.selectedOrderId = payment.orderId;
+  state.page = "payment";
+  renderPage(state);
+}
+
+async function refreshPayment(payNo) {
+  if (!payNo) return toast("暂无支付单");
+  await api(`/api/payments/${payNo}/lfwin/query`, { method: "POST", body: "{}" });
+  await refreshUser();
+  const payment = state.payments.find((item) => item.payNo === payNo || item.id === payNo);
+  toast(payment?.status === "paid" ? "支付已完成" : "支付状态已刷新");
   renderPage(state);
 }
 
@@ -351,6 +380,21 @@ function bindGlobalActions() {
       return;
     }
 
+    const paymentOpen = event.target.closest("[data-payment-open]")?.dataset.paymentOpen;
+    if (paymentOpen) {
+      state.selectedPaymentId = paymentOpen;
+      const payment = state.payments.find((item) => item.payNo === paymentOpen || item.id === paymentOpen);
+      if (payment?.orderId) state.selectedOrderId = payment.orderId;
+      setPage("payment");
+      return;
+    }
+
+    const paymentRefresh = event.target.closest("[data-payment-refresh]")?.dataset.paymentRefresh;
+    if (paymentRefresh) {
+      refreshPayment(paymentRefresh).catch((error) => toast(error.message));
+      return;
+    }
+
     const cartQty = event.target.closest("[data-cart-qty]");
     if (cartQty) {
       changeCartQuantity(cartQty.dataset.cartQty, Number(cartQty.dataset.delta || 0));
@@ -454,7 +498,15 @@ function hideSplash() {
 async function init() {
   bindTabs();
   bindGlobalActions();
-  if (new URLSearchParams(window.location.search).get("skipSplash") === "1") hideSplash();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("skipSplash") === "1") hideSplash();
+  const loginAs = params.get("loginAs");
+  if (loginAs) {
+    await loginUser(loginAs);
+    params.delete("loginAs");
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }
   renderPage(state);
   await loadInitialData();
 }

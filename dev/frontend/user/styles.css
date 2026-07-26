@@ -743,6 +743,52 @@ button:disabled {
   border: 10px solid #fff;
 }
 
+.payment-head {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 14px;
+  background: #fff;
+  text-align: center;
+}
+
+.payment-head h2 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 30px;
+}
+
+.payment-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.payment-qr-panel {
+  display: grid;
+  place-items: center;
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  margin: 14px auto;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgb(16 24 40 / 6%);
+}
+
+.payment-qr-panel img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.payment-open-button {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+}
+
 .empty {
   padding: 28px 16px;
   border-radius: 12px;

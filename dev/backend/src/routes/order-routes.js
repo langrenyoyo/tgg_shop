@@ -6,7 +6,7 @@ async function handleOrderRoutes(ctx) {
   if (req.method === "POST" && url.pathname === "/api/member/subscribe") {
     const body = await readBody(req);
     const result = orderService.subscribeMember(state, user, body);
-    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result.user : { error: result.error });
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result.user || result : { error: result.error });
   }
 
   if (req.method === "GET" && url.pathname === "/api/orders") {
@@ -20,6 +20,17 @@ async function handleOrderRoutes(ctx) {
   if (req.method === "POST" && url.pathname === "/api/payment-providers/lfwin/notify") {
     const result = orderService.handleLfwinPaymentNotification(state, await readBody(req));
     return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? "success" : "fail", { "Content-Type": "text/plain; charset=utf-8" });
+  }
+
+  const lfwinQrMatch = url.pathname.match(/^\/api\/payments\/([^/]+)\/lfwin\/qrcode$/);
+  if (req.method === "GET" && lfwinQrMatch) {
+    const payment = state.paymentLedger.find((item) => item.payNo === lfwinQrMatch[1] || item.id === lfwinQrMatch[1]);
+    if (!payment || !orderService.canAccessLfwinQrCode(payment, user, url.searchParams.get("token"))) return send(ctx.res, 404, { error: "Payment not found" });
+    const result = await orderService.fetchLfwinQrCodeImage(state, lfwinQrMatch[1]);
+    return send(ctx.res, result.ok ? 200 : result.status || 502, result.ok ? result.image : { error: result.error }, result.ok ? {
+      "Content-Type": result.contentType,
+      "Cache-Control": "no-store"
+    } : {});
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {

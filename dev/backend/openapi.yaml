@@ -358,7 +358,7 @@ paths:
               properties:
                 method:
                   type: string
-                  enum: [qrcode, h5, wechat_mini, alipay_mini]
+                  enum: [qrcode, wechat_qrcode, alipay_qrcode, h5, wechat_mini, alipay_mini]
                   default: qrcode
                 appId:
                   type: string

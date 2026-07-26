@@ -49,7 +49,9 @@ function normalizeConfig(config) {
 async function createPayment(config, request, input = {}) {
   const method = input.method || "qrcode";
   const methods = {
-    qrcode: { path: "/payapi/pay/qrcode", service: "pay.comm.qrcode" },
+    qrcode: { path: "/payapi/pay/qrcode", service: "wxpay.comm.qrcode" },
+    wechat_qrcode: { path: "/payapi/pay/qrcode", service: "wxpay.comm.qrcode" },
+    alipay_qrcode: { path: "/payapi/pay/qrcode", service: "alipay.comm.qrcode" },
     h5: { path: "/payapi/trade/h5", service: "pay.comm.h5" },
     wechat_mini: { path: "/payapi/mini/wxpay", service: "comm.mini.pay" },
     alipay_mini: { path: "/payapi/trade/alipay", service: "comm.mini.pay" }
@@ -149,7 +151,7 @@ function signPayload(config, payload) {
 }
 
 function verifyPayload(config, payload) {
-  const fields = compact(payload);
+  const fields = incomingFields(payload);
   const received = fields.sign;
   delete fields.sign;
   if (!received) return false;
@@ -221,6 +223,10 @@ function ensureConfigured(config) {
 
 function compact(input) {
   return Object.fromEntries(Object.entries(input || {}).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+}
+
+function incomingFields(input) {
+  return Object.fromEntries(Object.entries(input || {}).filter(([, value]) => value !== undefined && value !== null));
 }
 
 function createNonce() { return crypto.randomBytes(16).toString("hex"); }

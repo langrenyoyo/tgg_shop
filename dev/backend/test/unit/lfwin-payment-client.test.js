@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const { createLfwinClient, canonicalize, signPayload } = require("../../src/services/lfwin-payment-client");
 const { createSeed } = require("../../src/data/seed");
 const { createOrder } = require("../../src/domain/rules");
@@ -14,10 +15,46 @@ const config = {
 
 test("LFWin signs canonical form fields and verifies a notification", () => {
   assert.equal(canonicalize({ money: "1.00", apikey: "test-key", sign: "ignored" }), "apikey=test-key&money=1.00");
-  const signed = signPayload(config, { service: "pay.comm.qrcode", apikey: "test-key", money: "1.00", nonce_str: "nonce" });
+  const signed = signPayload(config, { service: "alipay.comm.qrcode", apikey: "test-key", money: "1.00", nonce_str: "nonce" });
   const client = createLfwinClient({ config });
   assert.equal(client.verifyNotification(signed), true);
   assert.equal(client.verifyNotification({ ...signed, money: "2.00" }), false);
+});
+
+test("LFWin verifies provider responses that include signed empty fields", () => {
+  const payload = {
+    service: "heli.alipay.query_order",
+    orderid: "202607261302310000003684",
+    trade_no: "",
+    paymoney: "12.80",
+    pri_paymoney: "12.80",
+    receipt_amount: "12.80",
+    buyer_pay_amount: "12.80",
+    point_amount: "0.00",
+    paytime: "0",
+    paystatus: "0",
+    order_time: "1785042151",
+    mch_orderid: "PAY178504215110668",
+    coupon_fee: "0.00",
+    storediscount: "0.00",
+    refundmoney: "0.00",
+    buyer_account: "",
+    fund_bill_list: "",
+    controlType: "0",
+    m_paytype: "alipay",
+    mch_id: "E1805026671",
+    version: "3.0",
+    charset: "UTF-8",
+    message: "SUCCESS",
+    status: "10000",
+    sign_type: "MD5"
+  };
+  const signed = {
+    ...payload,
+    sign: crypto.createHash("md5").update(`${canonicalize(payload)}&signkey=${config.signKey}`, "utf8").digest("hex")
+  };
+  const client = createLfwinClient({ config });
+  assert.equal(client.verifyNotification(signed), true);
 });
 
 test("LFWin payment creation keeps credentials server-side and sends a signed form", async () => {
@@ -32,11 +69,81 @@ test("LFWin payment creation keeps credentials server-side and sends a signed fo
   const response = await client.createPayment({ amount: 19.9, merchantOrderNo: "PAY_001", notifyUrl: "https://shop.example/notify" });
   assert.equal(response.orderid, "LF_001");
   assert.equal(captured.url, "https://api2uat.lfwin.com/payapi/pay/qrcode");
+  assert.equal(captured.fields.service, "wxpay.comm.qrcode");
   assert.equal(captured.fields.money, "19.90");
   assert.equal(captured.fields.mch_orderid, "PAY_001");
   assert.equal(captured.fields.apikey, "test-key");
   assert.equal(captured.fields.sign_type, "MD5");
   assert.ok(captured.fields.sign);
+});
+
+test("LFWin payment creation can request Alipay QR explicitly", async () => {
+  let captured;
+  const client = createLfwinClient({
+    config,
+    request: async (url, fields) => {
+      captured = { url, fields };
+      return signPayload(config, { status: "10000", orderid: "LF_ALIPAY_001", qr_code: "https://qr.alipay.com/bax-test" });
+    }
+  });
+  const response = await client.createPayment({ method: "alipay_qrcode", amount: 0.1, merchantOrderNo: "PAY_ALIPAY_001", notifyUrl: "https://shop.example/notify" });
+  assert.equal(response.orderid, "LF_ALIPAY_001");
+  assert.equal(captured.url, "https://api2uat.lfwin.com/payapi/pay/qrcode");
+  assert.equal(captured.fields.service, "alipay.comm.qrcode");
+});
+
+test("LFWin payment initiation exposes a local QR proxy URL", async () => {
+  const state = createSeed();
+  const orderResult = createOrder(state, "u_1001", {
+    paymentMode: "cash",
+    fulfillmentType: "pickup",
+    items: [{ productId: "p_apple", quantity: 1 }]
+  });
+  const payment = paymentService.createGoodsPayment(state, orderResult.order.id, { idempotencyKey: "lfwin-qr-proxy-test" }).payment;
+  const client = {
+    createPayment: async () => ({
+      orderid: "LF_QR_001",
+      service: "alipay.comm.qrcode",
+      qr_code: "https://qr.alipay.com/bax-test",
+      code_url: "https://api2uat.lfwin.com/payapi/index/showqr/code/test"
+    })
+  };
+
+  const result = await paymentService.initiateLfwinPayment(state, payment.payNo, { method: "qrcode" }, client);
+  assert.equal(result.ok, true);
+  assert.equal(result.provider.paymentUrl, "https://qr.alipay.com/bax-test");
+  assert.match(result.provider.qrProxyUrl, new RegExp(`^/api/payments/${payment.payNo}/lfwin/qrcode\\?token=[a-f0-9]{32}$`));
+  assert.equal(result.payment.metadata.lfwin.qrImageUrl, "https://api2uat.lfwin.com/payapi/index/showqr/code/test");
+});
+
+test("LFWin QR proxy normalizes provider PNG content type", async () => {
+  const state = createSeed();
+  const orderResult = createOrder(state, "u_1001", {
+    paymentMode: "cash",
+    fulfillmentType: "pickup",
+    items: [{ productId: "p_apple", quantity: 1 }]
+  });
+  const payment = paymentService.createGoodsPayment(state, orderResult.order.id, { idempotencyKey: "lfwin-qr-image-test" }).payment;
+  payment.metadata.lfwin = {
+    codeUrl: "https://api2uat.lfwin.com/payapi/index/showqr/code/test",
+    qrProxyToken: "token"
+  };
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+  let requestedUrl = "";
+
+  const result = await paymentService.fetchLfwinQrCodeImage(state, payment.payNo, async (url) => {
+    requestedUrl = url;
+    return {
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength)
+    };
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.contentType, "image/png");
+  assert.equal(Buffer.compare(result.image, png), 0);
+  assert.equal(requestedUrl, "https://api2uat.lfwin.com/payapi/index/showqr/code/test");
 });
 
 test("LFWin callback settles only the matching payment once", () => {

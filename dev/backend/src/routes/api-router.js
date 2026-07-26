@@ -59,6 +59,7 @@ function requiresUserAuth(req, url) {
   if (req.method === "GET" && ["/api/config", "/api/home", "/api/products", "/api/points-exchange", "/api/task-types", "/api/tasks", "/api/task-platform/status", "/api/pickup-sites", "/api/delivery/teams"].includes(url.pathname)) return false;
   if (req.method === "GET" && /^\/api\/products\/[^/]+$/.test(url.pathname)) return false;
   if (req.method === "GET" && /^\/api\/tasks\/[^/]+$/.test(url.pathname)) return false;
+  if (req.method === "GET" && /^\/api\/payments\/[^/]+\/lfwin\/qrcode$/.test(url.pathname) && url.searchParams.has("token")) return false;
   if (req.method === "POST" && url.pathname === "/api/payment-providers/lfwin/notify") return false;
   return true;
 }

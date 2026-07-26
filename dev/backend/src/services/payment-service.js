@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const { nextId, saveState } = require("../data/store");
 const { createException } = require("../domain/exception-rules");
 const { logOrderStatus } = require("../domain/rules");
@@ -10,7 +11,13 @@ const { publicUser } = require("../http/http-utils");
 const { createLfwinClient } = require("./lfwin-payment-client");
 
 function listUserPayments(state, userId) {
-  return state.paymentLedger.filter((payment) => payment.userId === userId);
+  let changed = false;
+  const payments = state.paymentLedger.filter((payment) => payment.userId === userId);
+  for (const payment of payments) {
+    changed = ensureLfwinQrProxy(payment) || changed;
+  }
+  if (changed) saveState();
+  return payments;
 }
 
 function createGoodsPayment(state, orderId, input = {}) {
@@ -98,13 +105,22 @@ async function initiateLfwinPayment(state, payNo, input = {}, client = createLfw
       buyerOpenId: input.buyerOpenId,
       attach: payment.payNo
     });
-    payment.channel = `lfwin_${input.method || "qrcode"}`;
+    payment.channel = lfwinPaymentChannel(input.method || "qrcode", input.service || response.service);
+    const qrImageUrl = response.code_url || response.pay_url || "";
+    const qrProxyToken = payment.metadata?.lfwin?.qrProxyToken || createQrProxyToken();
     payment.metadata = {
       ...(payment.metadata || {}),
       lfwin: {
         providerOrderNo: response.orderid,
         service: response.service,
         method: input.method || "qrcode",
+        qrCode: response.qr_code || "",
+        codeUrl: response.code_url || "",
+        paymentUrl: response.qr_code || response.pay_url || response.code_url || "",
+        qrImageUrl,
+        qrProxyToken,
+        qrProxyUrl: qrImageUrl ? buildQrProxyUrl(payment.payNo, qrProxyToken) : "",
+        expiresAt: response.time_expire || null,
         requestedAt: new Date().toISOString()
       }
     };
@@ -117,13 +133,38 @@ async function initiateLfwinPayment(state, payNo, input = {}, client = createLfw
         orderId: response.orderid,
         qrCode: response.qr_code,
         codeUrl: response.code_url,
-        paymentUrl: response.pay_url || response.code_url,
+        paymentUrl: response.qr_code || response.pay_url || response.code_url,
+        qrProxyUrl: payment.metadata.lfwin.qrProxyUrl,
         expiresAt: response.time_expire || null
       }
     };
   } catch (error) {
     return { ok: false, status: 502, error: error.message };
   }
+}
+
+async function fetchLfwinQrCodeImage(state, payNo, request = fetch) {
+  const payment = state.paymentLedger.find((item) => item.payNo === payNo || item.id === payNo);
+  if (!payment) return { ok: false, status: 404, error: "Payment not found" };
+  const source = lfwinQrImageSource(payment);
+  if (!source) return { ok: false, status: 400, error: "LFWin QR image URL is not available" };
+  const parsed = safeHttpsUrl(source);
+  if (!parsed) return { ok: false, status: 400, error: "LFWin QR image URL must use HTTPS" };
+
+  try {
+    const response = await request(parsed.toString(), { redirect: "follow" });
+    if (!response?.ok) return { ok: false, status: 502, error: `LFWin QR image request failed (${response?.status || "unknown"})` };
+    const image = Buffer.from(await response.arrayBuffer());
+    if (!isPng(image)) return { ok: false, status: 502, error: "LFWin QR image response is not PNG" };
+    return { ok: true, image, contentType: "image/png" };
+  } catch (error) {
+    return { ok: false, status: 502, error: error.message };
+  }
+}
+
+function canAccessLfwinQrCode(payment, user, token) {
+  if (user && payment.userId === user.id) return true;
+  return tokenMatches(payment.metadata?.lfwin?.qrProxyToken, token);
 }
 
 async function queryLfwinPayment(state, payNo, client = createLfwinClient()) {
@@ -384,11 +425,73 @@ function sameAmount(left, right) {
   return Math.round(Number(left || 0) * 100) === Math.round(Number(right || 0) * 100);
 }
 
+function lfwinPaymentChannel(method, service) {
+  const normalized = String(service || "").toLowerCase();
+  if (normalized.includes("wxpay") || normalized.includes("wechat")) return "lfwin_wechat_qrcode";
+  if (normalized.includes("alipay")) return "lfwin_alipay_qrcode";
+  return `lfwin_${method}`;
+}
+
+function ensureLfwinQrProxy(payment) {
+  const lfwin = payment.metadata?.lfwin;
+  if (!lfwin || !lfwinQrImageSource(payment)) return false;
+  let changed = false;
+  if (!lfwin.qrProxyToken) {
+    lfwin.qrProxyToken = createQrProxyToken();
+    changed = true;
+  }
+  const qrProxyUrl = buildQrProxyUrl(payment.payNo, lfwin.qrProxyToken);
+  if (lfwin.qrProxyUrl !== qrProxyUrl) {
+    lfwin.qrProxyUrl = qrProxyUrl;
+    changed = true;
+  }
+  return changed;
+}
+
+function lfwinQrImageSource(payment) {
+  const lfwin = payment.metadata?.lfwin || {};
+  if (lfwin.qrImageUrl) return lfwin.qrImageUrl;
+  if (lfwin.codeUrl) return lfwin.codeUrl;
+  if (String(lfwin.paymentUrl || "").includes("/showqr/")) return lfwin.paymentUrl;
+  return "";
+}
+
+function buildQrProxyUrl(payNo, token) {
+  return `/api/payments/${encodeURIComponent(payNo)}/lfwin/qrcode?token=${encodeURIComponent(token)}`;
+}
+
+function createQrProxyToken() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function safeHttpsUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPng(buffer) {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  return Buffer.isBuffer(buffer) && buffer.length >= signature.length && buffer.subarray(0, signature.length).equals(signature);
+}
+
+function tokenMatches(expected, actual) {
+  if (!expected || !actual) return false;
+  const left = Buffer.from(String(expected));
+  const right = Buffer.from(String(actual));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
 module.exports = {
   listUserPayments,
   createGoodsPayment,
   createMemberPayment,
   initiateLfwinPayment,
+  fetchLfwinQrCodeImage,
+  canAccessLfwinQrCode,
   queryLfwinPayment,
   closeLfwinPayment,
   applyLfwinPaymentNotification,
