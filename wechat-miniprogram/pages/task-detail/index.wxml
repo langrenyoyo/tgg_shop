@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="card" wx:if="{{task}}">
+    <view class="title">{{task.title}}</view>
+    <view class="muted" style="margin-top:8rpx;">{{task.category || task.type_name || ''}}</view>
+    <view style="margin-top:16rpx;" class="tag">奖励 {{task.rewardPoints || task.reward || 0}}</view>
+    <view class="muted" style="margin-top:10rpx;">{{task.tishi || '暂无提示'}}</view>
+  </view>
+
+  <view class="card" wx:if="{{task && task.content}}">
+    <view class="title" style="font-size:30rpx;">任务说明</view>
+    <view wx:for="{{task.content}}" wx:key="index" class="list-item">
+      <rich-text nodes="{{item.txt}}"></rich-text>
+    </view>
+  </view>
+
+  <view class="card">
+    <button class="btn btn-primary" bindtap="goSubmit" disabled="{{!task}}">接单并提交</button>
+  </view>
+</view>

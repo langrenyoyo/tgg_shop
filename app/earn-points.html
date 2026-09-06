@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>赚积分 - TGG Shop</title>
+  <link rel="stylesheet" href="css/earn-points.css">
+</head>
+<body>
+  <div id="app" class="phone">
+    <!-- 顶栏 -->
+    <header class="header">
+      <button class="back-btn" id="btnBack" hidden aria-label="返回">‹</button>
+      <h1 id="pageTitle">赚积分</h1>
+      <button class="link-btn" id="btnMyTasks" hidden>我的提交</button>
+    </header>
+
+    <!-- 主 Tab：做任务 | 签到 -->
+    <nav class="main-tabs" id="mainTabs">
+      <button class="main-tab active" data-tab="tasks">做任务</button>
+      <button class="main-tab" data-tab="signin">签到</button>
+    </nav>
+
+    <!-- ========== 做任务板块 ========== -->
+    <section id="panelTasks" class="panel active">
+      <!-- 子视图：列表 -->
+      <div id="viewTaskList" class="view active">
+        <div class="search-bar">
+          <input type="search" id="taskSearch" placeholder="搜索任务名称">
+        </div>
+        <div class="cat-scroll" id="catScroll">
+          <button class="cat-chip active" data-cid="">全部</button>
+        </div>
+        <!-- 拉新任务入口（列表不展示积分，符合 PRD） -->
+        <div class="invite-entry" id="inviteEntry">
+          <div class="invite-entry-icon">👥</div>
+          <div class="invite-entry-body">
+            <div class="invite-entry-title">拉新任务 · 邀请好友</div>
+            <div class="invite-entry-desc">分享邀请码，好友注册后查看奖励规则</div>
+          </div>
+          <div class="action">去完成 ›</div>
+        </div>
+        <div class="task-list" id="taskList"></div>
+        <div class="load-more" id="loadMore" hidden>加载更多</div>
+      </div>
+
+      <!-- 子视图：任务详情 -->
+      <div id="viewTaskDetail" class="view">
+        <div class="detail-scroll" id="detailContent"></div>
+        <div class="detail-footer">
+          <button class="btn-primary" id="btnAcceptTask">接任务并提交</button>
+        </div>
+      </div>
+
+      <!-- 子视图：提交任务 -->
+      <div id="viewTaskSubmit" class="view">
+        <form id="submitForm" class="submit-form"></form>
+        <div class="detail-footer">
+          <button type="submit" form="submitForm" class="btn-primary">提交任务</button>
+        </div>
+      </div>
+
+      <!-- 子视图：我的邀请码 -->
+      <div id="viewInvite" class="view">
+        <div class="invite-scroll" id="inviteContent"></div>
+      </div>
+
+      <!-- 子视图：我的提交 -->
+      <div id="viewMyExamine" class="view">
+        <div class="examine-tabs" id="examineTabs">
+          <button class="ex-tab active" data-status="All">全部</button>
+          <button class="ex-tab" data-status="0">审核中</button>
+          <button class="ex-tab" data-status="1">已通过</button>
+          <button class="ex-tab" data-status="2">已失败</button>
+        </div>
+        <div class="examine-list" id="examineList"></div>
+      </div>
+    </section>
+
+    <!-- ========== 签到板块 ========== -->
+    <section id="panelSignin" class="panel">
+      <div class="signin-banner">
+        <div class="signin-reward" id="signinRewardText">签满 30 天送 100 积分</div>
+        <div class="signin-days">已连续签到 <strong id="signinDays">12</strong> 天</div>
+      </div>
+      <div class="card">
+        <h3>每日签到 · 看广告</h3>
+        <p class="hint">今日任务：观看 <strong id="adGroupCount">4</strong> 组广告</p>
+        <p class="hint muted">每组 = 1 激励视频 + 1 插屏广告（组数在后台范围内随机，如今日 3–5 组）</p>
+        <button class="btn-primary full" id="btnStartSignin">立即签到 → 开始看广告</button>
+        <p class="hint muted">看完所有广告组后获得 <strong>抽奖券</strong>，转盘随机奖励（后台配置）</p>
+      </div>
+      <div class="card" id="adProgressCard" hidden>
+        <h3>广告进度</h3>
+        <div class="ad-group-info">
+          第 <strong id="currentGroup">1</strong> / <strong id="totalGroups">4</strong> 组 ·
+          <span id="currentAdType">激励视频</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="adProgress"></div></div>
+        <p class="hint">已完成 <span id="adDone">0</span> / <span id="adTotal">8</span> 条广告</p>
+        <p class="hint muted" id="adStepHint">先看激励视频，再看插屏广告</p>
+      </div>
+      <div class="card lottery-card" id="lotteryCard" hidden>
+        <h3>🎫 获得抽奖券 ×1</h3>
+        <p class="hint">今日广告已全部看完，点击转盘抽取奖励</p>
+        <div class="wheel-wrap">
+          <div class="wheel-pointer">▼</div>
+          <canvas id="lotteryWheel" width="260" height="260"></canvas>
+        </div>
+        <button class="btn-primary full" id="btnSpin">开始抽奖</button>
+        <p class="hint muted" id="lotteryResult"></p>
+      </div>
+    </section>
+
+    <!-- 底部 Tab -->
+    <nav class="tabbar">
+      <span>首页</span>
+      <span class="on">赚积分</span>
+      <span>分类</span>
+      <span>购物车</span>
+      <span>我的</span>
+    </nav>
+
+    <div class="toast" id="toast" hidden></div>
+  </div>
+
+  <script src="js/md5.js"></script>
+  <script src="js/config.example.js"></script>
+  <script src="js/task-api.js"></script>
+  <script src="js/invite-api.js"></script>
+  <script src="js/signin-api.js"></script>
+  <script src="js/earn-points.js"></script>
+</body>
+</html>

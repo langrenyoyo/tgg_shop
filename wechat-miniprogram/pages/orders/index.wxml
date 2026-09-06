@@ -1,0 +1,14 @@
+<view class="page">
+  <view class="card">
+    <view class="row">
+      <view class="title">订单列表</view>
+      <button class="btn btn-light" bindtap="load">刷新</button>
+    </view>
+  </view>
+
+  <view class="card" wx:for="{{orders}}" wx:key="id">
+    <view>{{item.id}}</view>
+    <view class="muted">{{item.status}} / {{item.fulfillmentStatus}}</view>
+    <view class="muted">{{item.createdAt}}</view>
+  </view>
+</view>

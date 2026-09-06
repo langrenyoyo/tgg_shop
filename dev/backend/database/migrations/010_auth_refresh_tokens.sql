@@ -1,0 +1,2 @@
+-- Auth refresh-token columns are added idempotently by sqlite-store.js because
+-- this development migration runner replays SQL files on every startup.

@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="card">
+    <view class="row">
+      <view class="title">任务中心</view>
+      <button class="btn btn-light" bindtap="reload">刷新</button>
+    </view>
+    <scroll-view scroll-x="true" class="cat-bar">
+      <view class="cat-chip {{!currentCid ? 'active' : ''}}" bindtap="setCategory" data-id="">全部</view>
+      <view wx:for="{{categories}}" wx:key="id" class="cat-chip {{currentCid === item.id ? 'active' : ''}}" bindtap="setCategory" data-id="{{item.id}}">{{item.name}}</view>
+    </scroll-view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="title">拉新任务</view>
+      <button class="btn btn-light" bindtap="openInvite">邀请页</button>
+    </view>
+    <view class="muted" style="margin-top:8rpx;">奖励规则进入邀请页查看</view>
+  </view>
+
+  <view class="card" wx:for="{{tasks}}" wx:key="id" bindtap="openTask" data-id="{{item.id}}">
+    <view class="row">
+      <view>
+        <view>{{item.title}}</view>
+        <view class="muted">{{item.category || item.c_name || ''}} {{item.tishi || ''}}</view>
+      </view>
+      <view class="tag">{{item.source === 'platform' ? '平台' : '本地'}}</view>
+    </view>
+  </view>
+</view>

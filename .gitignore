@@ -1,0 +1,37 @@
+# Runtime data
+dev/backend/data/*.json
+dev/backend/data/*.json.tmp
+dev/backend/data/*.sqlite
+dev/backend/data/*.sqlite-*
+dev/backend/data/uploads/
+dev/backend/.pgdata/
+dev/backend/.pgdata*/
+
+# Dependencies
+node_modules/
+dev/backend/node_modules/
+
+# Environment and local config
+.env
+.env.*
+app/js/config.js
+
+# Test and temporary output
+test-results/
+coverage/
+*.log
+*.tmp
+*.temp
+
+# Local extraction scratch files
+extract_docs.py
+inspect_pdf.py
+extracted*.txt
+doc_content.txt
+pdf_page_1.png
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

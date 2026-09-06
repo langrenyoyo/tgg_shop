@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TGG Shop Admin Dev</title>
+    <link rel="stylesheet" href="/admin/styles.css" />
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand"><span></span><strong>TGG Shop</strong><small>运营后台</small></div>
+      <nav id="adminNav" aria-label="后台导航">
+        <button type="button" class="active" data-view="dashboard">运营仪表盘</button>
+        <button type="button" data-view="orders">订单管理</button>
+        <button type="button" data-view="stateMachine">订单状态机</button>
+        <button type="button" data-view="deliveryTeam">自建配送团队</button>
+        <button type="button" data-view="products">商品与分类</button>
+        <button type="button" data-view="pointsExchange">纯积分兑换</button>
+        <button type="button" data-view="homeOps">首页运营</button>
+        <button type="button" data-view="users">用户/会员</button>
+        <button type="button" data-view="addressBook">地址管理</button>
+        <button type="button" data-view="inviteAudit">邀请审计</button>
+        <button type="button" data-view="customerTickets">客服工单</button>
+        <button type="button" data-view="agentsPickup">代理与自提点</button>
+        <button type="button" data-view="taskReview">悬赏任务审核</button>
+        <button type="button" data-view="signinAds">签到广告配置</button>
+        <button type="button" data-view="financeRefund">支付/积分/退款</button>
+        <button type="button" data-view="ledger">账务流水</button>
+        <button type="button" data-view="ranking">积分排行榜</button>
+        <button type="button" data-view="permissions">后台角色权限</button>
+        <button type="button" data-view="exceptions">异常补偿中心</button>
+        <button type="button" data-view="settings">系统设置</button>
+        <button type="button" data-view="monthlyReward">月度奖励</button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1 id="adminTitle">运营仪表盘</h1>
+          <p id="adminSubtitle">订单、商品、积分、权限和异常补偿的开发版控制台</p>
+        </div>
+        <div class="header-actions">
+          <input aria-label="搜索" placeholder="搜索订单 / 用户 / 商品" />
+          <button type="button" id="refresh">今日营业中</button>
+          <span>管理员 Admin</span>
+        </div>
+      </header>
+
+      <section id="adminScreen"></section>
+    </main>
+
+    <script type="module" src="/admin/js/app.js"></script>
+  </body>
+</html>

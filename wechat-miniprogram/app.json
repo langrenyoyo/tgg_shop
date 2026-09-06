@@ -1,0 +1,34 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/home/index",
+    "pages/tasks/index",
+    "pages/task-detail/index",
+    "pages/task-submit/index",
+    "pages/signin/index",
+    "pages/invite/index",
+    "pages/me/index",
+    "pages/orders/index",
+    "pages/points/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "TGG Shop",
+    "navigationBarBackgroundColor": "#0f172a",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f7fb"
+  },
+  "tabBar": {
+    "color": "#6b7280",
+    "selectedColor": "#16a34a",
+    "backgroundColor": "#ffffff",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "首页" },
+      { "pagePath": "pages/tasks/index", "text": "任务" },
+      { "pagePath": "pages/signin/index", "text": "签到" },
+      { "pagePath": "pages/invite/index", "text": "邀请" },
+      { "pagePath": "pages/me/index", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

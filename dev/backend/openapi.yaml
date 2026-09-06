@@ -1,0 +1,1802 @@
+openapi: 3.0.3
+info:
+  title: TGG Shop Dev API
+  version: 0.1.0
+  description: Development API contract for the TGG Shop MVP backend.
+servers:
+  - url: http://localhost:5177
+security:
+  - UserBearerAuth: []
+tags:
+  - name: Health
+  - name: Uploads
+  - name: Auth
+  - name: Catalog
+  - name: Orders
+  - name: Payments
+  - name: Tasks
+  - name: Growth
+  - name: Admin
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service is available
+
+  /api/common/upload:
+    post:
+      tags: [Uploads]
+      summary: Upload task evidence image
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  msg:
+                    type: string
+                    example: 上传成功
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        path:
+                          type: string
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user by Bearer token
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: User login and token issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                  example: u_1001
+                password:
+                  type: string
+                  example: "123456"
+      responses:
+        "200":
+          description: Logged-in user with Bearer token
+        "401":
+          description: Invalid credentials
+        "404":
+          description: User not found
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke current user token session
+      responses:
+        "200":
+          description: User session revoked
+        "401":
+          description: Missing or invalid token
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh current user access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: New user access and refresh token pair
+        "401":
+          description: Refresh token invalid or expired
+
+  /api/admin/auth/login:
+    post:
+      tags: [Admin]
+      summary: Admin login and token issue
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleId, password]
+              properties:
+                roleId:
+                  type: string
+                  example: super_admin
+                password:
+                  type: string
+                  example: "123456"
+      responses:
+        "200":
+          description: Logged-in admin role with Bearer token
+        "401":
+          description: Invalid credentials
+
+  /api/admin/auth/logout:
+    post:
+      tags: [Admin]
+      summary: Revoke current admin token session
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Admin session revoked
+        "401":
+          description: Missing or invalid token
+
+  /api/admin/auth/refresh:
+    post:
+      tags: [Admin]
+      summary: Refresh current admin access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: New admin access and refresh token pair
+        "401":
+          description: Refresh token invalid or expired
+
+  /api/me:
+    get:
+      tags: [Auth]
+      summary: Alias of current user endpoint
+      responses:
+        "200":
+          description: Current user
+
+  /api/config:
+    get:
+      tags: [Catalog]
+      summary: Get runtime configuration
+      responses:
+        "200":
+          description: Config map
+
+  /api/home:
+    get:
+      tags: [Catalog]
+      summary: Get home page data
+      responses:
+        "200":
+          description: Home payload
+
+  /api/products:
+    get:
+      tags: [Catalog]
+      summary: List active products
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product list
+
+  /api/products/{productId}:
+    get:
+      tags: [Catalog]
+      summary: Get product detail
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Product detail
+        "404":
+          description: Product not found
+
+  /api/points-exchange:
+    get:
+      tags: [Catalog]
+      summary: List pure-points exchange products
+      responses:
+        "200":
+          description: Pure-points products
+
+  /api/member/subscribe:
+    post:
+      tags: [Payments]
+      summary: Open or extend monthly membership
+      description: Creates a member_open payment_order and mock-confirms it in development unless autoPay is false.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                months:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                channel:
+                  type: string
+                  enum: [mock_pay, wechat, alipay]
+                  default: mock_pay
+                autoPay:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          description: Updated user
+
+  /api/orders:
+    get:
+      tags: [Orders]
+      summary: List current user orders
+      responses:
+        "200":
+          description: Order list
+    post:
+      tags: [Orders]
+      summary: Create order
+      description: Pure-points orders are paid immediately and never create cash top-up.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Created order
+        "400":
+          description: Business rule violation
+
+  /api/orders/{orderId}/pay:
+    post:
+      tags: [Payments]
+      summary: Create and mock-confirm a pending cash payment
+      description: Backward-compatible shortcut. Internally creates a payment_order with pay_scene goods_cash or cash_diff, then handles an idempotent mock callback.
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Paid order
+        "400":
+          description: Order cannot be paid
+
+  /api/payments:
+    get:
+      tags: [Payments]
+      summary: List current user's payment orders
+      description: Returns payment_order rows including payNo, payScene, channel, amount, pointAmount, status, thirdTradeNo, callbackTime, and idempotencyKey.
+      responses:
+        "200":
+          description: Payment order list
+
+  /api/orders/{orderId}/payments:
+    post:
+      tags: [Payments]
+      summary: Create a pending payment order for a cash order
+      description: Creates a pending payment_order without completing payment. goods_cash is used for cash orders, cash_diff is used for points_plus_cash orders. Idempotent by idempotencyKey or default payment:goods:{orderId}.
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channel:
+                  type: string
+                  enum: [mock_pay, wechat, alipay]
+                  default: mock_pay
+                idempotencyKey:
+                  type: string
+      responses:
+        "201":
+          description: Pending payment_order
+        "400":
+          description: Order cannot create payment
+        "404":
+          description: Order not found
+
+  /api/payments/{payNo}/mock-callback:
+    post:
+      tags: [Payments]
+      summary: Mock payment channel callback
+      description: Handles paid or failed callbacks idempotently by payNo. Successful goods callbacks pay the order; successful member_open callbacks extend membership; successful cash_diff callbacks also deduct points once. Failed callbacks create payment_callback_failed exception compensation records.
+      parameters:
+        - name: payNo
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [paid, failed]
+                  default: paid
+                thirdTradeNo:
+                  type: string
+      responses:
+        "200":
+          description: Callback handled
+        "400":
+          description: Payment state cannot accept callback
+        "404":
+          description: Payment order not found
+
+  /api/payments/{payNo}/lfwin:
+    post:
+      tags: [Payments]
+      summary: Initiate an LFWin payment for a pending payment order
+      description: Uses server-side LFWIN_* configuration only. Returns a QR code or payment URL and does not mark the order as paid.
+      parameters:
+        - name: payNo
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                  enum: [qrcode, h5, wechat_mini, alipay_mini]
+                  default: qrcode
+                appId:
+                  type: string
+                openId:
+                  type: string
+                buyerId:
+                  type: string
+      responses:
+        "200":
+          description: Provider payment details
+        "400":
+          description: Payment is not pending or provider configuration is invalid
+        "502":
+          description: Provider request failed
+
+  /api/payments/{payNo}/lfwin/query:
+    post:
+      tags: [Payments]
+      summary: Query an LFWin payment and settle a verified successful payment
+      parameters:
+        - name: payNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider payment status
+
+  /api/payments/{payNo}/lfwin/close:
+    post:
+      tags: [Payments]
+      summary: Close a pending LFWin payment at the provider
+      parameters:
+        - name: payNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider close result
+
+  /api/payment-providers/lfwin/notify:
+    post:
+      tags: [Payments]
+      summary: LFWin payment notification callback
+      description: Public form callback. Signature and paid amount are verified before the related payment order is settled. Reply is plain text success only after durable processing.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [orderid, mch_orderid, paystatus, paymoney, sign]
+              properties:
+                orderid:
+                  type: string
+                mch_orderid:
+                  type: string
+                trade_no:
+                  type: string
+                paystatus:
+                  type: string
+                paymoney:
+                  type: string
+                sign:
+                  type: string
+      responses:
+        "200":
+          description: success
+        "400":
+          description: Invalid signature, amount, or payment state
+
+  /api/orders/{orderId}/refunds:
+    post:
+      tags: [Orders]
+      summary: Request refund for current user's order
+      description: Idempotent by active refund request for the same order.
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: Refund request created
+        "400":
+          description: Order cannot be refunded
+        "403":
+          description: Cannot refund another user's order
+
+  /api/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks with reward hidden
+      description: Proxies bounty-platform task_list when TGG_TASK_PLATFORM_* env vars are configured; otherwise uses local mock tasks.
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: c_id
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: count
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task list without rewardPoints
+
+  /api/task-types:
+    get:
+      tags: [Tasks]
+      summary: List bounty task categories
+      description: Proxies index/index/task_type when platform credentials are configured.
+      responses:
+        "200":
+          description: Task category list
+
+  /api/task-platform/status:
+    get:
+      tags: [Tasks]
+      summary: Show task platform proxy mode and mapped upstream endpoints
+      responses:
+        "200":
+          description: Task platform status
+
+  /api/tasks/{taskId}:
+    get:
+      tags: [Tasks]
+      summary: Get task detail with reward
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Task detail
+        "404":
+          description: Task not found
+
+  /api/tasks/{taskId}/submit:
+    post:
+      tags: [Tasks]
+      summary: Submit task proof
+      description: Requires monthly membership. Proxies index/index/task_register when platform credentials are configured, then stores a local submission for callbacks and admin review.
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: Submission created
+        "403":
+          description: Non-member cannot submit bounty tasks
+        "404":
+          description: Task not found
+
+  /api/submissions:
+    get:
+      tags: [Tasks]
+      summary: List current user task submissions
+      responses:
+        "200":
+          description: Submission list
+
+  /api/submissions/{submissionId}:
+    get:
+      tags: [Tasks]
+      summary: Get current user's submission detail
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submission detail
+        "404":
+          description: Submission not found
+
+  /api/task/callback:
+    post:
+      tags: [Tasks]
+      summary: Receive bounty platform review callback
+      description: Status `1` or `approved` approves and grants task points; invited users also trigger inviter commission by `inviteCommissionRate`. Status `2` or `rejected` rejects. Repeated callbacks are idempotent via `task_callback:{submissionId}:{status}` and `task_callback:{submissionId}:invite_commission`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, status]
+              properties:
+                id:
+                  type: string
+                  description: Submission id or external task order id mapped to submission id in development mode.
+                submissionId:
+                  type: string
+                status:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                remarks:
+                  type: string
+                sf_uid:
+                  type: string
+      responses:
+        "200":
+          description: Callback handled
+        "400":
+          description: Invalid callback payload
+        "404":
+          description: Submission not found and exception created
+
+  /api/invite/info:
+    get:
+      tags: [Growth]
+      summary: Get invite reward configuration
+      responses:
+        "200":
+          description: Invite info
+    post:
+      tags: [Growth]
+      summary: Get invite reward configuration
+      responses:
+        "200":
+          description: Invite info
+
+  /api/invite/list:
+    get:
+      tags: [Growth]
+      summary: List invited users
+      responses:
+        "200":
+          description: Invite list
+    post:
+      tags: [Growth]
+      summary: List invited users
+      responses:
+        "200":
+          description: Invite list
+
+  /api/invite/stats:
+    get:
+      tags: [Growth]
+      summary: Get invite statistics
+      responses:
+        "200":
+          description: Invite stats
+    post:
+      tags: [Growth]
+      summary: Get invite statistics
+      responses:
+        "200":
+          description: Invite stats
+
+  /api/signin/status:
+    get:
+      tags: [Growth]
+      summary: Get current sign-in ad progress and streak
+      responses:
+        "200":
+          description: Sign-in status
+    post:
+      tags: [Growth]
+      summary: Get current sign-in ad progress and streak
+      responses:
+        "200":
+          description: Sign-in status
+
+  /api/signin/start:
+    post:
+      tags: [Growth]
+      summary: Start sign-in ad session
+      responses:
+        "200":
+          description: Sign-in session
+
+  /api/signin/ad_complete:
+    post:
+      tags: [Growth]
+      summary: Report completed ad group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+      responses:
+        "200":
+          description: Ad completion result
+
+  /api/signin/lottery_spin:
+    post:
+      tags: [Growth]
+      summary: Spin lottery after sign-in ads
+      responses:
+        "200":
+          description: Prize result
+
+  /api/pickup-sites:
+    get:
+      tags: [Catalog]
+      summary: List enabled pickup sites
+      responses:
+        "200":
+          description: Pickup sites
+
+  /api/delivery/teams:
+    get:
+      tags: [Catalog]
+      summary: List enabled self-built delivery teams and staff
+      responses:
+        "200":
+          description: Delivery teams
+
+  /api/addresses:
+    get:
+      tags: [Orders]
+      summary: List current user's delivery addresses
+      responses:
+        "200":
+          description: Address list
+    post:
+      tags: [Orders]
+      summary: Create delivery address
+      responses:
+        "201":
+          description: Address created
+
+  /api/addresses/{addressId}:
+    patch:
+      tags: [Orders]
+      summary: Update delivery address or set default address
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Address updated
+        "404":
+          description: Address not found
+    delete:
+      tags: [Orders]
+      summary: Delete delivery address
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Address deleted
+        "404":
+          description: Address not found
+
+  /api/withdrawals:
+    get:
+      tags: [Orders]
+      summary: List current user's withdrawal requests
+      responses:
+        "200":
+          description: Withdrawal list
+    post:
+      tags: [Orders]
+      summary: Request withdrawal to WeChat
+      description: Freezes withdrawable balance and writes withdrawable_ledger with an idempotency_key.
+      responses:
+        "201":
+          description: Withdrawal requested
+        "400":
+          description: Balance or minimum amount violation
+
+  /api/points-ledger:
+    get:
+      tags: [Orders]
+      summary: List current user's point ledger
+      responses:
+        "200":
+          description: Point ledger
+
+  /api/ranking:
+    get:
+      tags: [Growth]
+      summary: Get current monthly point ranking
+      responses:
+        "200":
+          description: Ranking rows
+
+  /api/tickets:
+    get:
+      tags: [Orders]
+      summary: List current user's operation_ticket records
+      responses:
+        "200":
+          description: Current user tickets
+    post:
+      tags: [Orders]
+      summary: Submit customer service, feedback, business, or recruiting operation_ticket
+      responses:
+        "201":
+          description: Ticket created
+        "400":
+          description: Missing content
+
+  /api/admin/auth/me:
+    get:
+      tags: [Admin]
+      summary: Get current admin role by Bearer token
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Admin role
+
+  /api/admin/summary:
+    get:
+      tags: [Admin]
+      summary: Dashboard summary
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Summary metrics plus filterable analytics buckets for dashboard, user/member, and pure-points panels. Dashboard analytics include alert thresholds and drill metadata.
+        "403":
+          description: Missing order read permission
+
+  /api/admin/dashboard-views:
+    get:
+      tags: [Admin]
+      summary: List saved dashboard views for the current admin role
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Saved dashboard view list
+        "403":
+          description: Missing order read permission
+    put:
+      tags: [Admin]
+      summary: Save dashboard views for the current admin role
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [views]
+              properties:
+                views:
+                  type: array
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Saved dashboard views
+        "403":
+          description: Missing order read permission
+
+  /api/admin/orders:
+    get:
+      tags: [Admin]
+      summary: List all orders
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Orders
+        "403":
+          description: Missing order read permission
+
+  /api/admin/orders/{orderId}/pickup-verify:
+    post:
+      tags: [Admin]
+      summary: Verify pickup code and complete pickup order
+      description: Requires order:fulfillment permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pickupCode]
+              properties:
+                pickupCode:
+                  type: string
+      responses:
+        "200":
+          description: Pickup verified
+        "400":
+          description: Invalid pickup code or state
+        "403":
+          description: Missing fulfillment permission
+        "404":
+          description: Order not found
+
+  /api/admin/orders/{orderId}/ship:
+    post:
+      tags: [Admin]
+      summary: Mark delivery order as shipping
+      description: Requires order:fulfillment permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staffId:
+                  type: string
+      responses:
+        "200":
+          description: Order shipping
+        "400":
+          description: Invalid fulfillment state
+        "403":
+          description: Missing fulfillment permission
+
+  /api/admin/orders/{orderId}/deliver:
+    post:
+      tags: [Admin]
+      summary: Mark delivery order as delivered and completed
+      description: Requires order:fulfillment permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Order delivered
+        "400":
+          description: Invalid fulfillment state
+        "403":
+          description: Missing fulfillment permission
+
+  /api/admin/products:
+    get:
+      tags: [Admin]
+      summary: List all products
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Products
+        "403":
+          description: Missing product read permission
+    post:
+      tags: [Admin]
+      summary: Create a product and optionally publish it
+      description: Requires product:write permission; pure-points products are created with cash disabled.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                cashPrice:
+                  type: number
+                  nullable: true
+                pointsPrice:
+                  type: integer
+                stock:
+                  type: integer
+                tag:
+                  type: string
+                image:
+                  type: string
+                supportsCash:
+                  type: boolean
+                purePointsOnly:
+                  type: boolean
+                status:
+                  type: string
+                  enum: [on, off]
+      responses:
+        "201":
+          description: Product created
+        "400":
+          description: Invalid product payload
+        "403":
+          description: Missing product write permission
+
+  /api/admin/products/{productId}:
+    patch:
+      tags: [Admin]
+      summary: Update product status, stock, prices, and display fields
+      description: Requires product:write permission; pure-points products remain cash disabled.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Product updated
+        "403":
+          description: Missing product write permission
+        "404":
+          description: Product not found
+
+  /api/admin/inventory-ledger:
+    get:
+      tags: [Admin]
+      summary: List inventory movement ledger
+        description: Requires stock:write permission. Tracks initial stock, purchase-in, stocktake, loss, order deduction, order restore, refund restore, and manual adjustments.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Inventory ledger list
+
+  /api/admin/config:
+    get:
+      tags: [Admin]
+      summary: Read backend configuration
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Config
+        "403":
+          description: Missing config read permission
+    patch:
+      tags: [Admin]
+      summary: Update backend configuration
+      description: Requires config:write permission; purePointsNoCashTopup is enforced as true. dashboardAlertThresholds controls dashboard warning cards.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Config updated
+        "403":
+          description: Missing config write permission
+
+  /api/admin/monthly-point-rewards:
+    get:
+      tags: [Admin]
+      summary: List monthly point reward overview and settlement logs
+      description: Requires config:read permission. Supports monthKey, threshold, and settled filters.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: monthKey
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+        - name: threshold
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: settled
+          in: query
+          schema:
+            type: string
+            enum: [all, settled, unsettled, reversed]
+      responses:
+        "200":
+          description: Monthly reward overview
+        "403":
+          description: Missing config read permission
+
+  /api/admin/monthly-point-rewards/settle:
+    post:
+      tags: [Admin]
+      summary: Settle monthly point rewards
+      description: Requires config:write permission. Settles the previous month once per user and writes idempotent monthly_reward ledger rows.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                now:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Monthly rewards settled
+        "403":
+          description: Missing config write permission
+
+  /api/admin/monthly-point-rewards/{settlementId}/reverse:
+    post:
+      tags: [Admin]
+      summary: Reverse one monthly reward settlement
+      description: Requires config:write permission. Intended to be executed after monthly reward reversal approval review. Creates a monthly_reward_reversal ledger row and marks the settlement as reversed.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: settlementId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Monthly reward reversed
+        "403":
+          description: Missing config write permission
+        "404":
+          description: Settlement not found
+        "409":
+          description: Settlement already reversed or points are insufficient
+
+  /api/admin/task-submissions:
+    get:
+      tags: [Admin]
+      summary: List task submissions for manual review
+      description: Requires task:review permission.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Task submissions
+        "403":
+          description: Missing task review permission
+
+  /api/admin/task-submissions/{submissionId}/approve:
+    post:
+      tags: [Admin]
+      summary: Approve task submission and grant points
+      description: Requires task:review permission and uses task_callback idempotency rules.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submission approved
+        "403":
+          description: Missing task review permission
+
+  /api/admin/task-submissions/{submissionId}/reject:
+    post:
+      tags: [Admin]
+      summary: Reject task submission
+      description: Requires task:review permission and keeps audit trace.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submission rejected
+        "403":
+          description: Missing task review permission
+
+  /api/admin/users:
+    get:
+      tags: [Admin]
+      summary: List users and membership status
+      description: Requires customer:read permission.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: User list
+
+  /api/admin/addresses:
+    get:
+      tags: [Admin]
+      summary: List user delivery addresses for customer service audit
+      description: Requires customer:read permission. User address edits remain user-side; admin uses this for support and delivery-range checks.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Address list
+
+  /api/admin/invites:
+    get:
+      tags: [Admin]
+      summary: List invite relation audit rows
+      description: Requires customer:read permission and returns inviter, invitee, bound time, and invite_commission summary.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Invite audit list
+
+  /api/admin/users/{userId}:
+    patch:
+      tags: [Admin]
+      summary: Update user status or extend membership
+      description: Requires customer:read permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User updated
+        "404":
+          description: User not found
+
+  /api/admin/tickets:
+    get:
+      tags: [Admin]
+      summary: List operation_ticket records
+      description: Requires ticket:write permission.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Ticket list
+
+  /api/admin/tickets/{ticketId}:
+    patch:
+      tags: [Admin]
+      summary: Update operation_ticket status and reply
+      description: Requires ticket:write permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ticket updated
+        "404":
+          description: Ticket not found
+
+  /api/admin/pickup-sites:
+    get:
+      tags: [Admin]
+      summary: List pickup sites for backend management
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Pickup sites
+        "403":
+          description: Missing pickup site permission
+    post:
+      tags: [Admin]
+      summary: Create pickup site
+      description: Requires pickup_site:write permission.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "201":
+          description: Pickup site created
+
+  /api/admin/pickup-sites/{siteId}:
+    patch:
+      tags: [Admin]
+      summary: Update pickup site
+      description: Requires pickup_site:write permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pickup site updated
+
+  /api/admin/delivery-teams:
+    get:
+      tags: [Admin]
+      summary: List self-built delivery teams and staff
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Delivery teams
+        "403":
+          description: Missing delivery dispatch permission
+    post:
+      tags: [Admin]
+      summary: Create delivery team
+      description: Requires delivery:dispatch permission.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "201":
+          description: Delivery team created
+
+  /api/admin/delivery-teams/{teamId}:
+    patch:
+      tags: [Admin]
+      summary: Update delivery team
+      description: Requires delivery:dispatch permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Delivery team updated
+
+  /api/admin/withdrawals:
+    get:
+      tags: [Admin]
+      summary: List withdrawal requests for finance review
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Withdrawal requests
+        "403":
+          description: Missing withdrawal approval permission
+
+  /api/admin/withdrawals/{withdrawalId}/approve:
+    post:
+      tags: [Admin]
+      summary: Deprecated direct withdrawal approval
+      description: Requires withdraw:approve permission, but sensitive withdrawal payout must be submitted through /api/admin/approval-requests with action withdrawal.approve.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: withdrawalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deprecated compatibility response
+        "409":
+          description: Secondary approval required
+        "403":
+          description: Missing withdrawal approval permission
+
+  /api/admin/withdrawals/{withdrawalId}/reject:
+    post:
+      tags: [Admin]
+      summary: Deprecated direct withdrawal rejection
+      description: Requires withdraw:approve permission, but sensitive withdrawal rejection must be submitted through /api/admin/approval-requests with action withdrawal.reject.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: withdrawalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deprecated compatibility response
+        "409":
+          description: Secondary approval required
+        "403":
+          description: Missing withdrawal approval permission
+
+  /api/admin/order-status-logs:
+    get:
+      tags: [Admin]
+      summary: List order status change logs
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Order status logs
+        "403":
+          description: Missing order read permission
+
+  /api/admin/operation-logs:
+    get:
+      tags: [Admin]
+      summary: List admin operation logs
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Operation logs
+        "403":
+          description: Missing role read permission
+
+  /api/admin/approval-requests:
+    get:
+      tags: [Admin]
+      summary: List secondary approval requests
+      description: Requires approval:request permission. Finance can submit sensitive refund, withdrawal, and manual points adjustment actions into this queue before final execution.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Approval request list
+        "403":
+          description: Missing approval request permission
+    post:
+      tags: [Admin]
+      summary: Submit a sensitive operation for secondary approval
+      description: Requires approval:request permission. Supported actions include refund.approve, withdrawal.approve, withdrawal.reject, and points.adjust.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, targetType, targetId, reason]
+              properties:
+                action:
+                  type: string
+                  enum: [refund.approve, withdrawal.approve, withdrawal.reject, points.adjust]
+                targetType:
+                  type: string
+                  enum: [refund, withdrawal, user]
+                targetId:
+                  type: string
+                payload:
+                  type: object
+                  properties:
+                    pointsDelta:
+                      type: integer
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: Approval request submitted
+        "400":
+          description: Invalid approval request
+        "403":
+          description: Missing approval request permission
+
+  /api/admin/approval-requests/{approvalId}/approve:
+    post:
+      tags: [Admin]
+      summary: Review and execute a secondary approval request
+      description: Requires approval:review permission. Executes the original refund or withdrawal operation after review.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ApprovalId"
+      responses:
+        "200":
+          description: Approval executed
+        "400":
+          description: Approval cannot be executed
+        "403":
+          description: Missing approval review permission
+        "404":
+          description: Approval request not found
+
+  /api/admin/approval-requests/{approvalId}/reject:
+    post:
+      tags: [Admin]
+      summary: Reject a secondary approval request
+      description: Requires approval:review permission. Rejecting the approval leaves the target refund or withdrawal pending for follow-up.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ApprovalId"
+      responses:
+        "200":
+          description: Approval rejected
+        "400":
+          description: Approval cannot be rejected
+        "403":
+          description: Missing approval review permission
+        "404":
+          description: Approval request not found
+
+  /api/admin/ledger:
+    get:
+      tags: [Admin]
+      summary: List point and payment ledgers
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: paymentStatus
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, failed, refunded, cancelled]
+        - name: payScene
+          in: query
+          schema:
+            type: string
+            enum: [goods_cash, member_open, cash_diff]
+        - name: channel
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ledgers
+        "403":
+          description: Missing ledger read permission
+
+  /api/admin/payments/cancel-timeouts:
+    post:
+      tags: [Admin]
+      summary: Cancel timed-out pending payment orders
+      description: Requires exception:write permission. Pending payment_order rows older than timeoutMinutes are marked cancelled and entered into exception compensation with payment_timeout_cancelled.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeoutMinutes:
+                  type: integer
+                  minimum: 1
+                now:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Timeout scan completed
+        "403":
+          description: Missing exception write permission
+
+  /api/admin/delivery/scan-exceptions:
+    post:
+      tags: [Admin]
+      summary: Scan self-built delivery exceptions
+      description: Requires delivery:dispatch permission. Shipping orders older than timeoutMinutes are entered into exception compensation with delivery_timeout and linked customer tickets.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeoutMinutes:
+                  type: integer
+                  minimum: 1
+                now:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Delivery exception scan completed
+        "403":
+          description: Missing delivery dispatch permission
+
+  /api/admin/permissions:
+    get:
+      tags: [Admin]
+      summary: List admin roles and permissions
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Role list
+        "403":
+          description: Missing role read permission
+
+  /api/admin/exceptions:
+    get:
+      tags: [Admin]
+      summary: List exception compensation queue
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Exceptions
+        "403":
+          description: Missing exception read permission
+    post:
+      tags: [Admin]
+      summary: Create exception compensation record
+      description: Requires exception:write permission.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, bizNo, action]
+              properties:
+                type:
+                  type: string
+                bizNo:
+                  type: string
+                action:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        "201":
+          description: Exception created
+        "403":
+          description: Missing exception write permission
+
+  /api/admin/exceptions/{exceptionId}/resolve:
+    post:
+      tags: [Admin]
+      summary: Mark exception compensation as resolved
+      description: Requires exception:write permission.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ExceptionId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+      responses:
+        "200":
+          description: Exception resolved
+        "400":
+          description: Exception already resolved
+        "403":
+          description: Missing exception write permission
+        "404":
+          description: Exception not found
+
+  /api/admin/refunds:
+    get:
+      tags: [Admin]
+      summary: List refund requests
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Refund request list
+        "403":
+          description: Missing refund approval permission
+
+  /api/admin/refunds/{refundId}/approve:
+    post:
+      tags: [Admin]
+      summary: Deprecated direct refund approval
+      description: Sensitive refund approval must be submitted through /api/admin/approval-requests with action refund.approve.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RefundId"
+      responses:
+        "200":
+          description: Deprecated compatibility response
+        "400":
+          description: Refund cannot be approved
+        "409":
+          description: Secondary approval required
+        "403":
+          description: Missing refund approval permission
+
+components:
+  securitySchemes:
+    UserBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: HMAC
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: HMAC
+  parameters:
+    ProductId:
+      in: path
+      name: productId
+      required: true
+      schema:
+        type: string
+    OrderId:
+      in: path
+      name: orderId
+      required: true
+      schema:
+        type: string
+    TaskId:
+      in: path
+      name: taskId
+      required: true
+      schema:
+        type: string
+    RefundId:
+      in: path
+      name: refundId
+      required: true
+      schema:
+        type: string
+    ApprovalId:
+      in: path
+      name: approvalId
+      required: true
+      schema:
+        type: string
+    ExceptionId:
+      in: path
+      name: exceptionId
+      required: true
+      schema:
+        type: string
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        nickname:
+          type: string
+        role:
+          type: string
+          enum: [normal, member]
+        isMember:
+          type: boolean
+        points:
+          type: integer
+    CreateOrderRequest:
+      type: object
+      required: [paymentMode, fulfillmentType, items]
+      properties:
+        paymentMode:
+          type: string
+          enum: [cash, pure_points, points_plus_cash]
+        fulfillmentType:
+          type: string
+          enum: [pickup, delivery]
+        pickupSiteId:
+          type: string
+        deliveryAddress:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1

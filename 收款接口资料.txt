@@ -1,0 +1,6 @@
+接口网址：https://www.apizza.net/project/be71e2e78ff080ba428959b60975e9e9/browse
+接口说明：请先看对接指引（各场景支付接入指引，根据对应场景对接响应接口），如使用AI工具开发，可参看【支付Skill使用指引】
+测试环境域名： http://api2uat.lfwin.com(测试环境只能使用测试key，其他apikey 会提示apikey错误)
+生产环境域名： http://api2.lfwin.com
+测试key：00014005
+加密key：punr8ucu

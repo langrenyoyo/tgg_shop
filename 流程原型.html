@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TGG Shop 流程原型 v1.2</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f5f6f8; color: #1a1a1a; line-height: 1.6; }
+    header { background: #fff; border-bottom: 1px solid #e8e8e8; padding: 20px 32px; position: sticky; top: 0; z-index: 100; }
+    header h1 { font-size: 22px; font-weight: 600; }
+    header p { font-size: 13px; color: #666; margin-top: 4px; }
+    nav { background: #fff; border-bottom: 1px solid #e8e8e8; padding: 12px 32px; display: flex; flex-wrap: wrap; gap: 8px; position: sticky; top: 72px; z-index: 99; }
+    nav a { font-size: 13px; color: #1677ff; text-decoration: none; padding: 4px 12px; border-radius: 4px; background: #f0f5ff; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 32px 64px; }
+    section { background: #fff; border-radius: 8px; padding: 24px; margin-bottom: 24px; border: 1px solid #e8e8e8; }
+    section h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid #1677ff; display: inline-block; }
+    section .desc { font-size: 13px; color: #666; margin-bottom: 16px; }
+    .mermaid { display: flex; justify-content: center; overflow-x: auto; padding: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    th, td { border: 1px solid #e8e8e8; padding: 8px 12px; text-align: left; }
+    th { background: #fafafa; font-weight: 600; }
+    .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #fff7e6; color: #d46b08; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TGG Shop 流程原型</h1>
+    <p>版本 v1.2 · 2026-06-22 · 对齐《需求文档 v1.2》</p>
+  </header>
+
+  <nav>
+    <a href="#splash">开屏广告</a>
+    <a href="#nav">页面导航</a>
+    <a href="#order">购物下单</a>
+    <a href="#cutoff">配送时段</a>
+    <a href="#pickup">自提淘宝模式</a>
+    <a href="#task-api">做任务API</a>
+    <a href="#signin">签到</a>
+    <a href="#rank">月度排行榜</a>
+    <a href="#withdraw">提现</a>
+    <a href="#verify">代理核销</a>
+    <a href="#agent">代理申请</a>
+  </nav>
+
+  <main>
+    <section id="splash">
+      <h2>0. 开屏广告</h2>
+      <p class="desc">打开 APP 展示，后台可关闭</p>
+      <div class="mermaid">
+flowchart LR
+    A[打开APP] --> B{开屏广告开关}
+    B -->|开启| C[展示广告3-5秒]
+    C --> D{可跳过?}
+    D -->|是| E[倒计时后跳过]
+    D -->|否| F[等待结束]
+    B -->|关闭| G[直接进入首页]
+    E --> G
+    F --> G
+      </div>
+    </section>
+
+    <section id="nav">
+      <h2>1. 页面导航架构</h2>
+      <div class="mermaid">
+flowchart TB
+    Splash[开屏广告] --> Home[首页]
+    Home --> Points[赚积分]
+    Home --> Checkout[确认订单]
+    Points --> AdSign[签到看广告页]
+    Points --> Tasks[任务列表]
+    Checkout --> Cutoff[配送日提示弹窗]
+    Mine[我的] --> Withdraw[提现]
+    Mine --> CS[客服]
+    Mine --> AgentApply[申请代理→客服]
+      </div>
+    </section>
+
+    <section id="order">
+      <h2>2. 购物下单与履约</h2>
+      <p class="desc">自提/送货上门双开关 · 截单配送日 · 自提仅核销</p>
+      <div class="mermaid">
+flowchart TD
+    A[进入结算] --> B{自提开关}
+    B --> C{送货上门开关}
+    C --> D[选择配送方式]
+    D --> E[站点自提]
+    D --> F[送货上门]
+    E --> G[选自提点+联系地址]
+    F --> H[选收货地址]
+    G --> I[计算配送费]
+    H --> I
+    I --> J[展示预计配送日]
+    J --> K[提交订单]
+    K --> L{配送方式}
+    L -->|自提| M[生成核销码]
+    M --> N[代理扫码核销]
+    L -->|送货上门| O[待发货→配送中→已送达]
+      </div>
+    </section>
+
+    <section id="cutoff">
+      <h2>3. 下单配送时段<span class="tag">截单 05:00</span></h2>
+      <table>
+        <tr><th>下单时间</th><th>预计配送日</th></tr>
+        <tr><td>13日 03:00</td><td>13号配送</td></tr>
+        <tr><td>13日 10:00（已过05:00截单）</td><td>14号配送</td></tr>
+        <tr><td>12日 05:00 ~ 13日 05:00前</td><td>13号配送</td></tr>
+      </table>
+    </section>
+
+    <section id="pickup">
+      <h2>4. 站点自提（淘宝模式）</h2>
+      <p class="desc">用户可填联系地址 · 提货到自提点 · 地址后台同步</p>
+      <div class="mermaid">
+flowchart TD
+    A[用户管理联系地址] --> B[下单选自提点]
+    B --> C[后台配置自提点详细地址]
+    C --> D[用户端实时同步展示]
+    D --> E[到站出示核销码]
+    E --> F[代理扫码核销提货]
+      </div>
+    </section>
+
+    <section id="task-api">
+      <h2>5. 做任务（悬赏 API 对接）</h2>
+      <p class="desc">task_type → task_list → task_info → task_register → get_examine_list</p>
+      <div class="mermaid">
+flowchart TD
+    A[做任务 Tab] --> B[task_type 分类]
+    B --> C[task_list 列表]
+    C --> D[task_info 详情]
+    D --> E[按 option 填表+upload]
+    E --> F[task_register 提交]
+    F --> G[get_examine_list]
+    G --> H[回调发积分]
+      </div>
+    </section>
+
+    <section id="signin">
+      <h2>6. 签到（独立板块）</h2>
+      <div class="mermaid">
+flowchart TD
+    A[签到 Tab] --> B[签满30天送XXX]
+    B --> C[看广告签到]
+    C --> D[连续天数+1]
+      </div>
+    </section>
+
+    <section id="rank">
+      <h2>7. 积分排行榜月度结算</h2>
+      <div class="mermaid">
+flowchart TD
+    A[积分入账] --> B[累计当月积分]
+    B --> C[实时排名展示]
+    C --> D{每月1日00:00}
+    D -->|是| E[定榜发奖→清零]
+    D -->|否| B
+      </div>
+    </section>
+
+    <section id="withdraw">
+      <h2>7. 提现流程</h2>
+      <p class="desc">1元起 · 手续费1% · 提到微信 · 后台可配置</p>
+      <div class="mermaid">
+flowchart LR
+    A[我的-提现] --> B[输入金额≥1元]
+    B --> C[扣除1%手续费]
+    C --> D[提现至微信]
+    D --> E[写入提现记录]
+      </div>
+    </section>
+
+    <section id="verify">
+      <h2>8. 代理核销<span class="tag">仅自提</span></h2>
+      <p class="desc">自提点仅核销，无其他功能</p>
+      <div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant A as 代理
+    U->>A: 出示核销码
+    A->>A: 扫一扫核销
+    A->>U: 核销成功提货
+      </div>
+    </section>
+
+    <section id="agent">
+      <h2>9. 申请代理</h2>
+      <p class="desc">跳转客服，非表单自助提交</p>
+      <div class="mermaid">
+flowchart LR
+    A[申请点位代理] --> B[跳转客服]
+    B --> C[客服沟通审核]
+    C --> D[后台标记代理]
+    D --> E[开通扫一扫]
+      </div>
+    </section>
+  </main>
+
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral', flowchart: { curve: 'basis', padding: 16 } });
+  </script>
+</body>
+</html>

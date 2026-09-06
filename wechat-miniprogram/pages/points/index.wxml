@@ -1,0 +1,14 @@
+<view class="page">
+  <view class="card">
+    <view class="title">积分流水</view>
+  </view>
+  <view class="card" wx:for="{{ledger}}" wx:key="id">
+    <view class="row">
+      <view>
+        <view>{{item.changeType}}</view>
+        <view class="muted">{{item.createdAt}}</view>
+      </view>
+      <view class="tag">{{item.direction === 'in' ? '+' : '-'}}{{item.points}}</view>
+    </view>
+  </view>
+</view>
