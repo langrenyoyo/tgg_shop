@@ -10,6 +10,7 @@ const STORE_DRIVER = process.env.TGG_STORE_DRIVER || "json";
 
 let state = createSeed();
 let readyPromise = null;
+let persistQueue = Promise.resolve();
 
 function loadState() {
   if (process.env.TGG_STORE_MODE === "memory") {
@@ -72,7 +73,8 @@ async function saveState() {
     saveSQLiteState(state);
     return state;
   }
-  persist(state);
+  persistQueue = persistQueue.then(() => { persist(state); });
+  await persistQueue;
   return state;
 }
 

@@ -14,6 +14,7 @@ function listUserPayments(state, userId) {
 }
 
 function createGoodsPayment(state, orderId, input = {}) {
+  if (process.env.NODE_ENV === "production" && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled in production" };
   const order = orderRepository.findById(state, orderId);
   if (!order) return { ok: false, status: 404, error: "订单不存在" };
   if (order.status === "paid") {
@@ -49,6 +50,7 @@ function createGoodsPayment(state, orderId, input = {}) {
 }
 
 function createMemberPayment(state, user, input = {}) {
+  if (process.env.NODE_ENV === "production" && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled in production" };
   const months = Math.max(1, Number(input.months || 1));
   const price = Number(state.config.membershipMonthlyPrice || 19.9);
   const amount = roundMoney(price * months);

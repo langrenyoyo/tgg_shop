@@ -27,8 +27,13 @@ async function listTasksForUser(state, query = {}) {
 
 async function getTaskDetail(state, taskId) {
   if (taskPlatform.isConfigured()) {
-    const row = await taskPlatform.post("index/index/task_info", { id: taskId });
-    return taskPlatform.normalizeTaskDetail(row);
+    try {
+      const row = await taskPlatform.post("index/index/task_info", { id: taskId });
+      return taskPlatform.normalizeTaskDetail(row);
+    } catch (error) {
+      if (process.env.NODE_ENV === "production") throw error;
+      return normalizeLocalTaskDetail(taskRepository.findById(state, taskId));
+    }
   }
   return normalizeLocalTaskDetail(taskRepository.findById(state, taskId));
 }
@@ -44,11 +49,16 @@ async function submitTask(state, user, taskId, payload) {
   const normalizedPayload = normalizeSubmitPayload(payload);
   let platformResult = null;
   if (taskPlatform.isConfigured()) {
-    platformResult = await taskPlatform.post("index/index/task_register", {
-      task_id: taskId,
-      sf_uid: user.id,
-      ...normalizedPayload
-    });
+    try {
+      platformResult = await taskPlatform.post("index/index/task_register", {
+        task_id: taskId,
+        sf_uid: user.id,
+        ...normalizedPayload
+      });
+    } catch (error) {
+      if (process.env.NODE_ENV === "production") throw error;
+      platformResult = null;
+    }
   }
 
   const submission = {
@@ -71,6 +81,23 @@ async function submitTask(state, user, taskId, payload) {
     createdAt: now,
     updatedAt: now
   };
+  // External tasks must also exist locally so relational stores can satisfy the
+  // task_submission foreign key and retain a stable task snapshot.
+  if (!taskRepository.findById(state, task.id)) {
+    state.tasks.push({
+      id: task.id,
+      title: task.title || `External task ${task.id}`,
+      category: task.category || "external",
+      categoryId: task.categoryId || "external",
+      rewardPoints: task.rewardPoints || 0,
+      submitFields: task.submitFields || task.option || [],
+      option: task.option || task.submitFields || [],
+      status: task.paused ? "paused" : "active",
+      source: "platform",
+      createdAt: now,
+      updatedAt: now
+    });
+  }
   taskRepository.addSubmission(state, submission);
   saveState();
   return { ok: true, submission };
@@ -90,8 +117,14 @@ async function listUserSubmissions(state, userId, query = {}) {
 
 async function getSubmissionDetail(state, userId, submissionId) {
   if (taskPlatform.isConfigured()) {
-    const row = await taskPlatform.post("index/index/get_examine_info", { id: submissionId, sf_uid: userId });
-    return taskPlatform.normalizeTaskDetail(row);
+    try {
+      const row = await taskPlatform.post("index/index/get_examine_info", { id: submissionId, sf_uid: userId });
+      return taskPlatform.normalizeTaskDetail(row);
+    } catch (error) {
+      if (process.env.NODE_ENV === "production") throw error;
+      const local = taskRepository.findSubmission(state, submissionId, userId);
+      return local ? withTaskSummary(state, local) : null;
+    }
   }
   const submission = taskRepository.findSubmission(state, submissionId, userId);
   if (!submission || submission.userId !== userId) return null;
