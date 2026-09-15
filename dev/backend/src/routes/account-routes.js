@@ -1,7 +1,13 @@
 const accountService = require("../services/account-service");
+const withdrawalService = require("../services/withdrawal-service");
 
 async function handleAccountRoutes(ctx) {
   const { req, url, state, user, send, readBody } = ctx;
+
+  if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") {
+    const result = withdrawalService.handleCallback(state, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { success: true, withdrawal: result.withdrawal } : { error: result.error });
+  }
 
   if (req.method === "GET" && url.pathname === "/api/pickup-sites") {
     return send(ctx.res, 200, accountService.listPickupSites(state));
@@ -32,6 +38,11 @@ async function handleAccountRoutes(ctx) {
 
   if (req.method === "GET" && url.pathname === "/api/withdrawals") {
     return send(ctx.res, 200, accountService.listWithdrawals(state, user.id));
+  }
+  const withdrawalMatch = url.pathname.match(/^\/api\/withdrawals\/([^/]+)$/);
+  if (req.method === "GET" && withdrawalMatch) {
+    const withdrawal = accountService.getWithdrawal(state, user.id, withdrawalMatch[1]);
+    return send(ctx.res, withdrawal ? 200 : 404, withdrawal || { error: "提现记录不存在" });
   }
 
   if (req.method === "POST" && url.pathname === "/api/withdrawals") {

@@ -1,4 +1,5 @@
-const DEFAULT_BASE_URL = "http://127.0.0.1:5190";
+// 线上测试环境 API 地址；也可通过 tgg_config 覆盖。
+const DEFAULT_BASE_URL = "http://shoptest.taoguoguo.cc";
 
 function getBaseUrl() {
   const cfg = wx.getStorageSync("tgg_config") || {};

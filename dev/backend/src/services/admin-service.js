@@ -756,7 +756,8 @@ function approveWithdrawal(state, withdrawalId, actor = {}, reason = "") {
   if (withdrawal.status !== "pending_review") return { ok: false, status: 400, error: "operation failed" };
 
   const now = new Date().toISOString();
-  withdrawal.status = "success";
+  withdrawal.status = process.env.HF_BASE_URL ? "processing" : "success";
+  withdrawal.providerStatus = process.env.HF_BASE_URL ? "PROCESSING" : "MOCK_SUCCESS";
   withdrawal.updatedAt = now;
   ledgerRepository.addWithdrawableEntry(state, {
     id: nextId("wlg"),

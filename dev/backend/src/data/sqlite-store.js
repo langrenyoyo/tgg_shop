@@ -41,6 +41,17 @@ function runMigrations(database) {
   ensureOperationTicketColumns(database);
   ensureAuthSessionColumns(database);
   ensurePaymentOrderColumns(database);
+  ensureWithdrawalColumns(database);
+}
+
+function ensureWithdrawalColumns(database) {
+  const columns = new Set(database.prepare("PRAGMA table_info(withdraw_request)").all().map((column) => column.name));
+  const additions = [
+    ["provider", "TEXT NOT NULL DEFAULT 'huifu_bafang'"], ["openid", "TEXT"], ["recipient_name", "TEXT"],
+    ["provider_order_id", "TEXT"], ["provider_status", "TEXT"], ["provider_error_code", "TEXT"],
+    ["provider_error_message", "TEXT"], ["submitted_at", "TEXT"], ["callback_at", "TEXT"], ["last_query_at", "TEXT"]
+  ];
+  for (const [name, definition] of additions) if (!columns.has(name)) database.exec(`ALTER TABLE withdraw_request ADD COLUMN ${name} ${definition};`);
 }
 
 function ensureOperationTicketColumns(database) {
@@ -313,7 +324,7 @@ function readState(database) {
 
   const withdrawRequests = database
     .prepare(
-      "SELECT id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, created_at, updated_at FROM withdraw_request ORDER BY created_at DESC"
+      "SELECT id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_status, provider_error_code, provider_error_message, submitted_at, callback_at, last_query_at, created_at, updated_at FROM withdraw_request ORDER BY created_at DESC"
     )
     .all()
     .map((row) => ({
@@ -325,6 +336,10 @@ function readState(database) {
       channel: row.channel,
       status: row.status,
       idempotencyKey: row.idempotency_key,
+      provider: row.provider, openid: row.openid, recipientName: row.recipient_name,
+      providerOrderId: row.provider_order_id, providerStatus: row.provider_status,
+      providerErrorCode: row.provider_error_code, providerErrorMessage: row.provider_error_message,
+      submittedAt: row.submitted_at, callbackAt: row.callback_at, lastQueryAt: row.last_query_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -780,7 +795,7 @@ function insertState(database, state) {
   }
 
   const insertWithdrawRequest = database.prepare(
-    "INSERT INTO withdraw_request (id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO withdraw_request (id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_status, provider_error_code, provider_error_message, submitted_at, callback_at, last_query_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const item of state.withdrawRequests || []) {
     insertWithdrawRequest.run(
@@ -792,6 +807,9 @@ function insertState(database, state) {
       item.channel || "wechat",
       item.status || "pending_review",
       item.idempotencyKey,
+      item.provider || "huifu_bafang", item.openid || null, item.recipientName || null,
+      item.providerOrderId || null, item.providerStatus || "pending", item.providerErrorCode || null,
+      item.providerErrorMessage || null, item.submittedAt || null, item.callbackAt || null, item.lastQueryAt || null,
       item.createdAt || new Date().toISOString(),
       item.updatedAt || item.createdAt || new Date().toISOString()
     );

@@ -16,14 +16,14 @@
 默认指向本地后端：
 
 ```text
-http://127.0.0.1:5190
+http://shoptest.taoguoguo.cc
 ```
 
 可在小程序端通过存储 `tgg_config` 覆盖：
 
 ```js
 wx.setStorageSync("tgg_config", {
-  tggApiUrl: "http://127.0.0.1:5190"
+  tggApiUrl: "http://shoptest.taoguoguo.cc"
 });
 ```
 

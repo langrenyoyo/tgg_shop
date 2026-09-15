@@ -54,6 +54,7 @@ async function routeApi(req, res, url) {
 
 function requiresUserAuth(req, url) {
   if (url.pathname === "/api/auth/login") return false;
+  if (url.pathname === "/api/auth/wechat-login") return false;
   if (url.pathname === "/api/auth/refresh") return false;
   if (url.pathname === "/api/admin/auth/login") return false;
   if (url.pathname === "/api/admin/auth/refresh") return false;

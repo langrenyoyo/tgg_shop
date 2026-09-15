@@ -1,5 +1,6 @@
 const adminService = require("../services/admin-service");
 const paymentService = require("../services/payment-service");
+const withdrawalService = require("../services/withdrawal-service");
 
 async function handleAdminRoutes(ctx) {
   const { req, url, state, send } = ctx;
@@ -264,6 +265,20 @@ async function handleAdminRoutes(ctx) {
 
   if (req.method === "GET" && url.pathname === "/api/admin/refunds") return send(ctx.res, 200, adminService.listRefunds(state));
   if (req.method === "GET" && url.pathname === "/api/admin/withdrawals") return send(ctx.res, 200, adminService.listWithdrawals(state));
+  const providerQueryMatch = url.pathname.match(/^\/api\/admin\/withdrawals\/([^/]+)\/query-provider$/);
+  if (req.method === "POST" && providerQueryMatch) {
+    const check = adminService.requirePermission(req, state, "withdraw:approve");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const result = await withdrawalService.queryWithdrawal(state, providerQueryMatch[1]);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.withdrawal : { error: result.error });
+  }
+  const providerSubmitMatch = url.pathname.match(/^\/api\/admin\/withdrawals\/([^/]+)\/submit-provider$/);
+  if (req.method === "POST" && providerSubmitMatch) {
+    const check = adminService.requirePermission(req, state, "withdraw:approve");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const result = await withdrawalService.submitWithdrawal(state, providerSubmitMatch[1]);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.withdrawal : { error: result.error, detail: result.detail });
+  }
 
   const approveWithdrawalMatch = url.pathname.match(/^\/api\/admin\/withdrawals\/([^/]+)\/approve$/);
   if (req.method === "POST" && approveWithdrawalMatch) {

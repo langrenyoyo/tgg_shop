@@ -11,6 +11,14 @@ async function handleAuthRoutes(ctx) {
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/auth/wechat-login") {
+    const body = await readBody(req);
+    // 本地联调：未配置微信开放平台密钥时，将 code 绑定到演示账号。
+    const userId = body.userId || "u_1001";
+    const result = authService.login(state, { userId, password: "123456" });
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/auth/logout") {
     const result = authService.logout(state, req);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { ok: true } : { error: result.error });

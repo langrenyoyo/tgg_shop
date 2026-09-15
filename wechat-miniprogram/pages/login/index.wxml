@@ -1,15 +1,8 @@
 <view class="page">
   <view class="card">
-    <view class="title">TGG Shop 登录</view>
-    <view class="muted" style="margin-top:12rpx;">使用项目现有账号接口登录</view>
+    <view class="title">TGG Shop</view><view class="muted" style="margin-top:12rpx;">使用微信账号安全登录</view>
     <view style="margin-top:24rpx;">
-      <input class="input" placeholder="用户ID，例如 u_1001" value="{{userId}}" bindinput="onUserIdInput" />
-    </view>
-    <view style="margin-top:16rpx;">
-      <input class="input" placeholder="密码" password="true" value="{{password}}" bindinput="onPasswordInput" />
-    </view>
-    <view style="margin-top:24rpx;">
-      <button class="btn btn-primary" loading="{{loading}}" bindtap="handleLogin">登录</button>
+      <button class="btn btn-primary" loading="{{loading}}" bindtap="handleLogin">微信一键登录</button>
     </view>
   </view>
 </view>

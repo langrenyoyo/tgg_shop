@@ -84,8 +84,16 @@ function deleteAddress(state, userId, addressId) {
 function listWithdrawals(state, userId) {
   return state.withdrawRequests.filter((item) => item.userId === userId);
 }
+function getWithdrawal(state, userId, withdrawalId) {
+  return state.withdrawRequests.find((item) => item.userId === userId && item.id === withdrawalId) || null;
+}
 
 function requestWithdrawal(state, user, input) {
+  const requestedKey = String(input.idempotencyKey || "").trim();
+  if (requestedKey) {
+    const existing = state.withdrawRequests.find((item) => item.userId === user.id && item.idempotencyKey === requestedKey);
+    if (existing) return { ok: true, withdrawal: existing, idempotent: true };
+  }
   const amount = roundMoney(input.amount);
   const minAmount = Number(state.config.withdrawMinAmount || 1);
   if (!amount || amount < minAmount) return { ok: false, status: 400, error: `最低提现金额为 ${minAmount} 元` };
@@ -102,7 +110,11 @@ function requestWithdrawal(state, user, input) {
     arrivalAmount,
     channel: input.channel || "wechat",
     status: "pending_review",
-    idempotencyKey: input.idempotencyKey || `withdraw:${user.id}:${Date.now()}`,
+    idempotencyKey: requestedKey || `withdraw:${user.id}:${Date.now()}`,
+    openid: String(input.openid || user.openid || "").trim(),
+    recipientName: String(input.recipientName || "").trim(),
+    provider: "huifu_bafang",
+    providerStatus: "pending",
     createdAt: now,
     updatedAt: now
   };
@@ -121,7 +133,7 @@ function requestWithdrawal(state, user, input) {
   });
   state.withdrawRequests.unshift(withdrawal);
   saveState();
-  return { ok: true, withdrawal };
+  return { ok: true, withdrawal, idempotent: false };
 }
 
 function getPointLedger(state, userId) {
@@ -192,6 +204,7 @@ module.exports = {
   updateAddress,
   deleteAddress,
   listWithdrawals,
+  getWithdrawal,
   requestWithdrawal,
   getPointLedger,
   getRanking,
