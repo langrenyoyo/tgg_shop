@@ -35,6 +35,22 @@ function login(state, input = {}) {
   return result;
 }
 
+async function wechatLogin(state, input = {}) {
+  const code = String(input.code || "");
+  if (!code) return { ok: false, status: 400, error: "微信 code 不能为空" };
+  const appid = process.env.WECHAT_APPID;
+  const secret = process.env.WECHAT_APPSECRET;
+  if (!appid || !secret) return { ok: false, status: 503, error: "服务端未配置微信 AppID/AppSecret" };
+  const response = await fetch(`https://api.weixin.qq.com/sns/jscode2session?appid=${encodeURIComponent(appid)}&secret=${encodeURIComponent(secret)}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`);
+  const data = await response.json();
+  if (!data.openid) return { ok: false, status: 401, error: data.errmsg || "微信 code 无效" };
+  let user = state.users.find((item) => item.wechatOpenid === data.openid);
+  if (!user) { user = { id: `wx_${data.openid.slice(-12)}`, nickname: "微信用户", points: 0, status: "active", wechatOpenid: data.openid }; state.users.push(user); }
+  userRepository.setCurrentUser(state, user.id);
+  const result = tokenResult(state, { user: publicUser(user), tokenPayload: { type: "user", userId: user.id } });
+  saveState(); return result;
+}
+
 function adminLogin(state, input = {}) {
   const roleId = input.roleId || input.adminId;
   const role = state.roles.find((item) => item.id === roleId);
@@ -213,6 +229,7 @@ function hashPassword(password) {
 module.exports = {
   getCurrentUser,
   login,
+  wechatLogin,
   adminLogin,
   refresh,
   logout,
