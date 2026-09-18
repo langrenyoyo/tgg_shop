@@ -1,6 +1,7 @@
 const accountService = require("../services/account-service");
 const withdrawalService = require("../services/withdrawal-service");
 const { authenticateCallback } = require("../services/callback-auth");
+const huifu = require("../services/withdrawal-provider/huifu-bafang");
 
 async function handleAccountRoutes(ctx) {
   const { req, url, state, user, send, readBody } = ctx;
@@ -8,7 +9,10 @@ async function handleAccountRoutes(ctx) {
   if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") {
     const auth = authenticateCallback(req, url, "HF_CALLBACK_TOKEN", "x-huifu-callback-token");
     if (!auth.ok) return send(ctx.res, auth.status, { error: auth.error });
-    const result = withdrawalService.handleCallback(state, await readBody(req));
+    let body;
+    try { body = huifu.decodeCallback(await readBody(req)); }
+    catch { return send(ctx.res, 400, { error: "提现回调格式错误" }); }
+    const result = withdrawalService.handleCallback(state, body);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { success: true, withdrawal: result.withdrawal } : { error: result.error });
   }
 

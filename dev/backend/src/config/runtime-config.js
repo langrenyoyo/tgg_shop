@@ -85,6 +85,12 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
         if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.search || url.hash || /replace|\.example$|\.invalid$/.test(url.hostname)) throw new Error();
       } catch { errors.push(`${key} must be an HTTPS URL without credentials, query or fragment`); }
     };
+    const callbackUrl = key => {
+      try {
+        const url = new URL(env[key]);
+        if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.hash || url.pathname !== "/api/providers/huifu/withdraw-callback" || url.searchParams.get("token") !== env.HF_CALLBACK_TOKEN || Array.from(url.searchParams.keys()).some(name => name !== "token")) throw new Error();
+      } catch { errors.push(`${key} must be the HTTPS Huifu callback URL with the configured token`); }
+    };
     for (const key of [...taskKeys, "WECHAT_APPSECRET", "LFWIN_API_KEY"]) required(key);
     if (!/^wx[0-9a-f]{16}$/.test(env.WECHAT_APPID || "")) errors.push("WECHAT_APPID must be a valid mini-program AppID");
     for (const key of ["LFWIN_BASE_URL", "LFWIN_NOTIFY_URL", "LFWIN_REFUND_NOTIFY_URL"]) https(key);
@@ -101,9 +107,16 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
     } else errors.push("LFWIN_SIGN_TYPE must be MD5 or RSA");
     const timeout = Number(env.LFWIN_TIMEOUT_MS || 10000);
     if (!Number.isSafeInteger(timeout) || timeout < 1000 || timeout > 60000) errors.push("LFWIN_TIMEOUT_MS must be an integer between 1000 and 60000");
-    if (["HF_BASE_URL", "HF_COM_KEY", "HF_COM_SECRET"].some(key => env[key])) {
-      for (const key of ["HF_COM_KEY", "HF_COM_SECRET", "HF_CALLBACK_TOKEN"]) required(key);
+    if (["HF_BASE_URL", "HF_COM_KEY", "HF_COM_SECRET", "HF_MERCHANT_ID"].some(key => env[key])) {
+      for (const key of ["HF_COM_KEY", "HF_COM_SECRET", "HF_CALLBACK_TOKEN", "HF_MERCHANT_ID", "HF_CALLBACK_URL"]) required(key);
       https("HF_BASE_URL");
+      callbackUrl("HF_CALLBACK_URL");
+      if (Buffer.byteLength(String(env.HF_COM_KEY || ""), "utf8") !== 16) errors.push("HF_COM_KEY must be exactly 16 UTF-8 bytes");
+      if (Buffer.byteLength(String(env.HF_COM_SECRET || ""), "utf8") !== 32) errors.push("HF_COM_SECRET must be exactly 32 UTF-8 bytes");
+      const hfAppId = env.HF_WECHAT_APPID || env.WECHAT_APPID;
+      if (!hfAppId) errors.push("HF_WECHAT_APPID or WECHAT_APPID is required when production withdrawal provider is configured");
+      if (env.HF_TRANSFER_MODE && !["CONFIRM", "CONFIRM_AUTH", "AUTH"].includes(env.HF_TRANSFER_MODE)) errors.push("HF_TRANSFER_MODE must be CONFIRM, CONFIRM_AUTH or AUTH");
+      if (env.HF_USER_RECV_TYPE && !["CONFIRM_PAGE", "RED_PACKET"].includes(env.HF_USER_RECV_TYPE)) errors.push("HF_USER_RECV_TYPE must be CONFIRM_PAGE or RED_PACKET");
       if (String(env.HF_CALLBACK_TOKEN || "").trim().length < 24) errors.push("HF_CALLBACK_TOKEN must be at least 24 characters when production withdrawal provider is configured");
     }
   }

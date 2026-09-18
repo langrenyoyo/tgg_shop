@@ -24,6 +24,7 @@ function initialize() {
   const hosts = require(path.join(miniRoot, "config/environments.js"));
   values.LFWIN_NOTIFY_URL = hosts.release ? hosts.release + "/api/payment-providers/lfwin/notify" : "";
   values.LFWIN_REFUND_NOTIFY_URL = hosts.release ? hosts.release + "/api/payment/lfwin/refund-notify" : "";
+  values.HF_CALLBACK_URL = hosts.release ? `${hosts.release}/api/providers/huifu/withdraw-callback?token=${values.HF_CALLBACK_TOKEN}` : "";
   const output = fs.readFileSync(templateFile, "utf8").replace(/^([A-Z][A-Z0-9_]*)=.*$/gm, (_, key) => `${key}=${values[key]}`);
   fs.writeFileSync(target, output, { flag: "wx", mode: 0o600 });
   console.log("Created ignored dev/backend/.env.production; generated three independent secrets and copied existing provider settings for verification. No values printed.");

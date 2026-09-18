@@ -86,6 +86,7 @@ test("production initialization generates distinct secrets once and never prints
   assert.equal(env.LFWIN_BASE_URL, "https://api2.lfwin.com");
   assert.equal(env.WECHAT_APPID, valid.WECHAT_APPID);
   assert.equal(env.LFWIN_NOTIFY_URL, valid.LFWIN_NOTIFY_URL);
+  assert.equal(env.HF_CALLBACK_URL, `https://shop.taoguoguo.cc/api/providers/huifu/withdraw-callback?token=${env.HF_CALLBACK_TOKEN}`);
   assert.equal(spawnSync(process.execPath, args).status, 1);
   assert.equal(fs.readFileSync(file, "utf8"), before);
 });

@@ -17,6 +17,7 @@
 - `WECHAT_APPID`, `WECHAT_APPSECRET`
 - `LFWIN_BASE_URL`, `LFWIN_API_KEY`, `LFWIN_SIGN_TYPE`, signing key/private key, `LFWIN_NOTIFY_URL`
 - `HF_CALLBACK_TOKEN` (at least 24 random characters when the Huifu withdrawal provider is enabled; sent as `x-huifu-callback-token` or callback URL `token`)
+- `HF_BASE_URL`, `HF_COM_KEY`, `HF_COM_SECRET`, `HF_MERCHANT_ID`, `HF_CALLBACK_URL` and optional `HF_WECHAT_APPID`, `HF_TRANSFER_MODE`, `HF_USER_RECV_PERCEPTION`, `HF_USER_RECV_TYPE` for the Huifu Bafang WeChat merchant-transfer withdrawal channel. `HF_COM_KEY` must be 16 UTF-8 bytes and `HF_COM_SECRET` 32 UTF-8 bytes; the API uses AES-256-CBC with `comKey` as IV and `comSecret` as key, plus a Unix timestamp in seconds.
 - `LFWIN_REFUND_NOTIFY_URL` (required before approving cash refunds in production)
 
 ## Run
@@ -33,6 +34,8 @@ npm run config:check
 The supplied payment material contains a test key only. Do not use it as the production API/signing key. On 2026-09-17, a credential-free GET to the production gateway returned HTTP 200 with TLS verification; this proves endpoint availability only. The shop health endpoint also reported `driver=pg`, `storeReady=true`, `pgReady=true`; reuse the deployed database settings once available instead of initializing another production database. Its connection string is not exposed by the health endpoint. Preserve deployed authentication/callback secrets when updating an existing deployment; newly generated local secrets are not evidence of what that deployment uses.
 
 Fill `TGG_PG_URL`, `WECHAT_APPSECRET`, `LFWIN_BASE_URL`, `LFWIN_API_KEY`, and the provider-issued signing credentials in `.env.production`. RSA needs the merchant private key and provider verification public key; use literal `\n` for PEM line breaks. MD5 needs `LFWIN_SIGN_KEY` and `LFWIN_SIGN_TYPE=MD5` only if confirmed by the provider. Do not generate substitute provider keys.
+
+For Huifu Bafang, use the production API origin `https://tfapi.huifubafang.com`, bind the mini-program AppID and WeChat merchant ID in the provider console, and configure the generated `HF_CALLBACK_URL` (it contains the generated callback token). The default `CONFIRM` transfer mode returns `package_info` and requires the mini-program to invoke WeChat's `requestMerchantTransfer`; provider acceptance is required before enabling real withdrawals. The server records a payout only after an encrypted provider callback or a verified terminal query.
 
 `config:check` exits nonzero on missing/invalid production settings, mismatched AppIDs or callback domains, disabled domain checking, or missing trial/release API origins. It prints field names, never credential values. Passing means offline configuration is valid, not that credentials, database access, refunds, ad verification or real-device acceptance have passed.
 

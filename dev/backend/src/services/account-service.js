@@ -111,7 +111,7 @@ function requestWithdrawal(state, user, input) {
     channel: input.channel || "wechat",
     status: "pending_review",
     idempotencyKey: requestedKey || `withdraw:${user.id}:${Date.now()}`,
-    openid: String(input.openid || user.openid || "").trim(),
+    openid: String(input.openid || user.openid || user.wechatOpenid || "").trim(),
     recipientName: String(input.recipientName || "").trim(),
     provider: "huifu_bafang",
     providerStatus: "pending",

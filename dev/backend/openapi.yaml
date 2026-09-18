@@ -1788,7 +1788,7 @@ paths:
     post:
       tags: [Payments]
       summary: Receive trusted Huifu withdrawal status callback
-      description: Requires independent HF_CALLBACK_TOKEN in x-huifu-callback-token or query token. User/admin Bearer tokens are not accepted. Only existing withdrawals are updated; terminal provider results settle according to the status mapping with idempotent ledger handling.
+      description: Requires independent HF_CALLBACK_TOKEN in x-huifu-callback-token or query token. The Huifu Bafang body may contain encrypted data using AES-256-CBC with comKey as IV and comSecret as key; the server decrypts it before matching order_id/platform_order_id. User/admin Bearer tokens are not accepted. Only existing withdrawals are updated; terminal provider results settle according to the status mapping with idempotent ledger handling.
       security: []
       parameters:
         - in: header
