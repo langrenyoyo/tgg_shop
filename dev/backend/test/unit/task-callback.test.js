@@ -3,7 +3,7 @@ process.env.TGG_STORE_MODE = "memory";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
-const { submitTask } = require("../../src/services/task-service");
+const { submitTask, processTaskCallback } = require("../../src/services/task-service");
 const { handleTaskCallback } = require("../../src/domain/task-callback-rules");
 const taskPlatform = require("../../src/services/task-platform-client");
 
@@ -14,7 +14,7 @@ test("approved task callback grants points once", async () => {
   const inviter = state.users.find((item) => item.id === "u_1001");
   const before = user.points;
   const inviterBefore = inviter.points;
-  const submission = (await submitTask(state, user, "task_001", { phone: "13900000000" })).submission;
+  const submission = (await submitTask(state, user, "task_001", { phone: "13900000000", screenshot: "https://example.com/proof.png" })).submission;
 
   const result = handleTaskCallback(state, { id: submission.id, status: 1, remarks: "通过" });
   assert.equal(result.ok, true);
@@ -38,7 +38,7 @@ test("rejected task callback updates submission without points", async () => {
   const user = state.users.find((item) => item.id === "u_1002");
   user.memberUntil = new Date(Date.now() + 86400000).toISOString();
   const before = user.points;
-  const submission = (await submitTask(state, user, "task_002", { account: "demo" })).submission;
+  const submission = (await submitTask(state, user, "task_002", { account: "demo", screenshot: "https://example.com/proof.png" })).submission;
 
   const result = handleTaskCallback(state, { submissionId: submission.id, status: 2, remarks: "资料不完整" });
   assert.equal(result.ok, true);
@@ -118,4 +118,54 @@ test("platform task submission keeps snapshot for callback approval", async () =
     taskPlatform.isConfigured = originalIsConfigured;
     taskPlatform.post = originalPost;
   }
+});
+
+test("failed reward validation leaves review retryable and snapshot wins over edited task", async () => {
+  const state = createSeed();
+  const user = state.users[0];
+  const submission = (await submitTask(state, user, "task_001", { mobile: "13800138000", images: "https://example.com/proof.png" })).submission;
+  const before = user.points;
+  state.tasks.find(item => item.id === submission.taskId).rewardPoints = 999;
+  const snapshot = submission.taskSnapshot;
+  submission.taskSnapshot = { ...snapshot, rewardPoints: -1 };
+  assert.equal(handleTaskCallback(state, { id: submission.id, status: 1 }).ok, false);
+  assert.equal(submission.status, "reviewing");
+  assert.equal(user.points, before);
+  submission.taskSnapshot = snapshot;
+  assert.equal(handleTaskCallback(state, { id: submission.id, status: 1 }).ok, true);
+  assert.equal(user.points, before + snapshot.rewardPoints);
+  assert.equal(handleTaskCallback(state, { id: submission.id, status: 2 }).status, 409);
+  assert.equal(submission.status, "approved");
+});
+
+test("documented empty register response reconciles by platform order and payload", async t => {
+  const state = createSeed();
+  const user = state.users[0];
+  const originalConfigured = taskPlatform.isConfigured;
+  const originalPost = taskPlatform.post;
+  t.after(() => { taskPlatform.isConfigured = originalConfigured; taskPlatform.post = originalPost; });
+  taskPlatform.isConfigured = () => true;
+  taskPlatform.post = async endpoint => {
+    if (endpoint.endsWith("task_info")) return { id: "ext_task", title: "平台任务", users_ratio: "4.2", option: ["mobile"] };
+    if (endpoint.endsWith("task_register")) return {};
+    if (endpoint.endsWith("get_examine_list")) return [{ id: "review_1", task_id: "ext_task", sf_uid: user.id, mobile: "13800138000", status: 1, createtime: new Date().toISOString() }];
+    throw new Error("Unexpected endpoint");
+  };
+  const submission = (await submitTask(state, user, "ext_task", { mobile: "13800138000" })).submission;
+  assert.equal(submission.externalOrderId, null);
+  const before = user.points;
+  const result = await processTaskCallback(state, { id: "review_1", sf_uid: user.id, status: 1 });
+  assert.equal(result.ok, true);
+  assert.equal(submission.externalOrderId, "review_1");
+  assert.equal(user.points, before + 42);
+  assert.equal((await processTaskCallback(state, { id: "review_1", sf_uid: user.id, status: 1 })).idempotent, true);
+});
+
+test("callback cannot resolve a local submission for the wrong user", async () => {
+  const state = createSeed();
+  const user = state.users[0];
+  const submission = (await submitTask(state, user, "task_001", { mobile: "13800138000", images: "https://example.com/proof.png" })).submission;
+  const before = user.points;
+  assert.equal(handleTaskCallback(state, { id: submission.id, sf_uid: "someone_else", status: 1 }).status, 404);
+  assert.equal(user.points, before);
 });

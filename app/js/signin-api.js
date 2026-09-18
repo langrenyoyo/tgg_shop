@@ -19,8 +19,28 @@ const SigninApi = (() => {
     const url = `${base}/${path.replace(/^\//, "")}`;
     const res = await fetch(url, { method: "POST", body });
     const json = await res.json();
-    if (json.code !== 0) throw new Error(json.msg || "请求失败");
-    return json.data;
+    if (Object.prototype.hasOwnProperty.call(json, "code")) {
+      if (json.code !== 0) throw new Error(json.msg || "请求失败");
+      return normalize(path, json.data || {});
+    }
+    return normalize(path, json);
+  }
+
+  // Normalize the TGG backend contract to the historical earn-points UI names.
+  function normalize(path, data) {
+    if (!data || typeof data !== "object") return data;
+    if (!path.includes("signin")) return data;
+    return {
+      ...data,
+      group_count: data.group_count ?? data.adGroups,
+      group_min: data.group_min ?? data.groupMin,
+      group_max: data.group_max ?? data.groupMax,
+      current_group: data.current_group ?? ((data.completedGroups || 0) + 1),
+      current_step: data.current_step ?? (data.currentAdType === "reward_video" ? "ji" : data.currentAdType === "interstitial" ? "cha" : "done"),
+      lottery_available: data.lottery_available ?? Boolean(data.lotteryTicket),
+      streak_days: data.streak_days ?? data.streakDays,
+      prizes: data.prizes || [],
+    };
   }
 
   const getSigninStatus = () => post("api/signin/status");

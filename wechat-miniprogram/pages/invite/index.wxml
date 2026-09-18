@@ -10,13 +10,18 @@
     <view class="muted" style="margin-top:10rpx;">邀请奖励 {{info.rewardInvite}} 积分</view>
     <view class="muted">邀请提成 {{info.rewardRatio}}%</view>
     <button class="btn btn-light" style="margin-top:16rpx;" bindtap="copyCode">复制邀请码</button>
+    <button class="btn btn-primary" open-type="share" disabled="{{!info.inviteCode}}">邀请好友</button>
+    <view class="muted">累计邀请 {{info.totalInvited || 0}} 人 · 累计提成 {{info.totalCommission || 0}} 积分</view>
   </view>
 
   <view class="card">
     <view class="row">
       <view class="title">邀请列表</view>
-      <button class="btn btn-light" bindtap="load">刷新</button>
+      <button class="btn btn-light" bindtap="load" loading="{{loading}}" disabled="{{loading}}">刷新</button>
     </view>
+    <view wx:if="{{error}}">{{error}}<button bindtap="load">重试</button></view>
+    <button wx:if="{{error === '请登录后查看邀请记录'}}" bindtap="goLogin">去登录</button>
+    <view wx:if="{{!loading && !error && !list.length}}">暂无邀请记录，邀请好友后可在这里查看。</view>
     <view wx:for="{{list}}" wx:key="uid" class="list-item">
       <view class="row">
         <view>
@@ -27,4 +32,5 @@
       </view>
     </view>
   </view>
+  <button wx:if="{{hasMore}}" bindtap="more" loading="{{loading}}" disabled="{{loading}}">加载更多</button>
 </view>

@@ -20,6 +20,7 @@
     signinGroupMax: 5,
     signinCurrentGroup: 1,
     signinCurrentStep: "ji",
+    signinSessionId: "",
     signinAdsDone: 0,
     signinAdsTotal: 8,
     signinPrizes: [],
@@ -404,6 +405,7 @@
   async function initSignin() {
     try {
       const status = await SigninApi.getSigninStatus();
+      state.signinSessionId = status.sessionId || state.signinSessionId;
       state.signinGroups = status.group_count || 4;
       state.signinGroupMin = status.group_min || 3;
       state.signinGroupMax = status.group_max || 5;
@@ -437,6 +439,7 @@
     try {
       const data = await SigninApi.startSignin();
       state.signinGroups = data.group_count || state.signinGroups;
+      state.signinSessionId = data.sessionId || "";
       state.signinCurrentGroup = data.current_group || 1;
       state.signinCurrentStep = data.current_step || "ji";
       state.signinAdsDone = 0;
@@ -473,6 +476,7 @@
     setTimeout(async () => {
       try {
         const res = await SigninApi.reportAdComplete({
+          sessionId: state.signinSessionId,
           group_index: step === "cha" ? group : group,
           ad_type: step,
         });

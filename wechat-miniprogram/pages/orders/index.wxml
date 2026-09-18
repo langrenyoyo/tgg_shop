@@ -6,9 +6,14 @@
     </view>
   </view>
 
-  <view class="card" wx:for="{{orders}}" wx:key="id">
+  <picker range="{{filters}}" range-key="label" value="{{filterIndex}}" bindchange="filter"><view class="card">{{filters[filterIndex].label}} · 点击筛选</view></picker>
+  <view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重新加载</button></view>
+  <view wx:if="{{!orders.length && !loading && !error}}" class="card">暂无符合条件的订单</view>
+  <view class="card" wx:for="{{orders}}" wx:key="id" bindtap="open" data-id="{{item.id}}">
     <view>{{item.id}}</view>
-    <view class="muted">{{item.status}} / {{item.fulfillmentStatus}}</view>
+    <view class="muted">{{item.statusText}} {{item.fulfillmentText}}</view>
     <view class="muted">{{item.createdAt}}</view>
   </view>
+  <view wx:if="{{loading}}" class="card">加载中…</view>
+  <button wx:if="{{hasMore && !loading && !error}}" bindtap="loadMore">加载更多订单</button>
 </view>

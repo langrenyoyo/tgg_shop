@@ -1,10 +1,30 @@
 const adminService = require("../services/admin-service");
 const paymentService = require("../services/payment-service");
 const withdrawalService = require("../services/withdrawal-service");
+const refundReturns = require("../services/refund-return-service");
+const taskReconciliation = require("../services/task-reconciliation-service");
 
 async function handleAdminRoutes(ctx) {
   const { req, url, state, send } = ctx;
   if (!url.pathname.startsWith("/api/admin/")) return false;
+  const taskReconcileMatch = url.pathname.match(/^\/api\/admin\/task-submissions\/([^/]+)\/reconcile$/);
+  if (req.method === "POST" && taskReconcileMatch) {
+    const check = adminService.requirePermission(req, state, "task:review");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const result = await taskReconciliation.reconcile(state, taskReconcileMatch[1], await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.submission : { error: result.error });
+  }
+
+  const returnMatch = url.pathname.match(/^\/api\/admin\/refund-returns(?:\/([^/]+)\/resolve)?$/);
+  if (returnMatch) {
+    const check = adminService.requirePermission(req, state, "stock:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    if (req.method === "GET" && !returnMatch[1]) return send(ctx.res, 200, refundReturns.listReturns(state));
+    if (req.method === "POST" && returnMatch[1]) {
+      const result = await refundReturns.resolveReturn(state, returnMatch[1], await ctx.readBody(req), check);
+      return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.ticket : { error: result.error });
+    }
+  }
 
   if (req.method === "GET" && url.pathname === "/api/admin/auth/me") {
     const identity = adminService.getAdminIdentity(req, state);

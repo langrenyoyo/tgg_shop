@@ -21,8 +21,16 @@ function subscribeMember(state, user, input = {}) {
   };
 }
 
-function listUserOrders(state, userId) {
-  return orderRepository.listByUser(state, userId);
+function listUserOrders(state, userId, query = {}) {
+  let orders = orderRepository.listByUser(state, userId);
+  if (query.status) orders = orders.filter(order => order.status === query.status);
+  if (query.fulfillmentStatus) orders = orders.filter(order => order.fulfillmentStatus === query.fulfillmentStatus);
+  if (query.page) {
+    const count = Number(query.count || 20);
+    orders = orders.slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")) || String(b.id).localeCompare(String(a.id)));
+    return orders.slice((Number(query.page) - 1) * count, Number(query.page) * count);
+  }
+  return orders;
 }
 
 function submitOrder(state, userId, payload) {

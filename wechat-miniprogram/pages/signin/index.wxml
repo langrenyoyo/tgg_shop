@@ -1,4 +1,7 @@
 <view class="page">
+  <view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重试</button></view>
+  <button wx:if="{{error === '请登录后查看签到'}}" bindtap="login">去登录</button>
+  <view wx:if="{{refreshing}}">正在加载签到进度</view>
   <view class="card">
     <view class="title">每日签到</view>
     <view class="muted" style="margin-top:8rpx;">连续签到奖励与广告组任务</view>
@@ -8,10 +11,14 @@
     <view>连续签到 {{status.streakDays || 0}} 天</view>
     <view class="muted" style="margin-top:8rpx;">{{status.streakRewardText}}</view>
     <view class="muted" style="margin-top:8rpx;">今日广告组 {{status.adGroups || 0}} 组</view>
+    <view>已完成 {{status.completedAds || 0}} / {{status.totalAds || 0}} 条广告</view>
+    <view wx:if="{{status.adRewardsAvailable === false}}">{{status.unavailableReason}}</view>
+    <view wx:if="{{status.prize}}">今日抽奖结果：{{status.prize.label}}</view>
   </view>
 
   <view class="card">
-    <button class="btn btn-primary" loading="{{loading}}" bindtap="startSignin">开始签到</button>
-    <button class="btn btn-light" style="margin-top:16rpx;" bindtap="spinLottery">抽奖</button>
+    <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading || !status || status.signedToday || status.adRewardsAvailable === false}}" bindtap="startSignin">{{status.signedToday ? '今日已签到' : '开始签到'}}</button>
+    <button wx:if="{{session && !session.signedToday && status.adRewardsAvailable !== false}}" class="btn btn-primary" disabled="{{loading}}" bindtap="playAd">播放广告并领取进度</button>
+    <button class="btn btn-light" style="margin-top:16rpx;" disabled="{{loading || !status.lotteryTicket || status.lotteryUsed}}" bindtap="spinLottery">{{status.lotteryUsed ? '今日已抽奖' : '抽奖'}}</button>
   </view>
 </view>

@@ -165,7 +165,7 @@ async function startSignin() {
   let progress = session;
   const totalAds = session.adGroups * 2;
   for (let index = session.completedAds || 0; index < totalAds; index += 1) {
-    progress = await api("/api/signin/ad_complete", { method: "POST", body: JSON.stringify({ sessionId: session.sessionId }) });
+    progress = await api("/api/signin/ad_complete", { method: "POST", body: JSON.stringify({ sessionId: session.sessionId, adType: progress.currentAdType, completionToken: progress.completionToken }) });
   }
   const prize = await api("/api/signin/lottery_spin", { method: "POST", body: JSON.stringify({ sessionId: session.sessionId }) });
   await refreshUser();

@@ -5,7 +5,53 @@ const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
 const { createOrder, payOrder } = require("../../src/domain/rules");
 const { createRefundRequest, approveRefund } = require("../../src/domain/refund-rules");
-const { verifyPickup } = require("../../src/domain/fulfillment-rules");
+const { verifyPickup, shipOrder } = require("../../src/domain/fulfillment-rules");
+
+test("refund during delivery never makes goods in transit sellable and opens one return follow-up", () => {
+  const state = createSeed();
+  const user = state.users.find(item => item.id === "u_1001");
+  const product = state.products.find(item => item.id === "p_banana");
+  const order = createOrder(state, user.id, { paymentMode: "pure_points", fulfillmentType: "delivery", deliveryAddress: "测试地址", items: [{ productId: product.id, quantity: 1 }] }).order;
+  const staff = state.deliveryStaff.find(item => item.enabled && state.deliveryTeams.some(team => team.id === item.teamId && team.enabled));
+  assert.equal(shipOrder(state, order.id, staff.id).ok, true);
+  const stock = product.stock;
+  const refund = createRefundRequest(state, user.id, order.id, "配送中退款").refundOrder;
+  assert.equal(approveRefund(state, refund.id).ok, true);
+  assert.equal(product.stock, stock);
+  assert.equal(state.inventoryLedger.some(item => item.changeType === "refund_restore"), false);
+  const returns = () => state.operationTickets.filter(item => item.linkedType === "refund_return" && item.linkedId === refund.id);
+  assert.equal(returns().length, 1);
+  assert.equal(returns()[0].status, "open");
+  assert.equal(approveRefund(state, refund.id).idempotent, true);
+  assert.equal(returns().length, 1);
+});
+
+test("refund recovery does not repeat ledger credits or stock restoration when status is stale", () => {
+  for (const mode of ["pure_points", "cash"]) {
+    const state = createSeed();
+    const user = state.users.find(item => item.id === "u_1001");
+    const product = state.products.find(item => item.id === (mode === "cash" ? "p_apple" : "p_banana"));
+    const order = createOrder(state, user.id, { paymentMode: mode, items: [{ productId: product.id, quantity: 1 }] }).order;
+    if (mode === "cash") payOrder(state, order.id);
+    const refund = createRefundRequest(state, user.id, order.id, "recovery test").refundOrder;
+    assert.equal(approveRefund(state, refund.id).ok, true);
+    const points = user.points;
+    const stock = product.stock;
+    const pointEntries = state.pointLedger.length;
+    const cashEntries = state.paymentLedger.length;
+    const inventoryEntries = state.inventoryLedger.length;
+    // Simulate imported/recovered business status lagging behind durable ledgers.
+    refund.status = "pending_review";
+    order.status = "refunding";
+    assert.equal(approveRefund(state, refund.id).ok, true);
+    assert.equal(user.points, points);
+    assert.equal(product.stock, stock);
+    assert.equal(state.pointLedger.length, pointEntries);
+    assert.equal(state.paymentLedger.length, cashEntries);
+    assert.equal(state.inventoryLedger.length, inventoryEntries);
+    if (mode === "cash") assert.equal(state.paymentLedger.find(item => item.idempotencyKey === `refund:${refund.id}:cash`).userId, user.id);
+  }
+});
 
 test("pure-points refund returns points and marks order refunded", () => {
   const state = createSeed();

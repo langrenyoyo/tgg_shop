@@ -7,6 +7,7 @@ async function handleCommonRoutes(ctx) {
   const { req, url, send } = ctx;
 
   if (req.method === "POST" && url.pathname === "/api/common/upload") {
+    if (!ctx.user) return send(ctx.res, 401, { error: "请先登录后上传" });
     const result = await handleUpload(req);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.body : { error: result.error });
   }
@@ -22,7 +23,8 @@ async function handleUpload(req) {
   }
 
   const raw = await readBuffer(req);
-  const filePart = parseMultipartFile(raw, boundaryMatch[1]);
+  if (!raw) return { ok: false, status: 413, error: "上传文件过大，请压缩后重试（最大 10 MB）" };
+  const filePart = parseMultipartFile(raw, boundaryMatch[1].trim().replace(/^"|"$/g, ""));
   if (!filePart) return { ok: false, status: 400, error: "未找到上传文件" };
 
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -50,7 +52,14 @@ async function handleUpload(req) {
 
 async function readBuffer(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  const maxBytes = 10 * 1024 * 1024;
+  if (Number(req.headers["content-length"]) > maxBytes) return null;
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBytes) return null;
+    chunks.push(Buffer.from(chunk));
+  }
   return Buffer.concat(chunks);
 }
 
@@ -64,8 +73,7 @@ function parseMultipartFile(buffer, boundary) {
     const separator = cleaned.indexOf("\r\n\r\n");
     if (separator < 0) continue;
     const headerText = cleaned.slice(0, separator);
-    let bodyText = cleaned.slice(separator + 4);
-    if (bodyText.endsWith("\r\n")) bodyText = bodyText.slice(0, -2);
+    const bodyText = cleaned.slice(separator + 4);
 
     const headers = Object.fromEntries(
       headerText.split("\r\n").map((line) => {

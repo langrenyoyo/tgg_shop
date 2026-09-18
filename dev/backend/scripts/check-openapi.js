@@ -1,11 +1,40 @@
 const fs = require("fs");
 const path = require("path");
+const YAML = require("yaml");
 
 const openapiPath = path.resolve(__dirname, "..", "openapi.yaml");
 const content = fs.readFileSync(openapiPath, "utf8");
+const document = YAML.parseDocument(content, { uniqueKeys: true });
+if (document.errors.length) throw new Error(document.errors.map(error => error.message).join("\n"));
+const spec = document.toJS();
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function resolveReference(reference) {
+  assert(reference.startsWith("#/"), `Unsupported external reference: ${reference}`);
+  const value = reference.slice(2).split("/").reduce((node, key) => node?.[key.replace(/~1/g, "/").replace(/~0/g, "~")], spec);
+  assert(value !== undefined, `Unresolved reference: ${reference}`);
+  return value;
+}
+function checkReferences(node) {
+  if (!node || typeof node !== "object") return;
+  if (node.$ref) resolveReference(node.$ref);
+  Object.values(node).forEach(checkReferences);
+}
+assert(/^3\./.test(spec.openapi), "Expected OpenAPI 3 document");
+checkReferences(spec);
+for (const [route, item] of Object.entries(spec.paths || {})) {
+  for (const method of ["get", "post", "put", "patch", "delete", "options", "head"]) {
+    const operation = item[method];
+    if (!operation) continue;
+    assert(operation.responses && Object.keys(operation.responses).length, `Missing responses: ${method} ${route}`);
+    const parameters = [...(item.parameters || []), ...(operation.parameters || [])].map(parameter => parameter.$ref ? resolveReference(parameter.$ref) : parameter);
+    for (const match of route.matchAll(/\{([^}]+)\}/g)) {
+      assert(parameters.some(parameter => parameter.in === "path" && parameter.name === match[1] && parameter.required === true), `Missing required path parameter ${match[1]}: ${method} ${route}`);
+    }
+  }
 }
 
 const requiredPaths = [
@@ -25,6 +54,12 @@ const requiredPaths = [
   "/api/products/{productId}",
   "/api/points-exchange",
   "/api/member/subscribe",
+  "/api/auth/wechat-login",
+  "/api/member/payments",
+  "/api/orders/{orderId}",
+  "/api/orders/{orderId}/cancel",
+  "/api/orders/{orderId}/receive",
+  "/api/refunds/{refundId}",
   "/api/orders",
   "/api/orders/{orderId}/pay",
   "/api/payments",

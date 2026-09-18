@@ -113,11 +113,11 @@ test("API closes member cash-shortfall and manual points approval flows", async 
     assert.ok(
       finalLedger.body.pointLedger.some((entry) =>
         entry.bizNo === shortfallOrder.body.id
-        && entry.changeType === "shopping_deduct"
+        && entry.changeType === "shopping_hold"
         && entry.points === 180
         && entry.balanceAfter === 0
       ),
-      "cash-shortfall payment should write shopping point deduction ledger"
+      "cash-shortfall order must reserve points before payment"
     );
     assert.ok(
       finalLedger.body.paymentLedger.some((entry) =>
@@ -146,6 +146,10 @@ function startServer() {
     cwd: path.resolve(__dirname, "..", ".."),
     env: {
       ...process.env,
+      TGG_LOAD_DOTENV: "0",
+      TGG_TASK_PLATFORM_BASE_URL: "",
+      TGG_TASK_PLATFORM_APPID: "",
+      TGG_TASK_PLATFORM_KEY: "",
       PORT: String(APP_PORT),
       TGG_STORE_MODE: "memory"
     },

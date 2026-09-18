@@ -26,6 +26,9 @@ test("pickup order requires correct pickup code and completes order", () => {
   const duplicate = verifyPickup(state, created.order.id, created.order.pickupCode);
   assert.equal(duplicate.ok, true);
   assert.equal(duplicate.idempotent, true);
+  const beforeRetry = JSON.stringify(state);
+  assert.equal(verifyPickup(state, created.order.id, "wrong-code").ok, false);
+  assert.equal(JSON.stringify(state), beforeRetry);
 });
 
 test("delivery dispatch creates exception when staff is unavailable", () => {
@@ -90,6 +93,10 @@ test("delivery order flows pending_ship to shipping to delivered", () => {
   const duplicateShip = shipOrder(state, created.order.id, "staff_001");
   assert.equal(duplicateShip.ok, true);
   assert.equal(duplicateShip.idempotent, true);
+  const beforeConflict = JSON.stringify(state);
+  assert.equal(adminService.shipDeliveryOrder(state, created.order.id, "different-staff").status, 409);
+  assert.equal(adminService.shipDeliveryOrder(state, created.order.id, undefined).status, 409);
+  assert.equal(JSON.stringify(state), beforeConflict, "Rejected retries must not add misleading audit records");
 
   const delivered = deliverOrder(state, created.order.id);
   assert.equal(delivered.ok, true);
@@ -113,4 +120,32 @@ test("pickup endpoint rejects delivery order", () => {
   const result = verifyPickup(state, created.order.id, "123456");
   assert.equal(result.ok, false);
   assert.match(result.error, /履约方式不匹配/);
+});
+
+test("refunding and refunded orders cannot be dispatched, delivered or collected", () => {
+  for (const status of ["refunding", "refunded", "cancelled", "pending_payment"]) {
+    for (const fulfillmentType of ["pickup", "delivery"]) {
+      const state = createSeed();
+      const { order } = createOrder(state, "u_1002", { paymentMode: "pure_points", fulfillmentType, deliveryAddress: "测试配送地址", items: [{ productId: "p_bokchoy", quantity: 1 }] });
+      order.status = status;
+      const before = JSON.stringify(state);
+      if (fulfillmentType === "pickup") assert.equal(verifyPickup(state, order.id, order.pickupCode).ok, false);
+      else {
+        assert.equal(shipOrder(state, order.id, "staff_001").ok, false);
+        assert.equal(deliverOrder(state, order.id).ok, false);
+      }
+      assert.equal(JSON.stringify(state), before);
+    }
+  }
+});
+
+test("inconsistent completed state requires reconciliation before fulfillment", () => {
+  for (const fulfillmentType of ["pickup", "delivery"]) {
+    const state = createSeed();
+    const { order } = createOrder(state, "u_1002", { paymentMode: "pure_points", fulfillmentType, deliveryAddress: "测试配送地址", items: [{ productId: "p_bokchoy", quantity: 1 }] });
+    order.status = "completed";
+    const before = JSON.stringify(state);
+    assert.equal((fulfillmentType === "pickup" ? verifyPickup(state, order.id, order.pickupCode) : shipOrder(state, order.id, "staff_001")).status, 409);
+    assert.equal(JSON.stringify(state), before);
+  }
 });

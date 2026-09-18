@@ -73,6 +73,9 @@ function approveRefund(state, refundId) {
     };
   }
   if (refundOrder.status !== "pending_review") return { ok: false, status: 400, error: "退款单状态不允许审批" };
+  if (process.env.NODE_ENV === "production" && refundOrder.refundCashAmount > 0) {
+    return { ok: false, status: 503, error: "生产环境尚未配置真实退款通道，不能用模拟退款入账" };
+  }
 
   const order = orderRepository.findById(state, refundOrder.orderId);
   const user = userRepository.findById(state, refundOrder.userId);
@@ -92,6 +95,14 @@ function approveRefund(state, refundId) {
   const previousStatus = order.status;
   order.status = "refunded";
   restoreRefundableStock(state, order, refundOrder, now);
+  if (["shipping", "delivered", "picked_up"].includes(order.fulfillmentStatus)) {
+    ticketRepository.createLinked(state, {
+      userId: user.id, type: "customer_service", linkedType: "refund_return", linkedId: refundOrder.id,
+      subject: `退款商品去向核对 ${order.id}`,
+      content: `退款单 ${refundOrder.id} 已完成账务处理，商品已出库或已交付，未自动增加可售库存。请核对是否退回、验收质量后由库存人员处理回库或损耗，并记录处理凭据。`,
+      priority: "high", contactName: user.nickname || "", contactPhone: user.phone || ""
+    });
+  }
   logOrderStatus(state, order, {
     fromStatus: previousStatus,
     toStatus: order.status,
@@ -101,7 +112,7 @@ function approveRefund(state, refundId) {
     reason: "财务审批退款通过"
   });
 
-  if (refundOrder.refundPointAmount > 0) {
+  if (refundOrder.refundPointAmount > 0 && !state.pointLedger.some(entry => entry.idempotencyKey === `refund:${refundOrder.id}:points`)) {
     user.points += refundOrder.refundPointAmount;
     ledgerRepository.addPointEntry(state, {
       id: nextId("pt"),
@@ -116,19 +127,20 @@ function approveRefund(state, refundId) {
     });
   }
 
-  if (refundOrder.refundCashAmount > 0) {
+  if (refundOrder.refundCashAmount > 0 && !state.paymentLedger.some(entry => entry.idempotencyKey === `refund:${refundOrder.id}:cash`)) {
     ledgerRepository.addPaymentEntry(state, {
       id: nextId("pay"),
       orderId: order.id,
+      userId: user.id,
       direction: "out",
       amount: refundOrder.refundCashAmount,
-      channel: "mock_refund",
+      channel: process.env.NODE_ENV === "production" ? "provider_refund" : "mock_refund",
       status: "refunded",
       idempotencyKey: `refund:${refundOrder.id}:cash`,
       createdAt: now
     });
   }
-  ticketRepository.resolveLinked(state, "refund", refundOrder.id, "退款审批已通过，账务和库存处理已完成", "system");
+  ticketRepository.resolveLinked(state, "refund", refundOrder.id, shouldRestoreStock(order) ? "退款审批已通过，账务及未出库库存回补已处理" : "退款账务已处理，已出库商品另有工单跟进去向，尚未自动回库", "system");
 
   saveState();
   return { ok: true, refundOrder, order };
@@ -138,6 +150,9 @@ function restoreRefundableStock(state, order, refundOrder, now) {
   if (!shouldRestoreStock(order)) return [];
   const entries = [];
   for (const item of order.items || []) {
+    // The reason is already persisted by all store drivers, including SQLite.
+    const stockReason = `退款未履约回补 ${order.id} / ${refundOrder.id}`;
+    if ((state.inventoryLedger || []).some(entry => entry.productId === item.productId && entry.changeType === "refund_restore" && entry.reason === stockReason)) continue;
     const product = productRepository.findById(state, item.productId);
     const quantity = Math.max(1, Number(item.quantity || 1));
     if (!product) {
@@ -163,7 +178,7 @@ function restoreRefundableStock(state, order, refundOrder, now) {
       quantityDelta: quantity,
       stockBefore,
       stockAfter: Number(product.stock || 0),
-      reason: `退款未履约回补 ${order.id} / ${refundOrder.id}`,
+      reason: stockReason,
       operatorRoleId: "system",
       createdAt: now
     }));
@@ -172,7 +187,7 @@ function restoreRefundableStock(state, order, refundOrder, now) {
 }
 
 function shouldRestoreStock(order) {
-  return ["not_started", "pending_pickup", "pending_ship", "shipping"].includes(order.fulfillmentStatus);
+  return ["not_started", "pending_pickup", "pending_ship"].includes(order.fulfillmentStatus);
 }
 
 module.exports = {

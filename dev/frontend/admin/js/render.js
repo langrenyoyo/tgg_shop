@@ -1,3 +1,4 @@
+import { pendingApprovalIntents } from "./api.js";
 let currentAdminState = {};
 
 const viewPermissions = {
@@ -164,6 +165,8 @@ export function renderAdminPage(state) {
   document.querySelector("#adminScreen").innerHTML = requiredPermission && !can(requiredPermission)
     ? permissionDenied(requiredPermission)
     : (views[state.view] || dashboard)(state);
+  const pending = can("approval:request") ? pendingApprovalIntents() : [];
+  if (pending.length) document.querySelector("#adminScreen").insertAdjacentHTML("afterbegin", `<section class="table-panel"><p>以下审批申请的提交结果待确认。核对原内容后可重试原申请，无需重新填写。</p>${simpleTable("待确认的审批申请", ["操作", "目标", "积分调整", "原申请原因", "操作"], pending.map(item => [escapeHtml(zh(item.payload.action, "action")), escapeHtml(item.payload.targetId), escapeHtml(item.payload.payload?.pointsDelta ?? "-"), escapeHtml(item.payload.reason || ""), `<button class="action" data-approval-retry="${escapeAttr(item.id)}">重试原申请</button>`]))}</section>`);
 }
 
 export function renderPanelError(selector, error) {
@@ -259,6 +262,11 @@ function products(state) {
       productActionButtons(item)
     ]))}</section>
     <section class="panel">${createProductForm()}</section>
+    <section class="table-panel">${simpleTable("退款商品验收", ["退款单", "订单", "商品", "状态", "处理"], (state.refundReturns || []).map(item => [
+      escapeHtml(item.refundId), escapeHtml(item.orderId || "-"),
+      item.items.map(product => `${escapeHtml(product.title || product.productId)} × ${product.quantity}`).join("<br>"),
+      badge(item.status), ["resolved", "closed"].includes(item.status) ? escapeHtml(item.adminReply || "已处理") : gatedAction("stock:write", `<button class="action" data-refund-return="${escapeHtml(item.refundId)}" data-disposition="restock">整单验收回库</button><button class="action" data-refund-return="${escapeHtml(item.refundId)}" data-disposition="partial">分项验收</button><button class="action" data-refund-return="${escapeHtml(item.refundId)}" data-disposition="no_restock">确认不回库</button>`, "无库存权限")
+    ]))}</section>
   `;
 }
 
@@ -302,7 +310,14 @@ function agentsPickup(state) {
 }
 
 function taskReview(state) {
-  return `<section class="table-panel">${simpleTable("任务提交审核", ["提交单", "用户", "任务", "状态", "奖励", "操作"], (state.taskSubmissions || []).map((item) => [item.id, item.userId, item.taskId || item.title || "-", badge(item.status, item.status === "pending_review" ? "orange" : ""), item.rewardPoints || item.points || 0, item.status === "pending_review" ? `${gatedAction("task:review", `<button class="action" data-task-review="${item.id}" data-review-action="approve">通过</button>`, "无审核权限")} ${gatedAction("task:review", `<button class="action danger-action" data-task-review="${item.id}" data-review-action="reject">拒绝</button>`, "无审核权限")}` : "-"]))}</section>`;
+  return `<section class="table-panel">${simpleTable("任务提交审核", ["提交单", "用户", "任务", "状态", "奖励", "操作"], (state.taskSubmissions || []).map(item => {
+    const id = escapeHtml(item.id);
+    const pending = ["reviewing", "pending_review"].includes(item.status);
+    const action = item.platform === "bounty_platform"
+      ? `<button class="action" data-task-reconcile="${id}">平台关联核对</button>`
+      : pending ? `<button class="action" data-task-review="${id}" data-review-action="approve">通过</button><button class="action danger-action" data-task-review="${id}" data-review-action="reject">拒绝</button>` : "-";
+    return [id, escapeHtml(item.userId), escapeHtml(item.taskTitle || item.taskId || "-"), badge(item.status, pending ? "orange" : ""), item.taskSnapshot?.rewardPoints ?? item.rewardPoints ?? 0, gatedAction("task:review", action, "无审核权限")];
+  }))}</section>`;
 }
 
 function signinAds(state) {
@@ -324,8 +339,11 @@ function financeRefund(state) {
 function ledger(state) {
   const pointRows = state.ledger?.pointLedger || [];
   const paymentRowsData = state.ledger?.paymentLedger || [];
+  const reconciliation = state.ledger?.pointReconciliation;
+  const issueLabels = { missing_user: "用户缺失", duplicate_key: "重复幂等键", duplicate_id: "重复流水号", missing_identity: "流水标识缺失", invalid_balance: "余额格式异常", no_history: "无历史流水", invalid_entry: "流水金额或时间异常", timestamp_tie: "同时间流水顺序待核对", broken_chain: "流水余额不连续", balance_mismatch: "余额与末笔流水不符" };
   return `
     ${paymentToolbar(state)}
+    ${reconciliation ? `<section class="table-panel"><p>积分核对覆盖已保存流水，未验证期初余额。缺少历史或无法确定入账顺序时需人工核对；不会自动修改余额。</p>${simpleTable("积分余额核对", ["用户", "当前余额", "末笔余额", "流水数", "结果", "待核对原因"], reconciliation.rows.map(item => [escapeHtml(item.userId), item.actualBalance ?? "-", item.expectedBalance ?? "-", item.entryCount, { consistent: "已存流水一致", mismatch: "发现差异", unverified: "待核对" }[item.status], item.issues.map(issue => issueLabels[issue] || escapeHtml(issue)).join("、") || "-"]))}</section>` : ""}
     <section class="table-panel">${paymentRows(paymentRowsData)}</section>
     <section class="table-panel">${simpleTable("积分流水", ["流水号", "用户", "类型", "方向", "积分", "余额", "业务单号", "幂等键"], pointRows.map((item) => [
       item.id,
@@ -456,7 +474,7 @@ function withdrawalApprovalRows(state) {
     `¥${Number(item.amount || 0).toFixed(1)}`,
     `¥${Number(item.fee || 0).toFixed(1)}`,
     badge(item.status, item.status === "pending_review" ? "orange" : ""),
-    item.status === "pending_review" ? `${gatedAction("approval:request", `<button class="action" data-withdraw-action="${item.id}" data-action-type="approve">提交通过复核</button>`, "无提交权限")} ${gatedAction("approval:request", `<button class="action danger-action" data-withdraw-action="${item.id}" data-action-type="reject">提交驳回复核</button>`, "无提交权限")}` : "-"
+    item.status === "pending_review" ? `${gatedAction("approval:request", `<button class="action" data-withdraw-action="${item.id}" data-action-type="approve">提交通过复核</button>`, "无提交权限")} ${gatedAction("approval:request", `<button class="action danger-action" data-withdraw-action="${item.id}" data-action-type="reject">提交驳回复核</button>`, "无提交权限")}` : item.status === "approved" ? gatedAction("withdraw:approve", `<button class="action" data-withdraw-submit="${item.id}">提交服务商</button>`, "无提现权限") : "-"
   ]));
 }
 

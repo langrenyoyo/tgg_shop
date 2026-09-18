@@ -1,17 +1,24 @@
-.cat-bar {
-  white-space: nowrap;
-  margin-top: 16rpx;
-}
-
-.cat-chip {
-  display: inline-block;
-  padding: 12rpx 20rpx;
-  border-radius: 999rpx;
-  background: #f3f4f6;
-  margin-right: 12rpx;
-}
-
-.cat-chip.active {
-  background: #16a34a;
-  color: #fff;
-}
+page { background: #eef2f3; color: #101828; }
+.earn-page { padding: 28rpx; }
+button { margin: 0; border: 0; font-weight: 400; }
+button::after { border: 0; }
+.subtabs { display: flex; gap: 16rpx; margin-bottom: 24rpx; }
+.tab { padding: 0 24rpx; line-height: 56rpx; border-radius: 999rpx; color: #8a94a6; background: #fff; font-size: 24rpx; }
+.tab.active { color: #087443; background: #e8fbf1; font-weight: 800; }
+.search { height: 76rpx; padding: 0 28rpx; border-radius: 999rpx; background: #fff; font-size: 26rpx; }
+.choice-row { margin-top: 20rpx; }
+.choice { padding: 24rpx; margin-bottom: 16rpx; border-radius: 20rpx; background: #fff; text-align: left; font-size: 28rpx; line-height: 1.4; }
+.choice.selected { background: #e8fbf1; color: #087443; }
+.task-card { display: flex; align-items: center; gap: 20rpx; padding: 28rpx; border: 1rpx solid #e6ebef; border-radius: 24rpx; background: #fff; }
+.invite-card, .task-list { margin-top: 24rpx; }
+.task-list .task-card { margin-bottom: 20rpx; }
+.icon-column { flex: 0 0 72rpx; }
+.dot { width: 56rpx; height: 56rpx; line-height: 56rpx; border-radius: 50%; color: #fff; background: #10bd70; text-align: center; font-size: 24rpx; font-weight: 900; }
+.task-main { flex: 1; min-width: 0; }
+.task-title { margin-bottom: 10rpx; font-size: 28rpx; font-weight: 700; overflow-wrap: break-word; }
+.description { color: #8a94a6; font-size: 24rpx; line-height: 1.5; }
+.state { flex-shrink: 0; padding: 8rpx 16rpx; border-radius: 999rpx; color: #087443; background: #e8fbf1; font-size: 22rpx; font-weight: 800; }
+.state.warn { color: #9a4b00; background: #fff2df; }
+.record-card { padding: 28rpx; margin-bottom: 20rpx; background: #fff; border-radius: 24rpx; }
+.empty { padding: 48rpx 0; text-align: center; color: #8a94a6; font-size: 26rpx; }
+.retry { display: inline-block; margin-top: 20rpx; }

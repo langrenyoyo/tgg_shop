@@ -56,12 +56,18 @@ function findSubmissionByExternalId(state, externalOrderId, userId) {
 }
 
 function findSubmission(state, submissionId, userId) {
-  return findSubmissionById(state, submissionId) || findSubmissionByExternalId(state, submissionId, userId);
+  const local = findSubmissionById(state, submissionId);
+  if (local) return !userId || String(local.userId) === String(userId) ? local : null;
+  return findSubmissionByExternalId(state, submissionId, userId);
 }
 
 function listSubmissionsByUser(state, userId, query = {}) {
   let submissions = state.submissions.filter((item) => item.userId === userId);
   if (query.status && query.status !== "All") submissions = submissions.filter((item) => item.status === normalizeStatus(query.status));
+  if (query.page) {
+    const page = Math.max(1, Math.floor(Number(query.page) || 1));
+    return submissions.slice((page - 1) * 10, page * 10);
+  }
   return submissions;
 }
 

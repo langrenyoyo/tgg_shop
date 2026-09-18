@@ -1,4 +1,5 @@
 const { getState } = require("../data/store");
+const { withPersistence } = require("../data/persistence-scope");
 const { resolveUser } = require("../domain/auth");
 const { send, readBody, publicUser } = require("../http/http-utils");
 const { handleAuthRoutes } = require("./auth-routes");
@@ -22,6 +23,15 @@ const routeHandlers = [
 ];
 
 async function routeApi(req, res, url) {
+  let response;
+  await withPersistence(() => dispatchApi(req, res, url, (...args) => {
+    response = args;
+    return true;
+  }));
+  return response ? send(...response) : false;
+}
+
+async function dispatchApi(req, res, url, send) {
   const state = getState();
   const userAuth = resolveUser(req, state);
   const user = userAuth.ok ? userAuth.user : null;
@@ -62,8 +72,9 @@ function requiresUserAuth(req, url) {
   if (req.method === "GET" && ["/api/config", "/api/home", "/api/products", "/api/points-exchange", "/api/task-types", "/api/tasks", "/api/task-platform/status", "/api/pickup-sites", "/api/delivery/teams"].includes(url.pathname)) return false;
   if (req.method === "GET" && /^\/api\/products\/[^/]+$/.test(url.pathname)) return false;
   if (req.method === "GET" && /^\/api\/tasks\/[^/]+$/.test(url.pathname)) return false;
-  if (req.method === "POST" && url.pathname === "/api/common/upload") return false;
   if (req.method === "POST" && url.pathname === "/api/payment-providers/lfwin/notify") return false;
+  if (req.method === "POST" && url.pathname === "/api/task/callback") return false;
+  if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") return false;
   return true;
 }
 

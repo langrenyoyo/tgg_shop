@@ -88,6 +88,8 @@ test("member cash order starts pending payment and can be paid once", () => {
 
 test("points plus cash uses user points once across the whole order", () => {
   const state = createSeed();
+  // This scenario uses mixed-payment products, not the pure-points catalog.
+  for (const product of state.products.filter(item => ["p_banana", "p_bokchoy"].includes(item.id))) product.purePointsOnly = false;
   const user = state.users.find((item) => item.id === "u_1001");
   user.points = 100;
 
@@ -104,4 +106,32 @@ test("points plus cash uses user points once across the whole order", () => {
   assert.equal(result.order.pointAmount, 100);
   assert.equal(result.order.cashAmount, 18.7);
   assert.equal(result.order.status, "pending_payment");
+});
+
+test("pure-points products cannot be purchased using cash shortfall", () => {
+  const state = createSeed();
+  const product = state.products.find(item => item.purePointsOnly);
+  const result = createOrder(state, "u_1001", { paymentMode: "points_plus_cash", items: [{ productId: product.id, quantity: 1 }] });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /纯积分商品/);
+});
+
+test("checkout retries do not deduct stock or points twice", () => {
+  const state = createSeed();
+  const payload = { idempotencyKey: "checkout-test", paymentMode: "pure_points", items: [{ productId: "p_banana", quantity: 1 }] };
+  const first = createOrder(state, "u_1002", payload);
+  assert.equal(first.ok, true);
+  const points = state.users.find(item => item.id === "u_1002").points;
+  const stock = state.products.find(item => item.id === "p_banana").stock;
+  const second = createOrder(state, "u_1002", payload);
+  assert.equal(second.order.id, first.order.id);
+  assert.equal(state.users.find(item => item.id === "u_1002").points, points);
+  assert.equal(state.products.find(item => item.id === "p_banana").stock, stock);
+});
+
+test("invalid quantities and duplicate product lines cannot bypass stock checks", () => {
+  for (const quantity of [0, -1, 0.5, "invalid"]) {
+    assert.equal(createOrder(createSeed(), "u_1002", { items: [{ productId: "p_banana", quantity }] }).ok, false);
+  }
+  assert.equal(createOrder(createSeed(), "u_1002", { items: [{ productId: "p_banana", quantity: 1 }, { productId: "p_banana", quantity: 1 }] }).ok, false);
 });

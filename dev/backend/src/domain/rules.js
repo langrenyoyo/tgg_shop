@@ -26,19 +26,28 @@ function assertCanCreateOrder(state, user, payload) {
 
   const paymentMode = payload.paymentMode || "pure_points";
   const fulfillmentType = payload.fulfillmentType || "pickup";
+  if (!["pure_points", "cash", "points_plus_cash"].includes(paymentMode)) return { ok: false, error: "支付方式无效" };
+  if (!["pickup", "delivery"].includes(fulfillmentType)) return { ok: false, error: "配送方式无效" };
   if (fulfillmentType === "pickup" && !state.config.pickupEnabled) return { ok: false, error: "自提暂未开放" };
   if (fulfillmentType === "delivery" && !state.config.deliveryEnabled) return { ok: false, error: "送货上门暂未开放" };
+  if (fulfillmentType === "pickup" && !state.pickupSites.some(site => site.id === (payload.pickupSiteId || "site_001") && site.enabled)) return { ok: false, error: "自提点不存在或已停用" };
+  if (fulfillmentType === "delivery" && !String(payload.deliveryAddress || "").trim()) return { ok: false, error: "请填写配送地址" };
 
   let cashAmount = 0;
   let pointAmount = 0;
   let pointsRequired = 0;
   let deliveryFee = 0;
   const items = [];
+  const seenProducts = new Set();
 
   for (const item of payload.items) {
     const product = productRepository.findActiveById(state, item.productId);
-    const quantity = Math.max(1, Number(item.quantity || 1));
+    const quantity = Number(item.quantity ?? 1);
+    if (!Number.isSafeInteger(quantity) || quantity < 1) return { ok: false, error: "商品数量必须是正整数" };
+    if (seenProducts.has(item.productId)) return { ok: false, error: "同一商品请合并数量后提交" };
+    seenProducts.add(item.productId);
     if (!product) return { ok: false, error: `商品不存在: ${item.productId}` };
+    if (product.purePointsOnly && paymentMode !== "pure_points") return { ok: false, error: "纯积分商品不支持现金或现金补差" };
     if (product.stock < quantity) return { ok: false, error: `${product.name} 库存不足` };
 
     items.push({ productId: product.id, quantity, title: product.name });
@@ -76,20 +85,33 @@ function assertCanCreateOrder(state, user, payload) {
 }
 
 function createOrder(state, userId, payload) {
+  if (payload?.idempotencyKey) {
+    const existing = state.orders.find(order => order.userId === userId && order.idempotencyKey === payload.idempotencyKey);
+    if (existing) {
+      const itemKey = items => Array.isArray(items) ? JSON.stringify(items.map(item => ({ productId: item?.productId, quantity: Number(item?.quantity ?? 1) })).sort((a, b) => String(a.productId).localeCompare(String(b.productId)))) : null;
+      const type = payload.fulfillmentType || "pickup";
+      const matches = itemKey(existing.items) === itemKey(payload.items) && existing.paymentMode === (payload.paymentMode || "pure_points") && existing.fulfillmentType === type && (type === "pickup" ? existing.pickupSiteId === (payload.pickupSiteId || "site_001") : String(existing.deliveryAddress || "").trim() === String(payload.deliveryAddress || "").trim()) && (!payload.deliveryTimeSlot || existing.deliveryTimeSlot === payload.deliveryTimeSlot);
+      if (!matches) return { ok: false, status: 409, error: "该提交标识已用于其他订单内容，请先核对原订单" };
+      return { ok: true, order: existing, idempotent: true };
+    }
+  }
   const user = userRepository.findById(state, userId);
   const check = assertCanCreateOrder(state, user, payload);
   if (!check.ok) return check;
 
   const now = new Date().toISOString();
-  const isPurePoints = check.paymentMode === "pure_points";
+  const isPurePoints = check.cashAmount === 0;
+  const reservePoints = check.paymentMode === "points_plus_cash" && !isPurePoints && check.pointAmount > 0;
   const pickupSite = state.pickupSites.find((site) => site.id === (payload.pickupSiteId || "site_001"));
   const order = {
-    id: `TGG${Date.now()}`,
+    id: nextId("TGG"),
+    idempotencyKey: payload.idempotencyKey || null,
     userId,
     items: check.items,
     paymentMode: check.paymentMode,
     cashAmount: check.cashAmount,
     pointAmount: check.pointAmount,
+    pointsReserved: reservePoints,
     status: isPurePoints ? "paid" : "pending_payment",
     fulfillmentType: check.fulfillmentType,
     pickupSiteId: payload.pickupSiteId || "site_001",
@@ -129,12 +151,12 @@ function createOrder(state, userId, payload) {
     });
   }
 
-  if (isPurePoints) {
+  if (isPurePoints || reservePoints) {
     user.points -= check.pointAmount;
     ledgerRepository.addPointEntry(state, {
       id: nextId("pt"),
       userId,
-      changeType: "exchange_deduct",
+      changeType: reservePoints ? "shopping_hold" : "exchange_deduct",
       direction: "out",
       points: check.pointAmount,
       balanceAfter: user.points,

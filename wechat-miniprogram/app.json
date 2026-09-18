@@ -1,7 +1,13 @@
 {
   "pages": [
-    "pages/login/index",
     "pages/home/index",
+    "pages/login/index",
+    "pages/product/index",
+    "pages/cart/index",
+    "pages/checkout/index",
+    "pages/order-detail/index",
+    "pages/membership/index",
+    "pages/submission/index",
     "pages/shop/index",
     "pages/tasks/index",
     "pages/task-detail/index",
@@ -22,7 +28,7 @@
     "color": "#6b7280",
     "selectedColor": "#16a34a",
     "backgroundColor": "#ffffff",
-    "list": [ { "pagePath": "pages/home/index", "text": "首页" }, { "pagePath": "pages/tasks/index", "text": "赚积分" }, { "pagePath": "pages/shop/index", "text": "分类" }, { "pagePath": "pages/orders/index", "text": "购物车" }, { "pagePath": "pages/me/index", "text": "我的" } ]
+    "list": [ { "pagePath": "pages/home/index", "text": "首页" }, { "pagePath": "pages/tasks/index", "text": "赚积分" }, { "pagePath": "pages/shop/index", "text": "分类" }, { "pagePath": "pages/cart/index", "text": "购物车" }, { "pagePath": "pages/me/index", "text": "我的" } ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

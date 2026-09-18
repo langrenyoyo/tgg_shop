@@ -149,14 +149,19 @@ function signPayload(config, payload) {
 }
 
 function verifyPayload(config, payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
   const fields = compact(payload);
   const received = fields.sign;
   delete fields.sign;
   if (!received) return false;
   const type = String(fields.sign_type || config.signType).toUpperCase();
+  if (!["RSA", "MD5"].includes(type) || type !== String(config.signType).toUpperCase()) return false;
+  if (fields.apikey && String(fields.apikey) !== String(config.apiKey)) return false;
   if (type === "RSA") {
     if (!config.publicKey) return false;
-    return crypto.verify("RSA-SHA256", Buffer.from(canonicalize(fields), "utf8"), config.publicKey, Buffer.from(received, "base64"));
+    try {
+      return crypto.verify("RSA-SHA256", Buffer.from(canonicalize(fields), "utf8"), config.publicKey, Buffer.from(String(received), "base64"));
+    } catch { return false; }
   }
   if (!config.signKey) return false;
   const expected = Buffer.from(md5(`${canonicalize(fields)}&signkey=${config.signKey}`));

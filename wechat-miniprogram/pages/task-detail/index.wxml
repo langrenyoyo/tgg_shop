@@ -1,8 +1,11 @@
 <view class="page">
+  <view wx:if="{{loading}}">正在加载任务</view>
+  <view class="card" wx:if="{{error}}">{{error}}<button bindtap="load">重新加载任务</button></view>
   <view class="card" wx:if="{{task}}">
     <view class="title">{{task.title}}</view>
     <view class="muted" style="margin-top:8rpx;">{{task.category || task.type_name || ''}}</view>
-    <view style="margin-top:16rpx;" class="tag">奖励 {{task.rewardPoints || task.reward || 0}}</view>
+    <view wx:if="{{task.rewardValid !== false}}" style="margin-top:16rpx;" class="tag">奖励 {{task.rewardPoints || 0}} 积分</view>
+    <view wx:else>任务奖励待核对，暂不可提交，请稍后刷新。<button bindtap="load">刷新任务</button></view>
     <view class="muted" style="margin-top:10rpx;">{{task.tishi || '暂无提示'}}</view>
   </view>
 
@@ -10,10 +13,11 @@
     <view class="title" style="font-size:30rpx;">任务说明</view>
     <view wx:for="{{task.content}}" wx:key="index" class="list-item">
       <rich-text nodes="{{item.txt}}"></rich-text>
+      <image wx:for="{{item.img_list}}" wx:for-item="imageUrl" wx:key="*this" src="{{imageUrl}}" mode="widthFix" style="width:100%" />
     </view>
   </view>
 
   <view class="card">
-    <button class="btn btn-primary" bindtap="goSubmit" disabled="{{!task}}">接单并提交</button>
+    <button class="btn btn-primary" bindtap="goSubmit" loading="{{busy}}" disabled="{{busy || loading || !task || task.paused || task.rewardValid === false}}">{{task.paused ? '任务已暂停' : '接单并提交'}}</button>
   </view>
 </view>

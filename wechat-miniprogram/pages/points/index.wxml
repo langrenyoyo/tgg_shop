@@ -1,14 +1,23 @@
 <view class="page">
   <view class="card">
     <view class="title">积分流水</view>
+    <view wx:if="{{balance !== null}}">可用积分 {{balance}}</view>
+    <picker range="{{typeLabels}}" value="{{typeIndex}}" bindchange="setType"><view>来源：{{typeLabels[typeIndex]}}</view></picker>
+    <picker range="{{directionLabels}}" value="{{directionIndex}}" bindchange="setDirection"><view>方向：{{directionLabels[directionIndex]}}</view></picker>
   </view>
-  <view class="card" wx:for="{{ledger}}" wx:key="id">
+  <view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重新加载</button></view>
+  <button wx:if="{{error === '请登录后查看积分流水'}}" bindtap="goLogin">去登录</button>
+  <view wx:if="{{!loading && !error && !ledger.length}}" class="card">暂无符合条件的流水</view>
+  <view class="card" wx:for="{{ledger}}" wx:key="id" data-index="{{index}}" bindtap="openSource">
     <view class="row">
       <view>
-        <view>{{item.changeType}}</view>
+        <view>{{item.label}}</view>
+        <view class="muted">余额 {{item.balanceAfter}} · {{item.bizNo}}</view>
+        <view wx:if="{{item.source}}">查看来源 ›</view>
         <view class="muted">{{item.createdAt}}</view>
       </view>
       <view class="tag">{{item.direction === 'in' ? '+' : '-'}}{{item.points}}</view>
     </view>
   </view>
+  <button wx:if="{{hasMore}}" bindtap="more" disabled="{{loading}}" loading="{{loading}}">加载更多</button>
 </view>

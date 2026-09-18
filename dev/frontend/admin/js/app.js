@@ -1,4 +1,4 @@
-import { api, getAdminRole, safeApi } from "./api.js";
+import { api, getAdminRole, safeApi, retryApprovalIntent } from "./api.js";
 import { renderAdminPage } from "./render.js";
 
 const state = {
@@ -94,6 +94,8 @@ async function loadDashboard() {
   state.orders = orders.ok ? orders.data : [];
   state.products = products.ok ? products.data : [];
   state.inventoryLedger = inventoryLedger.ok ? inventoryLedger.data : [];
+  const refundReturns = await safeApi("/api/admin/refund-returns", []);
+  state.refundReturns = refundReturns.ok ? refundReturns.data : [];
   state.ledger = ledger.ok ? ledger.data : { pointLedger: [], paymentLedger: [] };
   state.roles = roles.ok ? roles.data : [];
   state.refunds = refunds.ok ? refunds.data : [];
@@ -335,6 +337,21 @@ document.querySelector("#refresh").addEventListener("click", () => {
 });
 
 document.body.addEventListener("click", (event) => {
+  const withdrawSubmit = event.target.closest("[data-withdraw-submit]");
+  if (withdrawSubmit) {
+    if (withdrawSubmit.disabled || !window.confirm(`确认将提现单 ${withdrawSubmit.dataset.withdrawSubmit} 提交服务商？提交后须等待服务商回调或查单结果。`)) return;
+    withdrawSubmit.disabled = true;
+    api(`/api/admin/withdrawals/${encodeURIComponent(withdrawSubmit.dataset.withdrawSubmit)}/submit-provider`, { method: "POST", body: "{}" })
+      .then(loadDashboard).catch(error => { window.alert(error.message); renderAdminPage(state); });
+    return;
+  }
+  const approvalRetry = event.target.closest("[data-approval-retry]");
+  if (approvalRetry) {
+    if (approvalRetry.disabled || !window.confirm("确认按上方显示的原目标、金额及原因重试审批申请？")) return;
+    approvalRetry.disabled = true;
+    retryApprovalIntent(approvalRetry.dataset.approvalRetry).then(loadDashboard).catch(error => { window.alert(error.message); renderAdminPage(state); });
+    return;
+  }
   const monthlyRewardSettle = event.target.closest("[data-monthly-point-reward-settle]");
   if (monthlyRewardSettle) {
     api("/api/admin/monthly-point-rewards/settle", {
@@ -361,7 +378,7 @@ document.body.addEventListener("click", (event) => {
       })
     })
       .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+      .catch(error => { window.alert(error.message); renderAdminPage(state); });
     return;
   }
 
@@ -521,6 +538,31 @@ document.body.addEventListener("click", (event) => {
   }
 
   const approveRefund = event.target.closest("[data-refund-approve]");
+  const returnAction = event.target.closest("[data-refund-return]");
+  if (returnAction) {
+    const disposition = returnAction.dataset.disposition;
+    let items;
+    let details = "";
+    if (disposition === "partial") {
+      const ticket = (state.refundReturns || []).find(item => item.refundId === returnAction.dataset.refundReturn);
+      if (!ticket?.items?.length) { window.alert("未找到订单商品，请刷新后重试"); return; }
+      items = [];
+      const summary = [];
+      for (const product of ticket.items) {
+        const value = window.prompt(`${product.title || product.productId}：订单数量 ${product.quantity}，请输入实际退回且验收合格的回库数量（0-${product.quantity}）。剩余数量将确认不回库。`, "0");
+        if (value === null) return;
+        const quantity = Number(value);
+        if (!/^\d+$/.test(value.trim()) || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > product.quantity) { window.alert("回库数量必须为不超过订单数量的非负整数"); return; }
+        items.push({ productId: product.productId, restockQuantity: quantity });
+        summary.push(`${product.title || product.productId}：回库 ${quantity}，不回库 ${product.quantity - quantity}`);
+      }
+      details = `${summary.join("\n")}\n这是最终验收，将关闭退货工单，剩余数量不再回库。如仍待收货，请取消并在全部核对完成后操作。`;
+    }
+    const confirmation = requestSensitiveReason("确认退货验收处理", disposition === "partial" ? details : disposition === "restock" ? "确认整单商品已实际退回且全部验收合格。本操作将增加可售库存。" : "确认该退货不增加可售库存，请填写无需退货或损耗处理依据。", "确认处理");
+    if (!confirmation.ok) return;
+    api(`/api/admin/refund-returns/${encodeURIComponent(returnAction.dataset.refundReturn)}/resolve`, { method: "POST", body: JSON.stringify({ disposition, items, reason: confirmation.reason }) }).then(loadDashboard).catch(() => renderAdminPage(state));
+    return;
+  }
   if (approveRefund) {
     const confirmation = requestSensitiveReason("提交退款复核", `退款单 ${approveRefund.dataset.refundApprove} 将进入二级审批队列，复核通过后才原路退款。`, "提交退款复核");
     if (!confirmation.ok) return;
@@ -534,7 +576,7 @@ document.body.addEventListener("click", (event) => {
       })
     })
       .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+      .catch(error => { window.alert(error.message); renderAdminPage(state); });
     return;
   }
 
@@ -573,10 +615,23 @@ document.body.addEventListener("click", (event) => {
   }
 
   const reviewAction = event.target.closest("[data-task-review]");
+  const reconcileAction = event.target.closest("[data-task-reconcile]");
+  if (reconcileAction) {
+    const submission = state.taskSubmissions.find(item => item.id === reconcileAction.dataset.taskReconcile);
+    if (!submission) return;
+    const externalOrderId = window.prompt(`请核对用户 ${submission.userId}、任务 ${submission.taskId} 的平台审核单号。`, submission.externalOrderId || "");
+    if (!externalOrderId?.trim()) return;
+    const confirmation = requestSensitiveReason("确认平台关联核对", `将本地交单 ${submission.id} 关联平台单 ${externalOrderId.trim()}。平台已通过时会按原奖励快照入账。请确认已核对用户、任务及提交资料，填写人工关联依据。`, "确认核对并处理");
+    if (!confirmation.ok) return;
+    api(`/api/admin/task-submissions/${encodeURIComponent(submission.id)}/reconcile`, { method: "POST", body: JSON.stringify({ externalOrderId: externalOrderId.trim(), reason: confirmation.reason }) }).then(loadDashboard).catch(() => renderAdminPage(state));
+    return;
+  }
   if (reviewAction) {
+    const confirmation = requestSensitiveReason("确认任务审核", reviewAction.dataset.reviewAction === "approve" ? "审核通过将发放任务奖励及适用的邀请提成，请填写审核依据。" : "请填写拒绝原因，用户可在提交记录中查看。", "确认审核");
+    if (!confirmation.ok) return;
     api(`/api/admin/task-submissions/${reviewAction.dataset.taskReview}/${reviewAction.dataset.reviewAction}`, {
       method: "POST",
-      body: JSON.stringify({ remarks: reviewAction.dataset.reviewAction === "approve" ? "后台审核通过" : "后台审核拒绝" })
+      body: JSON.stringify({ remarks: confirmation.reason })
     })
       .then(loadDashboard)
       .catch(() => renderAdminPage(state));
@@ -587,14 +642,14 @@ document.body.addEventListener("click", (event) => {
   if (pointsAdjust) {
     const rawDelta = window.prompt("请输入积分调整值，正数为补积分，负数为扣积分", "10");
     if (rawDelta === null) return;
-    const pointsDelta = Math.trunc(Number(rawDelta));
-    if (!Number.isFinite(pointsDelta) || pointsDelta === 0) {
-      window.alert("积分调整值必须是非 0 数字");
+    const pointsDelta = /^[+-]?\d+$/.test(rawDelta.trim()) ? Number(rawDelta) : NaN;
+    if (!Number.isSafeInteger(pointsDelta) || pointsDelta === 0) {
+      window.alert("积分调整值必须是非零安全整数");
       return;
     }
     const currentPoints = Number(pointsAdjust.dataset.userPoints || 0);
-    if (currentPoints + pointsDelta < 0) {
-      window.alert("积分调整后不能小于 0");
+    if (!Number.isSafeInteger(currentPoints) || currentPoints < 0 || !Number.isSafeInteger(currentPoints + pointsDelta) || currentPoints + pointsDelta < 0) {
+      window.alert("当前积分余额异常、余额不足或调整后超出安全范围，请核对");
       return;
     }
     const confirmation = requestSensitiveReason("提交积分调整复核", `用户 ${pointsAdjust.dataset.userPointsAdjust} 将提交 ${pointsDelta > 0 ? "+" : ""}${pointsDelta} 积分调整申请，复核通过后才入账。`, "后台手工积分调整");
@@ -610,7 +665,7 @@ document.body.addEventListener("click", (event) => {
       })
     })
       .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+      .catch(error => { window.alert(error.message); renderAdminPage(state); });
     return;
   }
 
@@ -710,7 +765,7 @@ document.body.addEventListener("click", (event) => {
       })
     })
       .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+      .catch(error => { window.alert(error.message); renderAdminPage(state); });
     return;
   }
 
@@ -724,7 +779,7 @@ document.body.addEventListener("click", (event) => {
       body: JSON.stringify({ reason: confirmation.reason })
     })
       .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+      .catch(error => { window.alert(error.message); loadDashboard().catch(() => renderAdminPage(state)); });
   }
 });
 

@@ -1,10 +1,13 @@
 const accountService = require("../services/account-service");
 const withdrawalService = require("../services/withdrawal-service");
+const { authenticateCallback } = require("../services/callback-auth");
 
 async function handleAccountRoutes(ctx) {
   const { req, url, state, user, send, readBody } = ctx;
 
   if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") {
+    const auth = authenticateCallback(req, url, "HF_CALLBACK_TOKEN", "x-huifu-callback-token");
+    if (!auth.ok) return send(ctx.res, auth.status, { error: auth.error });
     const result = withdrawalService.handleCallback(state, await readBody(req));
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { success: true, withdrawal: result.withdrawal } : { error: result.error });
   }
@@ -51,7 +54,12 @@ async function handleAccountRoutes(ctx) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/points-ledger") {
-    return send(ctx.res, 200, accountService.getPointLedger(state, user.id));
+    for (const [name, maximum] of [["page", 1000000], ["count", 100]]) {
+      const value = url.searchParams.get(name);
+      if (value !== null && (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1 || Number(value) > maximum)) return send(ctx.res, 400, { error: `${name} 必须为 1 到 ${maximum} 的整数` });
+    }
+    if (![null, "", "in", "out"].includes(url.searchParams.get("direction"))) return send(ctx.res, 400, { error: "无效积分收支方向" });
+    return send(ctx.res, 200, accountService.getPointLedger(state, user.id, Object.fromEntries(url.searchParams.entries())));
   }
 
   if (req.method === "GET" && url.pathname === "/api/ranking") {

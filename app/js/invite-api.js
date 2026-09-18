@@ -1,6 +1,6 @@
-/**
- * TGG 邀请/拉新 API 客户端（非悬赏平台）
- * 文档：需求文档 §3.2.4、§4.6
+﻿/**
+ * TGG 閭€璇?鎷夋柊 API 瀹㈡埛绔紙闈炴偓璧忓钩鍙帮級
+ * 鏂囨。锛氶渶姹傛枃妗?搂3.2.4銆伮?.6
  */
 const InviteApi = (() => {
   const cfg = () => window.TGG_CONFIG || { useMock: true };
@@ -19,8 +19,11 @@ const InviteApi = (() => {
     const url = `${base}/${path.replace(/^\//, "")}`;
     const res = await fetch(url, { method: "POST", body });
     const json = await res.json();
-    if (json.code !== 0) throw new Error(json.msg || "请求失败");
-    return json.data;
+    if (Object.prototype.hasOwnProperty.call(json, "code")) {
+      if (json.code !== 0) throw new Error(json.msg || "请求失败");
+      return json.data;
+    }
+    return json;
   }
 
   const getInviteInfo = () => post("api/invite/info");
@@ -33,7 +36,7 @@ const InviteApi = (() => {
       return Promise.resolve({
         invite_code: "TGG8K2M",
         share_url: "https://tgg.shop/invite?code=TGG8K2M",
-        share_title: "邀请你加入 TGG Shop，注册即送 1 个月会员",
+        share_title: "閭€璇蜂綘鍔犲叆 TGG Shop锛屾敞鍐屽嵆閫?1 涓湀浼氬憳",
         reward_invite: 3,
         reward_ratio: 10,
         total_invited: 5,
@@ -42,11 +45,11 @@ const InviteApi = (() => {
     }
     if (path.includes("list")) {
       return Promise.resolve([
-        { uid: 101, nickname: "用户A", avatar: "", bind_time: "2026-06-01 10:20", contributed: 12 },
-        { uid: 102, nickname: "用户B", avatar: "", bind_time: "2026-06-10 14:05", contributed: 8 },
-        { uid: 103, nickname: "用户C", avatar: "", bind_time: "2026-06-18 09:30", contributed: 5 },
-        { uid: 104, nickname: "用户D", avatar: "", bind_time: "2026-06-20 16:00", contributed: 3 },
-        { uid: 105, nickname: "用户E", avatar: "", bind_time: "2026-06-22 11:15", contributed: 0 },
+        { uid: 101, nickname: "鐢ㄦ埛A", avatar: "", bind_time: "2026-06-01 10:20", contributed: 12 },
+        { uid: 102, nickname: "鐢ㄦ埛B", avatar: "", bind_time: "2026-06-10 14:05", contributed: 8 },
+        { uid: 103, nickname: "鐢ㄦ埛C", avatar: "", bind_time: "2026-06-18 09:30", contributed: 5 },
+        { uid: 104, nickname: "鐢ㄦ埛D", avatar: "", bind_time: "2026-06-20 16:00", contributed: 3 },
+        { uid: 105, nickname: "鐢ㄦ埛E", avatar: "", bind_time: "2026-06-22 11:15", contributed: 0 },
       ]);
     }
     if (path.includes("stats")) {
@@ -62,3 +65,5 @@ const InviteApi = (() => {
 
   return { getInviteInfo, getInviteList, getInviteStats };
 })();
+
+

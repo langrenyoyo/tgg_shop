@@ -7,14 +7,14 @@ function verifyPickup(state, orderId, pickupCode) {
   const order = orderRepository.findById(state, orderId);
   const check = assertFulfillableOrder(order, "pickup");
   if (!check.ok) return check;
+  if (!pickupCode || String(pickupCode) !== String(order.pickupCode)) {
+    return { ok: false, status: 400, error: "核销码不正确" };
+  }
   if (order.fulfillmentStatus === "picked_up" && order.status === "completed") {
     return { ok: true, order, idempotent: true };
   }
   if (order.fulfillmentStatus !== "pending_pickup") {
     return { ok: false, status: 400, error: "当前自提状态不允许核销" };
-  }
-  if (!pickupCode || String(pickupCode) !== String(order.pickupCode)) {
-    return { ok: false, status: 400, error: "核销码不正确" };
   }
 
   const previousStatus = order.status;
@@ -38,7 +38,10 @@ function shipOrder(state, orderId, staffId) {
   const order = orderRepository.findById(state, orderId);
   const check = assertFulfillableOrder(order, "delivery");
   if (!check.ok) return check;
-  if (order.fulfillmentStatus === "shipping") return { ok: true, order, idempotent: true };
+  if (order.fulfillmentStatus === "shipping") {
+    if (!staffId || staffId !== order.deliveryStaffId) return { ok: false, status: 409, error: "订单已分配配送员，请勿通过重复发货变更分配" };
+    return { ok: true, order, idempotent: true };
+  }
   if (order.fulfillmentStatus !== "pending_ship") {
     return { ok: false, status: 400, error: "当前配送状态不允许发货" };
   }
@@ -140,6 +143,7 @@ function assertFulfillableOrder(order, fulfillmentType) {
   if (!order) return { ok: false, status: 404, error: "订单不存在" };
   if (order.fulfillmentType !== fulfillmentType) return { ok: false, status: 400, error: "订单履约方式不匹配" };
   if (!["paid", "completed"].includes(order.status)) return { ok: false, status: 400, error: "订单未支付或状态不允许履约" };
+  if (order.status === "completed" && order.fulfillmentStatus !== (fulfillmentType === "pickup" ? "picked_up" : "delivered")) return { ok: false, status: 409, error: "订单完成状态与履约记录不一致，请核对" };
   return { ok: true };
 }
 

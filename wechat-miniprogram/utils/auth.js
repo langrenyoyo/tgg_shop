@@ -1,15 +1,13 @@
-const { request } = require("./api");
+const { request, saveSession } = require("./api");
+const { mergeGuestCart } = require("./cart");
 
 async function login(userId, password) {
   const res = await request("/api/auth/login", {
     method: "POST",
     data: { userId, password }
   });
-  wx.setStorageSync("tgg_token", res.token);
-  wx.setStorageSync("tgg_user", res.user || null);
-  const app = getApp();
-  app.globalData.token = res.token;
-  app.globalData.user = res.user || null;
+  saveSession(res);
+  mergeGuestCart();
   return res;
 }
 
@@ -17,7 +15,11 @@ module.exports = {
   login,
   async wechatLogin() {
     const code = await new Promise((resolve, reject) => wx.login({ success: r => r.code ? resolve(r.code) : reject(new Error("微信登录未获取到 code")), fail: reject }));
-    const res = await request("/api/auth/wechat-login", { method: "POST", data: { code } });
-    wx.setStorageSync("tgg_token", res.token); wx.setStorageSync("tgg_user", res.user || null); getApp().globalData.token = res.token; getApp().globalData.user = res.user || null; return res;
+    const inviteCode = wx.getStorageSync("tgg_pending_invite") || "";
+    const res = await request("/api/auth/wechat-login", { method: "POST", data: { code, inviteCode } });
+    saveSession(res);
+    mergeGuestCart();
+    wx.removeStorageSync("tgg_pending_invite");
+    return res;
   }
 };

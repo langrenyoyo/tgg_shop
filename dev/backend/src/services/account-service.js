@@ -136,8 +136,28 @@ function requestWithdrawal(state, user, input) {
   return { ok: true, withdrawal, idempotent: false };
 }
 
-function getPointLedger(state, userId) {
-  return state.pointLedger.filter((item) => item.userId === userId);
+function getPointLedger(state, userId, filters = {}) {
+  const type = String(filters.type || "").trim();
+  const direction = String(filters.direction || "").trim();
+  const rows = state.pointLedger.filter((item) => item.userId === userId && (!type || item.changeType === type) && (!direction || item.direction === direction));
+  // Preserve the existing array contract for the web client.
+  if (!filters.page && !filters.count) return rows;
+  const integer = (value, fallback, max) => Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Math.min(Number(value), max) : fallback;
+  const page = integer(filters.page, 1, 1000000);
+  const count = integer(filters.count, 20, 100);
+  const selected = rows.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)) || String(b.id).localeCompare(String(a.id)));
+  return { rows: selected.slice((page - 1) * count, page * count).map(item => {
+    let source = null;
+    const order = state.orders.find(row => row.id === item.bizNo && row.userId === userId);
+    const refund = state.refundOrders.find(row => row.id === item.bizNo && row.userId === userId);
+    const submission = state.submissions.find(row => row.id === item.bizNo && row.userId === userId);
+    if (order) source = { type: "order", id: order.id };
+    else if (refund) source = { type: "order", id: refund.orderId };
+    else if (submission) source = { type: "submission", id: submission.id };
+    else if (["invite_reward", "invite_commission"].includes(item.changeType)) source = { type: "invite" };
+    else if (["signin", "signin_streak", "lottery"].includes(item.changeType)) source = { type: "signin" };
+    return { ...item, source };
+  }), total: rows.length, page, count };
 }
 
 function getRanking(state, userId) {

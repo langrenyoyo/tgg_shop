@@ -10,7 +10,9 @@ Page({
     this.setData({ loading: true });
     try {
       await wechatLogin();
-      wx.reLaunch({ url: "/pages/home/index" });
+      if (getCurrentPages().length > 1) {
+        wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: "/pages/home/index" }) });
+      } else wx.reLaunch({ url: "/pages/home/index" });
     } catch (error) {
       wx.showToast({ title: error.message, icon: "none" });
     } finally {

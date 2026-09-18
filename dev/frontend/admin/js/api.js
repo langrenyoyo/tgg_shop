@@ -5,6 +5,19 @@ const DEMO_PASSWORD = "123456";
 
 export async function api(path, options = {}) {
   const token = ["/api/admin/auth/login", "/api/admin/auth/refresh"].includes(path) ? "" : await ensureAdminToken();
+  if (path === "/api/admin/approval-requests" && options.method === "POST" && !options.__approvalIntent) {
+    const payload = JSON.parse(options.body);
+    if (!payload.idempotencyKey) {
+      const key = "tggApprovalIntent:" + JSON.stringify([getAdminRole(), payload.action, payload.targetType, payload.targetId]);
+      const original = JSON.stringify(payload);
+      const saved = localStorage.getItem(key);
+      const intent = saved ? JSON.parse(saved) : { original, idempotencyKey: crypto.randomUUID() };
+      if (intent.original !== original) throw new Error("上次审批申请结果待确认，请使用原金额及原因重试，或先核对审批列表");
+      const value = JSON.stringify(intent);
+      localStorage.setItem(key, value);
+      options = { ...options, body: JSON.stringify({ ...payload, idempotencyKey: intent.idempotencyKey }), __approvalIntent: { key, value } };
+    }
+  }
   const res = await fetch(path, {
     ...options,
     headers: {
@@ -20,7 +33,9 @@ export async function api(path, options = {}) {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     return api(path, { ...options, __retried: true });
   }
-  if (!res.ok) throw new Error(data.error || "请求失败");
+  const intent = options.__approvalIntent;
+  if (intent && (res.ok || [400, 409].includes(res.status)) && localStorage.getItem(intent.key) === intent.value) localStorage.removeItem(intent.key);
+  if (!res.ok) throw Object.assign(new Error(data.error || "请求失败"), { statusCode: res.status });
   return data;
 }
 
@@ -30,6 +45,29 @@ export async function safeApi(path, fallback) {
   } catch (error) {
     return { ok: false, data: fallback, error };
   }
+}
+
+export function pendingApprovalIntents() {
+  const role = getAdminRole(), intents = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (!key?.startsWith("tggApprovalIntent:")) continue;
+    try {
+      const identity = JSON.parse(key.slice("tggApprovalIntent:".length));
+      if (identity[0] !== role) continue;
+      const saved = JSON.parse(localStorage.getItem(key));
+      const payload = JSON.parse(saved.original);
+      if (typeof saved.idempotencyKey !== "string" || !saved.idempotencyKey || identity[1] !== payload.action || identity[2] !== payload.targetType || identity[3] !== payload.targetId) continue;
+      intents.push({ id: saved.idempotencyKey, payload });
+    } catch { /* Invalid browser records cannot be submitted as financial instructions. */ }
+  }
+  return intents;
+}
+
+export function retryApprovalIntent(id) {
+  const intent = pendingApprovalIntents().find(item => item.id === id);
+  if (!intent) return Promise.reject(new Error("原申请不存在或已切换角色，请刷新后核对审批列表"));
+  return api("/api/admin/approval-requests", { method: "POST", body: JSON.stringify(intent.payload) });
 }
 
 export function getAdminRole() {

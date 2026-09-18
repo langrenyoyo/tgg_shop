@@ -554,6 +554,10 @@ function startServer() {
     cwd: path.resolve(__dirname, "..", ".."),
     env: {
       ...process.env,
+      TGG_LOAD_DOTENV: "0",
+      TGG_TASK_PLATFORM_BASE_URL: "",
+      TGG_TASK_PLATFORM_APPID: "",
+      TGG_TASK_PLATFORM_KEY: "",
       PORT: String(APP_PORT),
       TGG_STORE_MODE: "memory"
     },

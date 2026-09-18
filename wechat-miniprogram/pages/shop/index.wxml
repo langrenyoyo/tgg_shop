@@ -1,1 +1,5 @@
-<view class="page"><view class="card"><view class="title">精选商城</view><view class="muted">积分兑换好礼</view></view><view class="grid"><view class="card product" wx:for="{{products}}" wx:key="id" bindtap="open" data-id="{{item.id}}"><view class="cover">🛍️</view><view>{{item.name}}</view><view class="price">{{item.purePointsOnly ? item.pointsPrice + ' 积分' : '¥' + item.cashPrice}}</view></view></view></view>
+<view class="page category-page"><view class="title">商品分类</view>
+<input class="card" value="{{search}}" bindinput="search" placeholder="搜索商品"/>
+<view class="categories"><view wx:for="{{categories}}" wx:key="*this" data-category="{{item}}" bindtap="category" class="{{category === item ? 'active' : ''}}">{{item}}</view></view>
+<view wx:if="{{error}}">{{error}}<button bindtap="load">重试</button></view>
+<view class="grid"><view class="card product" wx:for="{{products}}" wx:key="id" bindtap="open" data-id="{{item.id}}"><image wx:if="{{item.image}}" src="{{item.image}}" mode="aspectFill" style="width:100%;height:220rpx"/><view class="name">{{item.name}}</view><view>{{item.category}}</view><view class="price">{{item.purePointsOnly ? item.pointsPrice + ' 积分' : '¥' + item.cashPrice}}</view></view></view><view wx:if="{{!products.length && !error}}">暂无符合条件的商品</view></view>

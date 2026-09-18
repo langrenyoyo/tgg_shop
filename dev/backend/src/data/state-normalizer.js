@@ -19,14 +19,6 @@ function normalizeState(nextState) {
   nextState.authSessions = nextState.authSessions || seed.authSessions;
   nextState.authLoginAttempts = nextState.authLoginAttempts || seed.authLoginAttempts;
   nextState.users = (nextState.users || seed.users).map((user) => ({ status: "active", ...user }));
-  for (const user of nextState.users) {
-    if (user.id === "u_1001" && user.role === "member") {
-      const memberUntil = user.memberUntil ? new Date(user.memberUntil) : null;
-      if (!memberUntil || Number.isNaN(memberUntil.getTime()) || memberUntil.getTime() <= Date.now()) {
-        user.memberUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      }
-    }
-  }
   return nextState;
 }
 

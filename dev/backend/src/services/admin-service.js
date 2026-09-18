@@ -11,6 +11,7 @@ const {
   settleMonthlyPointRewards
 } = require("./monthly-point-reward-service");
 const adminRepository = require("../repositories/admin-repository");
+const { reconcilePoints } = require("./point-reconciliation-service");
 const ledgerRepository = require("../repositories/ledger-repository");
 const inventoryRepository = require("../repositories/inventory-repository");
 const refundRepository = require("../repositories/refund-repository");
@@ -420,6 +421,7 @@ function getLedger(state, filters = {}) {
   const channel = filters.channel;
   return {
     ...ledger,
+    pointReconciliation: reconcilePoints(state),
     paymentLedger: ledger.paymentLedger.filter((payment) => {
       if (paymentStatus && payment.status !== paymentStatus) return false;
       if (payScene && payment.payScene !== payScene) return false;
@@ -543,6 +545,7 @@ function listTickets(state) {
 function updateTicket(state, ticketId, input = {}, actor = {}) {
   const ticket = (state.operationTickets || []).find((item) => item.id === ticketId);
   if (!ticket) return { ok: false, status: 404, error: "operation failed" };
+  if (ticket.linkedType === "refund_return" && input.status && input.status !== ticket.status) return { ok: false, status: 409, error: "退货库存工单请在商品库存页验收处理，不能通过普通工单关闭或重开" };
   const before = { ...ticket };
   if (["open", "processing", "resolved", "closed"].includes(input.status)) ticket.status = input.status;
   if (typeof input.adminReply === "string") ticket.adminReply = input.adminReply.trim();
@@ -743,6 +746,7 @@ function listTaskSubmissions(state) {
 }
 
 function reviewTaskSubmission(state, submissionId, status, remarks, actor = {}) {
+  if (state.submissions.find(item => item.id === submissionId)?.platform === "bounty_platform") return { ok: false, status: 409, error: "平台交单请使用平台关联核对，以真实审核结果发奖" };
   const result = handleTaskCallback(state, { submissionId, status, remarks });
   if (!result.ok) return result;
   logOperation(state, actor, `task.${status}`, "task_submission", submissionId, { remarks });
@@ -754,6 +758,17 @@ function approveWithdrawal(state, withdrawalId, actor = {}, reason = "") {
   const withdrawal = state.withdrawRequests.find((item) => item.id === withdrawalId);
   if (!withdrawal) return { ok: false, status: 404, error: "operation failed" };
   if (withdrawal.status !== "pending_review") return { ok: false, status: 400, error: "operation failed" };
+
+  // Production approval authorizes provider submission; never post a payout
+  // ledger before the provider reports a terminal success.
+  if (process.env.NODE_ENV === "production") {
+    withdrawal.status = "approved";
+    withdrawal.providerStatus = "APPROVED";
+    withdrawal.updatedAt = new Date().toISOString();
+    logOperation(state, actor, "withdrawal.approve", "withdrawal", withdrawal.id, { amount: withdrawal.amount, reason: cleanReason(reason), awaitingProviderSubmission: true });
+    saveState();
+    return { ok: true, withdrawal, awaitingProvider: true };
+  }
 
   const now = new Date().toISOString();
   withdrawal.status = process.env.HF_BASE_URL ? "processing" : "success";
@@ -894,13 +909,31 @@ function requestApproval(state, input, actor = {}) {
   const reason = cleanReason(input.reason);
   if (!action || !targetType || !targetId) return { ok: false, status: 400, error: "operation failed" };
   if (!isSupportedApprovalAction(action, targetType)) return { ok: false, status: 400, error: "operation failed" };
+  const suppliedKey = input.idempotencyKey;
+  if (suppliedKey !== undefined && (typeof suppliedKey !== "string" || !suppliedKey.trim() || suppliedKey.length > 128)) return { ok: false, status: 400, error: "审批幂等键必须是 1 至 128 字符的字符串" };
+  const requestedByRoleId = actor.role?.id || actor.id || "unknown";
+  if (suppliedKey) {
+    const prior = (state.adminApprovalRequests || []).find(item => item.idempotencyKey === suppliedKey);
+    if (prior) {
+      const rawDelta = input.payload?.pointsDelta ?? input.pointsDelta;
+      // Replay checks the original intent without revalidating today's balance.
+      const numericDelta = (typeof rawDelta === "number" || typeof rawDelta === "string" && /^[+-]?\d+$/.test(rawDelta.trim())) ? Number(rawDelta) : NaN;
+      const same = prior.action === action && prior.targetType === targetType && prior.targetId === targetId && prior.requestedByRoleId === requestedByRoleId && prior.requestReason === reason && (action !== "points.adjust" || Number.isSafeInteger(numericDelta) && numericDelta !== 0 && prior.payload.pointsDelta === numericDelta);
+      if (!same) return { ok: false, status: 409, error: "审批幂等键已用于不同操作，请核对原申请" };
+      return { ok: true, approvalRequest: prior, idempotent: true };
+    }
+  }
 
   const targetCheck = assertApprovalTarget(state, action, targetId, input);
   if (!targetCheck.ok) return targetCheck;
 
   const existing = (state.adminApprovalRequests || []).find((item) => item.action === action && item.targetId === targetId && item.status === "pending");
-  if (existing) return { ok: true, approvalRequest: existing, idempotent: true };
-  const idempotencyKey = input.idempotencyKey || `approval:${action}:${targetId}:${Date.now()}`;
+  if (existing) {
+    if (suppliedKey && existing.idempotencyKey !== suppliedKey) return { ok: false, status: 409, error: "已有待复核申请，请先查看原申请结果" };
+    if (action === "points.adjust" && existing.payload.pointsDelta !== targetCheck.payload.pointsDelta) return { ok: false, status: 409, error: "该用户已有不同积分调整待复核，请先处理原申请" };
+    return { ok: true, approvalRequest: existing, idempotent: true };
+  }
+  const idempotencyKey = suppliedKey || nextId("approval_key");
 
   const now = new Date().toISOString();
   const approvalRequest = {
@@ -912,7 +945,7 @@ function requestApproval(state, input, actor = {}) {
     status: "pending",
     requestReason: reason,
     reviewReason: "",
-    requestedByRoleId: actor.role?.id || actor.id || "unknown",
+    requestedByRoleId,
     reviewedByRoleId: "",
     payload: { ...(input.payload || {}), ...(targetCheck.payload || {}), reason, targetSnapshot: clonePlain(targetCheck.target) },
     result: {},
@@ -1111,9 +1144,9 @@ function assertApprovalTarget(state, action, targetId, input = {}) {
   if (action === "points.adjust") {
     const target = userRepository.findById(state, targetId);
     if (!target) return { ok: false, status: 404, error: "operation failed" };
-    const pointsDelta = Math.trunc(Number(input.payload?.pointsDelta ?? input.pointsDelta));
-    if (!Number.isFinite(pointsDelta) || pointsDelta === 0) return { ok: false, status: 400, error: "operation failed" };
-    if (Number(target.points || 0) + pointsDelta < 0) return { ok: false, status: 400, error: "operation failed" };
+    const checked = validatePointAdjustment(target.points, input.payload?.pointsDelta ?? input.pointsDelta);
+    if (!checked.ok) return checked;
+    const { pointsDelta } = checked;
     return { ok: true, target, payload: { pointsDelta } };
   }
   if (action === "monthly_reward.reverse") {
@@ -1159,11 +1192,10 @@ function executeApprovalRequest(state, approvalRequest, actor, reason) {
 function adjustUserPoints(state, userId, input = {}, actor = {}, reason = "", approvalId = "") {
   const user = userRepository.findById(state, userId);
   if (!user) return { ok: false, status: 404, error: "operation failed" };
-  const pointsDelta = Math.trunc(Number(input.pointsDelta));
-  if (!Number.isFinite(pointsDelta) || pointsDelta === 0) return { ok: false, status: 400, error: "operation failed" };
-  const beforePoints = Number(user.points || 0);
-  const afterPoints = beforePoints + pointsDelta;
-  if (afterPoints < 0) return { ok: false, status: 400, error: "operation failed" };
+  const checked = validatePointAdjustment(user.points, input.pointsDelta);
+  if (!checked.ok) return checked;
+  const { pointsDelta, afterPoints } = checked;
+  const beforePoints = user.points;
 
   const idempotencyKey = `approval:${approvalId || "manual"}:points_adjust`;
   const existing = state.pointLedger.find((entry) => entry.idempotencyKey === idempotencyKey);
@@ -1190,6 +1222,16 @@ function adjustUserPoints(state, userId, input = {}, actor = {}, reason = "", ap
   });
   saveState();
   return { ok: true, user };
+}
+
+function validatePointAdjustment(balance, rawDelta) {
+  const numeric = typeof rawDelta === "number" || typeof rawDelta === "string" && /^[+-]?\d+$/.test(rawDelta.trim());
+  const pointsDelta = numeric ? Number(rawDelta) : NaN;
+  if (!Number.isSafeInteger(pointsDelta) || pointsDelta === 0) return { ok: false, status: 400, error: "积分调整值必须是非零安全整数" };
+  if (!Number.isSafeInteger(balance) || balance < 0) return { ok: false, status: 409, error: "当前积分余额异常，请先核对账务" };
+  const afterPoints = balance + pointsDelta;
+  if (!Number.isSafeInteger(afterPoints) || afterPoints < 0) return { ok: false, status: 409, error: "积分调整后余额不足或超出安全范围" };
+  return { ok: true, pointsDelta, afterPoints };
 }
 
 function serializeApprovalResult(result) {

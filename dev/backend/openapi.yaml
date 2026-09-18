@@ -31,6 +31,7 @@ paths:
     post:
       tags: [Uploads]
       summary: Upload task evidence image
+      description: Requires an authenticated user. Multipart request body is limited to 10 MiB. Returned relative upload paths must be resolved against the API origin before submission to external platforms.
       requestBody:
         required: true
         content:
@@ -43,6 +44,10 @@ paths:
                   type: string
                   format: binary
       responses:
+        "401":
+          description: Login required
+        "413":
+          description: Multipart body exceeds 10 MiB
         "200":
           description: Upload result
           content:
@@ -250,6 +255,129 @@ paths:
         "200":
           description: Pure-points products
 
+  /api/auth/wechat-login:
+    post:
+      tags: [Auth]
+      summary: Exchange WeChat login code for an application session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                inviteCode:
+                  type: string
+                  description: Optional invitation code bound on first registration.
+      responses:
+        "200":
+          description: Application token, refreshToken and user; new registrations receive configured trial membership.
+        "400":
+          description: Missing or invalid code
+
+  /api/member/payments:
+    post:
+      tags: [Payments]
+      summary: Create or recover the current user's pending membership payment
+      description: Does not activate membership. The mini-program initiates LFWin payment and queries the server for confirmation. An existing pending payment is reused; a different requested duration conflicts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                months:
+                  type: integer
+                  minimum: 1
+                  maximum: 12
+                  default: 1
+                idempotencyKey:
+                  type: string
+      responses:
+        "201":
+          description: Payment ledger object including payNo, amount, status and metadata
+        "400":
+          description: Invalid membership duration
+        "409":
+          description: Idempotency key or pending membership duration conflict
+
+  /api/orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get own order with refund records and status history
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order object with refunds and history arrays
+        "404":
+          description: Order does not exist or belongs to another user
+
+  /api/orders/{orderId}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancel own unpaid order and release stock and reserved points once
+      description: Provider orders must close remotely first. Unknown provider submission results must be queried before cancellation. Repeated successful cancellation returns the original order.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled order
+        "404":
+          description: Order does not exist or belongs to another user
+        "409":
+          description: Order state or unresolved payment prevents cancellation
+        "502":
+          description: Provider close request failed
+
+  /api/orders/{orderId}/receive:
+    post:
+      tags: [Orders]
+      summary: Confirm receipt of own delivery order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Completed order; repeated confirmation is idempotent
+        "400":
+          description: Order is not eligible for delivery receipt
+        "404":
+          description: Order does not exist or belongs to another user
+
+  /api/refunds/{refundId}:
+    get:
+      tags: [Orders]
+      summary: Get own refund request and related order state
+      description: A refund request is not proof that money has been returned. Production cash refund execution is currently unavailable.
+      parameters:
+        - name: refundId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Refund object with related order id, status and fulfillmentStatus
+        "404":
+          description: Refund does not exist or belongs to another user
+
   /api/member/subscribe:
     post:
       tags: [Payments]
@@ -280,13 +408,39 @@ paths:
     get:
       tags: [Orders]
       summary: List current user orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending_payment, paid, completed, cancelled, closed, refunding, refunded]
+        - name: fulfillmentStatus
+          in: query
+          schema:
+            type: string
+            enum: [pending_pickup, picked_up, pending_ship, shipping, delivered]
+        - name: page
+          in: query
+          description: Optional pagination; omitted preserves the legacy array of all matching orders. Paged results sort newest first.
+          schema:
+            type: integer
+            minimum: 1
+        - name: count
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         "200":
           description: Order list
+        "400":
+          description: Invalid filter or pagination
     post:
       tags: [Orders]
       summary: Create order
-      description: Pure-points orders are paid immediately and never create cash top-up.
+      description: Pure-points orders are paid immediately and never create cash top-up. Reuse the same idempotency key only with the original items, payment and fulfillment choices. Conflicting content returns 409; identical retries return the original order without another deduction.
       requestBody:
         required: true
         content:
@@ -298,6 +452,8 @@ paths:
           description: Created order
         "400":
           description: Business rule violation
+        "409":
+          description: Idempotency key already used for different order content
 
   /api/orders/{orderId}/pay:
     post:
@@ -554,7 +710,7 @@ paths:
     post:
       tags: [Tasks]
       summary: Submit task proof
-      description: Requires monthly membership. Proxies index/index/task_register when platform credentials are configured, then stores a local submission for callbacks and admin review.
+      description: Requires monthly membership. Validates the task's required text fields before storing a local submission intent and calling index/index/task_register. An optional idempotencyKey (nonempty string, maximum 128 characters) must be reused with unchanged content on retry. Uncertain provider results retain the intent and must not trigger a new registration.
       parameters:
         - $ref: "#/components/parameters/TaskId"
       requestBody:
@@ -566,18 +722,42 @@ paths:
       responses:
         "201":
           description: Submission created
+        "400":
+          description: Missing required task fields or invalid payload; no new submission is registered
         "403":
           description: Non-member cannot submit bounty tasks
         "404":
           description: Task not found
+        "409":
+          description: Existing intent has different content or its submission result is still uncertain
+        "502":
+          description: Provider submission result uncertain; inspect records and retry only with the same key and content
+        "503":
+          description: Unsupported required task field configuration or invalid reward; no new submission is registered
 
   /api/submissions:
     get:
       tags: [Tasks]
       summary: List current user task submissions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [All, reviewing, approved, rejected, "0", "1", "2"]
+            default: All
+          description: Filter before pagination. Numeric aliases match platform review states.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Local results use 10 rows per page; remote page size is controlled by the platform. Continue until an empty page. Without page, local results retain the legacy unpaginated response.
       responses:
         "200":
           description: Submission list
+        "400":
+          description: Invalid page or review status
 
   /api/submissions/{submissionId}:
     get:
@@ -595,19 +775,51 @@ paths:
         "404":
           description: Submission not found
 
+  /api/submissions/{submissionId}/sync:
+    post:
+      tags: [Tasks]
+      summary: Reconcile the current user's local submission with platform review results
+      description: Queries the authenticated platform examine list, matching user and task. Missing external IDs require unique payload and creation-time matching in both directions. Scans at most 20 pages and refuses an incomplete or ambiguous match. Confirmed approval uses the original reward snapshot and existing callback ledger idempotency; client-supplied status or reward is never used.
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current submission after reconciliation, with rewards applied once for confirmed approval
+        "401":
+          description: Login required
+        "404":
+          description: No local submission belonging to this user
+        "409":
+          description: Missing or ambiguous match, incomplete scan, or conflicting review outcome
+        "502":
+          description: Invalid provider response or unknown review status
+        "503":
+          description: Task platform not configured
+
   /api/task/callback:
     post:
       tags: [Tasks]
       summary: Receive bounty platform review callback
-      description: Status `1` or `approved` approves and grants task points; invited users also trigger inviter commission by `inviteCommissionRate`. Status `2` or `rejected` rejects. Repeated callbacks are idempotent via `task_callback:{submissionId}:{status}` and `task_callback:{submissionId}:invite_commission`.
+      description: Status `1` or `approved` approves and grants task points; invited users also trigger inviter commission by `inviteCommissionRate`. Status `2` or `rejected` rejects. Repeated callbacks are idempotent via `task_callback:{submissionId}:{status}` and `task_callback:{submissionId}:invite_commission`. Successful provider responses are intentionally limited to `{"status":"success"}`; submission and reward details remain in local audit records.
       security: []
+      parameters:
+        - in: header
+          name: x-task-callback-token
+          required: false
+          schema:
+            type: string
+          description: Must match server TGG_TASK_CALLBACK_TOKEN. A token query parameter is accepted when the provider cannot set headers. User Bearer authentication is not sufficient.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [id, status]
+              required: [id, sf_uid, status, remarks]
               properties:
                 id:
                   type: string
@@ -624,11 +836,27 @@ paths:
                   type: string
       responses:
         "200":
-          description: Callback handled
+          description: Callback handled; exact response required by provider document
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    enum: [success]
         "400":
           description: Invalid callback payload
         "404":
           description: Submission not found and exception created
+        "401":
+          description: Invalid callback credential
+        "409":
+          description: Ambiguous external order mapping or conflicting settled status
+        "503":
+          description: Callback credential has not been configured
 
   /api/invite/info:
     get:
@@ -648,15 +876,29 @@ paths:
     get:
       tags: [Growth]
       summary: List invited users
+      description: Without pagination returns the legacy array. With page or count returns rows, total, page, count; filters to this inviter before ordering by boundAt and invitee ID descending. Contribution totals remain attributed to the invitee's submissions.
+      parameters: &invitePagination
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000000, default: 1 }
+        - name: count
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
         "200":
-          description: Invite list
+          description: Invite array or paginated object containing rows, total, page, count
+        "400":
+          description: Invalid pagination
     post:
       tags: [Growth]
       summary: List invited users
+      description: Same response as GET; pagination parameters are read from the query string.
+      parameters: *invitePagination
       responses:
         "200":
-          description: Invite list
+          description: Invite array or paginated object containing rows, total, page, count
+        "400":
+          description: Invalid pagination
 
   /api/invite/stats:
     get:
@@ -676,6 +918,7 @@ paths:
     get:
       tags: [Growth]
       summary: Get current sign-in ad progress and streak
+      description: Includes sessionId, completionToken, prize, adRewardsAvailable, unavailableReason, totalAds, completedAds, signedToday, lotteryTicket, lotteryUsed and streak reward values. Production adRewardsAvailable is false until server verification exists. The client nonce is not proof of playback.
       responses:
         "200":
           description: Sign-in status
@@ -697,26 +940,46 @@ paths:
   /api/signin/ad_complete:
     post:
       tags: [Growth]
-      summary: Report completed ad group
+      summary: Report one completed ad in a development sign-in session
+      description: Ad types alternate reward_video and interstitial. Production returns 503 until trusted provider verification is implemented. Refresh status after an uncertain response to recover the next nonce.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [sessionId, adType, completionToken]
               properties:
                 sessionId:
                   type: string
+                adType:
+                  type: string
+                  enum: [reward_video, interstitial]
+                completionToken:
+                  type: string
+                  description: One-time nonce from the latest session status or completion response.
       responses:
         "200":
           description: Ad completion result
+        "400":
+          description: Wrong ad order or stale completion token
+        "404":
+          description: No matching session for this user and Shanghai calendar day
+        "503":
+          description: Production provider verification is unavailable
 
   /api/signin/lottery_spin:
     post:
       tags: [Growth]
       summary: Spin lottery after sign-in ads
+      description: Repeated successful calls return the saved prize without consuming another ticket or crediting again. Invalid prize configuration does not consume the ticket.
       responses:
         "200":
           description: Prize result
+        "400":
+          description: No available ticket
+        "503":
+          description: Prize configuration or point account cannot be settled
 
   /api/pickup-sites:
     get:
@@ -799,9 +1062,49 @@ paths:
     get:
       tags: [Orders]
       summary: List current user's point ledger
+      description: Filters apply before pagination. Without page and count, returns the legacy array. Supplying either enables an object response ordered by createdAt then ID descending. Source links only reference the current user's business records; invite commissions link to the invite page rather than another user's submission.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000000, default: 1 }
+        - name: count
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: type
+          in: query
+          description: Exact changeType filter; empty means all types.
+          schema: { type: string }
+        - name: direction
+          in: query
+          schema: { type: string, enum: ["", in, out] }
       responses:
         "200":
-          description: Point ledger
+          description: Current user's point ledger, with filtered total and pagination metadata when requested
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items: { type: object }
+                  - type: object
+                    required: [rows, total, page, count]
+                    properties:
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            source:
+                              type: object
+                              nullable: true
+                              properties:
+                                type: { type: string, enum: [order, submission, invite, signin] }
+                                id: { type: string }
+                      total: { type: integer, minimum: 0 }
+                      page: { type: integer, minimum: 1 }
+                      count: { type: integer, minimum: 1, maximum: 100 }
+        "400":
+          description: Invalid pagination or direction
 
   /api/ranking:
     get:
@@ -898,7 +1201,7 @@ paths:
     post:
       tags: [Admin]
       summary: Verify pickup code and complete pickup order
-      description: Requires order:fulfillment permission.
+      description: Requires order:fulfillment permission. Correct pickup code is required even on retries of completed pickup orders. Refunding or refunded orders cannot be collected.
       security:
         - AdminBearerAuth: []
       parameters:
@@ -918,6 +1221,8 @@ paths:
           description: Pickup verified
         "400":
           description: Invalid pickup code or state
+        "409":
+          description: Completed order has inconsistent fulfillment state
         "403":
           description: Missing fulfillment permission
         "404":
@@ -927,16 +1232,18 @@ paths:
     post:
       tags: [Admin]
       summary: Mark delivery order as shipping
-      description: Requires order:fulfillment permission.
+      description: Requires order:fulfillment permission. Refunding or refunded orders cannot be dispatched. Repeating dispatch with the same assigned staff is idempotent; different or missing staff on a shipping order returns 409 without changing assignment.
       security:
         - AdminBearerAuth: []
       parameters:
         - $ref: "#/components/parameters/OrderId"
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [staffId]
               properties:
                 staffId:
                   type: string
@@ -945,6 +1252,8 @@ paths:
           description: Order shipping
         "400":
           description: Invalid fulfillment state
+        "409":
+          description: Conflicting dispatch retry or inconsistent completed state
         "403":
           description: Missing fulfillment permission
 
@@ -1036,11 +1345,76 @@ paths:
         "404":
           description: Product not found
 
+  /api/admin/refund-returns:
+    get:
+      tags: [Admin]
+      summary: List refund return inspections for inventory staff
+      description: Requires stock:write. Includes refundId, orderId, items, ticket status and handling notes.
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Return inspection list
+        "403":
+          description: Missing stock permission
+
+  /api/admin/refund-returns/{refundId}/resolve:
+    post:
+      tags: [Admin]
+      summary: Confirm final return inspection and inventory disposition
+      description: Requires stock:write and a reason. Restock only physically received and accepted quantities. Partial requires exactly one items entry for every original product, with integer restockQuantity between zero and its ordered quantity. Remaining quantities are finalized as no-restock; this is not an incremental receipt. Repeating the same disposition and quantities is idempotent; changing them after completion returns 409.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: refundId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [disposition, reason]
+              properties:
+                disposition:
+                  type: string
+                  enum: [restock, no_restock, partial]
+                reason:
+                  type: string
+                  minLength: 1
+                items:
+                  type: array
+                  description: Required when disposition is partial; include every original order product exactly once.
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [productId, restockQuantity]
+                    properties:
+                      productId:
+                        type: string
+                      restockQuantity:
+                        type: integer
+                        minimum: 0
+      responses:
+        "200":
+          description: Resolved return ticket; restock writes inventory and audit records
+        "400":
+          description: Missing disposition or reason
+        "403":
+          description: Missing stock permission
+        "404":
+          description: Refund, order or return ticket missing
+        "409":
+          description: Refund state, inventory data or previous disposition conflicts
+
   /api/admin/inventory-ledger:
     get:
       tags: [Admin]
       summary: List inventory movement ledger
-        description: Requires stock:write permission. Tracks initial stock, purchase-in, stocktake, loss, order deduction, order restore, refund restore, and manual adjustments.
+      description: Requires stock:write permission. Tracks initial stock, purchase-in, stocktake, loss, order deduction, order restore, refund restore, and manual adjustments.
       security:
         - AdminBearerAuth: []
       responses:
@@ -1171,7 +1545,7 @@ paths:
     post:
       tags: [Admin]
       summary: Approve task submission and grant points
-      description: Requires task:review permission and uses task_callback idempotency rules.
+      description: Requires task:review permission and uses task_callback idempotency rules. Platform submissions must use reconcile instead.
       security:
         - AdminBearerAuth: []
       parameters:
@@ -1183,6 +1557,8 @@ paths:
       responses:
         "200":
           description: Submission approved
+        "409":
+          description: Platform submission requires trusted provider reconciliation
         "403":
           description: Missing task review permission
 
@@ -1190,7 +1566,7 @@ paths:
     post:
       tags: [Admin]
       summary: Reject task submission
-      description: Requires task:review permission and keeps audit trace.
+      description: Requires task:review permission and keeps audit trace. Platform submissions must use reconcile instead.
       security:
         - AdminBearerAuth: []
       parameters:
@@ -1202,8 +1578,53 @@ paths:
       responses:
         "200":
           description: Submission rejected
+        "409":
+          description: Platform submission requires trusted provider reconciliation
         "403":
           description: Missing task review permission
+
+  /api/admin/task-submissions/{submissionId}/reconcile:
+    post:
+      tags: [Admin]
+      summary: Associate a platform review order and reconcile its trusted result
+      description: Requires task:review permission and an operator verification reason. Searches at most 20 provider pages and verifies the user and task. Existing conflicting associations cannot be overwritten. Pending reviews remain pending; terminal reviews use the original reward snapshot and idempotent ledger rules. Client reward amounts and review statuses are not accepted.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [externalOrderId, reason]
+              properties:
+                externalOrderId:
+                  type: string
+                  minLength: 1
+                reason:
+                  type: string
+                  minLength: 1
+      responses:
+        "200":
+          description: Association persisted and provider result reconciled; a pending provider review does not grant points
+        "400":
+          description: Missing order ID or reason, or submission is not a platform submission
+        "403":
+          description: Missing task review permission
+        "404":
+          description: Local submission not found
+        "409":
+          description: Provider order not found within search limit, identity mismatch, conflicting association or reward state
+        "502":
+          description: Invalid provider review list or status
+        "503":
+          description: Task platform not configured
 
   /api/admin/users:
     get:
@@ -1363,6 +1784,32 @@ paths:
         "200":
           description: Delivery team updated
 
+  /api/providers/huifu/withdraw-callback:
+    post:
+      tags: [Payments]
+      summary: Receive trusted Huifu withdrawal status callback
+      description: Requires independent HF_CALLBACK_TOKEN in x-huifu-callback-token or query token. User/admin Bearer tokens are not accepted. Only existing withdrawals are updated; terminal provider results settle according to the status mapping with idempotent ledger handling.
+      security: []
+      parameters:
+        - in: header
+          name: x-huifu-callback-token
+          required: false
+          schema: { type: string }
+          description: Must match HF_CALLBACK_TOKEN; query token is accepted only for providers unable to set headers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [out_order_no]
+              additionalProperties: true
+      responses:
+        "200": { description: Callback accepted }
+        "401": { description: Invalid callback token }
+        "404": { description: Withdrawal not found }
+        "503": { description: Callback token is not configured }
+
   /api/admin/withdrawals:
     get:
       tags: [Admin]
@@ -1417,6 +1864,25 @@ paths:
         "403":
           description: Missing withdrawal approval permission
 
+  /api/admin/withdrawals/{withdrawalId}/submit-provider:
+    post:
+      tags: [Admin]
+      summary: Submit an approved withdrawal to the configured provider
+      description: Requires withdraw:approve permission. The withdrawal must already be approved by secondary review. Provider submission moves it to processing; it does not create a payout ledger entry. Success is recorded only after a trusted provider callback or query.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: withdrawalId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Provider submission accepted; await callback/query }
+        "400": { description: Withdrawal is not approved or cannot be submitted }
+        "502": { description: Provider submission failed }
+        "503": { description: Provider is not configured }
+        "403": { description: Missing withdrawal approval permission }
+
   /api/admin/order-status-logs:
     get:
       tags: [Admin]
@@ -1456,7 +1922,7 @@ paths:
     post:
       tags: [Admin]
       summary: Submit a sensitive operation for secondary approval
-      description: Requires approval:request permission. Supported actions include refund.approve, withdrawal.approve, withdrawal.reject, and points.adjust.
+      description: Requires approval:request permission. Supported actions include refund.approve, withdrawal.approve, withdrawal.reject, and points.adjust. An explicit idempotencyKey replays the original request even after execution; changed action, target, reason, requester role or point amount returns 409. A distinct key cannot silently attach to a pending request. Clients should retain the same key and intent after uncertain network results.
       security:
         - AdminBearerAuth: []
       requestBody:
@@ -1466,6 +1932,10 @@ paths:
               type: object
               required: [action, targetType, targetId, reason]
               properties:
+                idempotencyKey:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
                 action:
                   type: string
                   enum: [refund.approve, withdrawal.approve, withdrawal.reject, points.adjust]
@@ -1479,6 +1949,9 @@ paths:
                   properties:
                     pointsDelta:
                       type: integer
+                      minimum: -9007199254740991
+                      maximum: 9007199254740991
+                      description: Nonzero safe integer. Fractional adjustments are rejected, never truncated. Execution revalidates the current balance.
                 reason:
                   type: string
       responses:
@@ -1486,6 +1959,8 @@ paths:
           description: Approval request submitted
         "400":
           description: Invalid approval request
+        "409":
+          description: Conflicting pending point adjustment, invalid balance, insufficient points or unsafe resulting balance
         "403":
           description: Missing approval request permission
 
@@ -1531,6 +2006,7 @@ paths:
     get:
       tags: [Admin]
       summary: List point and payment ledgers
+      description: Requires ledger:read. Includes pointReconciliation for all stored point history regardless of payment filters. This read-only report detects malformed entries, duplicate identities, broken balance chains and mismatched current balances. It does not verify the opening balance or repair accounts. Missing history or equal posting timestamps can leave a user unverified.
       security:
         - AdminBearerAuth: []
       parameters:
@@ -1550,7 +2026,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Ledgers
+          description: Ledgers plus pointReconciliation with scope=stored_history, openingBalanceVerified=false, summary counts and per-user rows (userId, actualBalance, expectedBalance, entryCount, status consistent/mismatch/unverified, issues). Expected balance is null when no unique valid latest entry exists.
         "403":
           description: Missing ledger read permission
 
@@ -1778,6 +2254,9 @@ components:
       type: object
       required: [paymentMode, fulfillmentType, items]
       properties:
+        idempotencyKey:
+          type: string
+          description: Persist across retries of the same checkout attempt to recover the original order.
         paymentMode:
           type: string
           enum: [cash, pure_points, points_plus_cash]

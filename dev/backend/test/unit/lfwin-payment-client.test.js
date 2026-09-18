@@ -1,3 +1,4 @@
+process.env.TGG_STORE_MODE = "memory";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createLfwinClient, canonicalize, signPayload } = require("../../src/services/lfwin-payment-client");
@@ -84,4 +85,46 @@ test("LFWin callback rejects an amount mismatch", () => {
   assert.equal(result.ok, false);
   assert.equal(result.error, "Payment amount mismatch");
   assert.equal(payment.status, "pending");
+});
+
+test("LFWin pins verification algorithm and merchant identity to server configuration", () => {
+  const signed = signPayload(config, { apikey: config.apiKey, status: "10000" });
+  const rsaClient = createLfwinClient({ config: { ...config, signType: "RSA" } });
+  assert.equal(rsaClient.verifyNotification(signed), false);
+  const md5Client = createLfwinClient({ config });
+  assert.equal(md5Client.verifyNotification(signPayload(config, { apikey: "another-merchant", status: "10000" })), false);
+  assert.equal(md5Client.verifyNotification({ ...signed, sign_type: "unknown" }), false);
+  assert.equal(md5Client.verifyNotification(null), false);
+});
+
+test("valid RSA signatures are accepted but malformed key or signature rejects safely", () => {
+  const { generateKeyPairSync } = require("node:crypto");
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048, publicKeyEncoding: { type: "spki", format: "pem" }, privateKeyEncoding: { type: "pkcs8", format: "pem" } });
+  const rsa = { ...config, signType: "RSA", publicKey, privateKey };
+  const payload = signPayload(rsa, { status: "10000", orderid: "RSA_1" });
+  assert.equal(createLfwinClient({ config: rsa }).verifyNotification(payload), true);
+  assert.equal(createLfwinClient({ config: { ...rsa, publicKey: "broken" } }).verifyNotification(payload), false);
+  assert.equal(createLfwinClient({ config: rsa }).verifyNotification({ ...payload, sign: "bad" }), false);
+});
+
+test("callbacks without identity cannot select the first payment with no provider metadata", () => {
+  const state = createSeed();
+  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const result = paymentService.applyLfwinPaymentNotification(state, { paystatus: "1", paymoney: String(payment.amount) }, { verifyNotification: () => true });
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "Missing payment order identity");
+  assert.equal(payment.status, "pending");
+});
+
+test("callback amounts reject coercion, missing values and fractions smaller than a cent", () => {
+  const state = createSeed();
+  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const client = { verifyNotification: () => true };
+  for (const amount of [undefined, null, "", true, [payment.amount], "Infinity", `${payment.amount}1`, ` ${payment.amount}`, "0x13", -1]) {
+    const result = paymentService.applyLfwinPaymentNotification(state, { mch_orderid: payment.payNo, paystatus: "1", paymoney: amount }, client);
+    assert.equal(result.ok, false, String(amount));
+    assert.equal(payment.status, "pending");
+  }
+  assert.equal(paymentService.applyLfwinPaymentNotification(state, { mch_orderid: payment.payNo, paystatus: "1", pri_paymoney: 0, paymoney: payment.amount }, client).ok, false);
+  assert.equal(paymentService.applyLfwinPaymentNotification(state, { mch_orderid: payment.payNo, paystatus: "1", paymoney: payment.amount.toFixed(2) }, client).ok, true);
 });

@@ -4,7 +4,7 @@
   "description": "TGG Shop 微信小程序端",
   "appid": "wx7cdc387f27520de8",
   "setting": {
-    "urlCheck": false,
+    "urlCheck": true,
     "es6": true,
     "enhance": true,
     "minified": true,

@@ -14,6 +14,9 @@ const contentTypes = {
   ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
   ".png": "image/png",
   ".svg": "image/svg+xml"
 };
@@ -24,15 +27,16 @@ function routeStatic(req, res, url) {
   if (url.pathname.startsWith("/user/")) return serveFile(res, path.join(USER_DIR, url.pathname.replace("/user/", "")));
   if (url.pathname.startsWith("/admin/")) return serveFile(res, path.join(ADMIN_DIR, url.pathname.replace("/admin/", "")));
   if (url.pathname.startsWith("/assets/")) return serveFile(res, path.join(ASSETS_DIR, url.pathname.replace("/assets/", "")));
-  if (url.pathname.startsWith("/uploads/")) return serveFile(res, path.join(UPLOADS_DIR, url.pathname.replace("/uploads/", "")));
+  if (url.pathname.startsWith("/uploads/")) return serveFile(res, path.join(UPLOADS_DIR, url.pathname.replace("/uploads/", "")), true);
   return false;
 }
 
-function serveFile(res, filePath) {
+function serveFile(res, filePath, uploaded = false) {
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     return send(res, 404, { error: "Not found" });
   }
-  const ext = path.extname(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  if (uploaded && ![".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(ext)) return send(res, 200, fs.readFileSync(filePath), { "Content-Type": "application/octet-stream", "Content-Disposition": "attachment", "X-Content-Type-Options": "nosniff" });
   return send(res, 200, fs.readFileSync(filePath), { "Content-Type": contentTypes[ext] || "application/octet-stream" });
 }
 

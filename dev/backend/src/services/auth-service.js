@@ -45,10 +45,30 @@ async function wechatLogin(state, input = {}) {
   const data = await response.json();
   if (!data.openid) return { ok: false, status: 401, error: data.errmsg || "微信 code 无效" };
   let user = state.users.find((item) => item.wechatOpenid === data.openid);
-  if (!user) { user = { id: `wx_${data.openid.slice(-12)}`, nickname: "微信用户", points: 0, status: "active", wechatOpenid: data.openid }; state.users.push(user); }
+  if (!user) {
+    const inviter = input.inviteCode ? state.users.find(item => item.inviteCode === String(input.inviteCode).trim() && item.status === "active") : null;
+    if (input.inviteCode && !inviter) return { ok: false, status: 400, error: "邀请码无效，请核对后重试" };
+    const now = new Date();
+    const memberUntil = new Date(now);
+    memberUntil.setDate(memberUntil.getDate() + Number(state.config.newUserMemberDays ?? 30));
+    let inviteCode;
+    do { inviteCode = crypto.randomBytes(6).toString("hex").toUpperCase(); } while (state.users.some(item => item.inviteCode === inviteCode));
+    user = { id: nextId("wx"), nickname: "微信用户", points: 0, role: "normal", status: "active", wechatOpenid: data.openid, inviteCode, memberUntil: memberUntil.toISOString() };
+    state.users.push(user);
+    if (inviter) {
+      state.inviteRelations ||= [];
+      state.inviteRelations.push({ inviteeUserId: user.id, inviterUserId: inviter.id, boundAt: now.toISOString() });
+      const points = Math.max(0, Math.floor(Number(state.config.inviteRewardPoints || 0)));
+      if (points) {
+        inviter.points += points;
+        state.pointLedger.push({ id: nextId("pt"), userId: inviter.id, changeType: "invite_reward", direction: "in", points, balanceAfter: inviter.points, bizNo: user.id, idempotencyKey: `invite_register:${user.id}`, createdAt: now.toISOString() });
+      }
+    }
+  }
+  if (user.status !== "active") return { ok: false, status: 403, error: "账号已停用" };
   userRepository.setCurrentUser(state, user.id);
   const result = tokenResult(state, { user: publicUser(user), tokenPayload: { type: "user", userId: user.id } });
-  saveState(); return result;
+  await saveState(); return result;
 }
 
 function adminLogin(state, input = {}) {

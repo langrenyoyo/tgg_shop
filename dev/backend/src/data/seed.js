@@ -33,6 +33,7 @@ function createSeed() {
       signinAdGroupMin: 3,
       signinAdGroupMax: 5,
       signinStreakDays: 30,
+      signinStreakRewardPoints: 100,
       lotteryDailyLimit: 1,
       lotteryPrizes: [
         { id: "lottery_5", label: "5 积分", value: 5, weight: 30 },
@@ -229,7 +230,7 @@ function createSeed() {
         rewardPoints: 119,
         listRewardHidden: true,
         status: "active",
-        submitFields: ["手机号", "截图凭证"]
+        submitFields: ["mobile", "images"]
       },
       {
         id: "task_002",
@@ -238,7 +239,7 @@ function createSeed() {
         rewardPoints: 48,
         listRewardHidden: true,
         status: "active",
-        submitFields: ["账号", "完成截图"]
+        submitFields: ["text1", "images"]
       }
     ],
     submissions: [],

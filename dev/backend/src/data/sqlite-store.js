@@ -42,6 +42,13 @@ function runMigrations(database) {
   ensureAuthSessionColumns(database);
   ensurePaymentOrderColumns(database);
   ensureWithdrawalColumns(database);
+  const userColumns = new Set(database.prepare("PRAGMA table_info(app_user)").all().map(column => column.name));
+  if (!userColumns.has("wechat_openid")) database.exec("ALTER TABLE app_user ADD COLUMN wechat_openid TEXT;");
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_wechat_openid ON app_user(wechat_openid);");
+  for (const table of ["shop_order", "task_submission", "signin_session"]) {
+    const columns = new Set(database.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name));
+    if (!columns.has("snapshot_json")) database.exec(`ALTER TABLE ${table} ADD COLUMN snapshot_json TEXT NOT NULL DEFAULT '{}';`);
+  }
 }
 
 function ensureWithdrawalColumns(database) {
@@ -84,7 +91,7 @@ function readState(database) {
 
   const users = database
     .prepare(
-      "SELECT id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status FROM app_user ORDER BY id"
+      "SELECT id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid FROM app_user ORDER BY id"
     )
     .all()
     .map((row) => ({
@@ -96,6 +103,7 @@ function readState(database) {
       points: row.points,
       withdrawableBalance: centsToMoney(row.withdrawable_balance_cents),
       inviteCode: row.invite_code,
+      wechatOpenid: row.wechat_openid,
       signinStreak: row.signin_streak,
       status: row.status || "active"
     }));
@@ -192,10 +200,11 @@ function readState(database) {
 
   const signinSessions = database
     .prepare(
-      "SELECT session_id, user_id, signin_date, ad_groups, completed_groups, completed_ads, signed_today, lottery_ticket, lottery_used, created_at, updated_at FROM signin_session ORDER BY created_at DESC"
+      "SELECT session_id, user_id, signin_date, ad_groups, completed_groups, completed_ads, signed_today, lottery_ticket, lottery_used, created_at, updated_at, snapshot_json FROM signin_session ORDER BY created_at DESC"
     )
     .all()
     .map((row) => ({
+      ...JSON.parse(row.snapshot_json || "{}"),
       sessionId: row.session_id,
       userId: row.user_id,
       date: row.signin_date,
@@ -223,10 +232,11 @@ function readState(database) {
     }));
 
   const submissions = database
-    .prepare("SELECT id, task_id, user_id, status, payload_json, created_at FROM task_submission ORDER BY created_at DESC")
+    .prepare("SELECT id, task_id, user_id, status, payload_json, created_at, snapshot_json FROM task_submission ORDER BY created_at DESC")
     .all()
     .map((row) => ({
       id: row.id,
+      ...JSON.parse(row.snapshot_json || "{}"),
       taskId: row.task_id,
       userId: row.user_id,
       status: row.status,
@@ -240,12 +250,13 @@ function readState(database) {
   );
   const orders = database
     .prepare(
-      "SELECT id, user_id, payment_mode, cash_amount_cents, point_amount, status, fulfillment_type, pickup_site_id, pickup_code, delivery_address, delivery_date, fulfillment_status, created_at FROM shop_order ORDER BY created_at DESC"
+      "SELECT id, user_id, payment_mode, cash_amount_cents, point_amount, status, fulfillment_type, pickup_site_id, pickup_code, delivery_address, delivery_date, fulfillment_status, created_at, snapshot_json FROM shop_order ORDER BY created_at DESC"
     )
     .all()
     .map((row) => ({
       id: row.id,
       userId: row.user_id,
+      ...JSON.parse(row.snapshot_json || "{}"),
       items: (orderItems[row.id] || []).map((item) => ({
         productId: item.product_id,
         quantity: item.quantity,
@@ -588,7 +599,7 @@ function insertState(database, state) {
   }
 
   const insertUser = database.prepare(
-    "INSERT INTO app_user (id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO app_user (id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const user of state.users) {
     insertUser.run(
@@ -601,7 +612,8 @@ function insertState(database, state) {
       moneyToCents(user.withdrawableBalance || 0),
       user.inviteCode,
       user.signinStreak || 0,
-      user.status || "active"
+      user.status || "active",
+      user.wechatOpenid || null
     );
   }
 
@@ -686,7 +698,7 @@ function insertState(database, state) {
   }
 
   const insertSigninSession = database.prepare(
-    "INSERT INTO signin_session (session_id, user_id, signin_date, ad_groups, completed_groups, completed_ads, signed_today, lottery_ticket, lottery_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO signin_session (session_id, user_id, signin_date, ad_groups, completed_groups, completed_ads, signed_today, lottery_ticket, lottery_used, created_at, updated_at, snapshot_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const session of state.signinSessions || []) {
     insertSigninSession.run(
@@ -700,7 +712,8 @@ function insertState(database, state) {
       session.lotteryTicket || 0,
       session.lotteryUsed ? 1 : 0,
       session.createdAt || new Date().toISOString(),
-      session.updatedAt || session.createdAt || new Date().toISOString()
+      session.updatedAt || session.createdAt || new Date().toISOString(),
+      JSON.stringify(session)
     );
   }
 
@@ -712,7 +725,7 @@ function insertState(database, state) {
   }
 
   const insertSubmission = database.prepare(
-    "INSERT INTO task_submission (id, task_id, user_id, status, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT INTO task_submission (id, task_id, user_id, status, payload_json, created_at, snapshot_json) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
   for (const submission of state.submissions) {
     insertSubmission.run(
@@ -721,12 +734,13 @@ function insertState(database, state) {
       submission.userId,
       submission.status || "reviewing",
       JSON.stringify(submission.payload || {}),
-      submission.createdAt || new Date().toISOString()
+      submission.createdAt || new Date().toISOString(),
+      JSON.stringify(submission)
     );
   }
 
   const insertOrder = database.prepare(
-    "INSERT INTO shop_order (id, user_id, payment_mode, cash_amount_cents, point_amount, status, fulfillment_type, pickup_site_id, pickup_code, delivery_address, delivery_date, fulfillment_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO shop_order (id, user_id, payment_mode, cash_amount_cents, point_amount, status, fulfillment_type, pickup_site_id, pickup_code, delivery_address, delivery_date, fulfillment_status, created_at, snapshot_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   const insertOrderItem = database.prepare(
     "INSERT INTO order_item (id, order_id, product_id, title, quantity, cash_price_cents, points_price) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -745,7 +759,8 @@ function insertState(database, state) {
       order.deliveryAddress || null,
       order.deliveryDate || null,
       order.fulfillmentStatus,
-      order.createdAt || new Date().toISOString()
+      order.createdAt || new Date().toISOString(),
+      JSON.stringify(order)
     );
     for (const [index, item] of (order.items || []).entries()) {
       const product = state.products.find((candidate) => candidate.id === item.productId);
@@ -894,7 +909,7 @@ function insertState(database, state) {
       item.targetType || null,
       item.targetId || null,
       JSON.stringify(item.before || {}),
-      JSON.stringify(item.after || {}),
+      JSON.stringify({ ...(item.after || {}), reason: item.reason ?? item.after?.reason, idempotencyKey: item.idempotencyKey ?? item.after?.idempotencyKey }),
       item.ip || null,
       item.createdAt || new Date().toISOString()
     );

@@ -42,6 +42,7 @@ async function request(path, options = {}) {
 }
 
 async function attachAuth(path, headers) {
+  if (path === "/api/task/callback") { headers["x-task-callback-token"] = "smoke-callback-token"; return; }
   if (!path.startsWith("/api/") || path === "/api/health" || path === "/api/auth/login" || path === "/api/admin/auth/login") return;
   if (headers.Authorization || headers.authorization) return;
   const userId = headers["x-user-id"];
@@ -107,9 +108,14 @@ async function run() {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      TGG_LOAD_DOTENV: "0",
+      TGG_TASK_PLATFORM_BASE_URL: "",
+      TGG_TASK_PLATFORM_APPID: "",
+      TGG_TASK_PLATFORM_KEY: "",
       NODE_NO_WARNINGS: "1",
       PORT: String(PORT),
       TGG_STORE_DRIVER: DRIVER,
+      TGG_TASK_CALLBACK_TOKEN: "smoke-callback-token",
       ...(DRIVER === "pg" && !PG_URL ? { TGG_PG_MEM: "1" } : {}),
       ...(STORE_FILE ? { TGG_STORE_FILE: STORE_FILE, TGG_SQLITE_FILE: STORE_FILE } : {}),
       ...(DRIVER === "pg" && pgConnectionString ? { TGG_PG_URL: pgConnectionString, TGG_PG_STATE_ID: PG_STATE_ID } : {})
@@ -233,21 +239,24 @@ async function run() {
 
     const taskCallback = await request("/api/task/callback", {
       method: "POST",
-      body: JSON.stringify({ id: taskSubmission.body.id, status: 1, remarks: "审核通过" })
+      body: JSON.stringify({ id: taskSubmission.body.id, sf_uid: "u_1001", status: 1, remarks: "审核通过" })
     });
-    assert(taskCallback.res.status === 200 && taskCallback.body.submission.status === "approved", "task callback approve failed");
+    assert(taskCallback.res.status === 200 && taskCallback.body.status === "success" && Object.keys(taskCallback.body).length === 1, "task callback should return provider success payload");
+
+    const approvedTaskSubmission = await request(`/api/submissions/${taskSubmission.body.id}`);
+    assert(approvedTaskSubmission.res.status === 200 && approvedTaskSubmission.body.status === "approved", "task callback approve failed");
 
     const duplicateTaskCallback = await request("/api/task/callback", {
       method: "POST",
-      body: JSON.stringify({ id: taskSubmission.body.id, status: 1, remarks: "重复回调" })
+      body: JSON.stringify({ id: taskSubmission.body.id, sf_uid: "u_1001", status: 1, remarks: "重复回调" })
     });
-    assert(duplicateTaskCallback.body.idempotent === true, "duplicate task callback should be idempotent");
+    assert(duplicateTaskCallback.res.status === 200 && duplicateTaskCallback.body.status === "success" && Object.keys(duplicateTaskCallback.body).length === 1, "duplicate task callback should return provider success payload");
 
     const manualReviewSubmission = await request(`/api/tasks/${taskList.body[1]?.id || taskList.body[0].id}/submit`, {
       method: "POST",
-      body: JSON.stringify({ phone: "13900000001", screenshot: "admin-review.png" })
+      body: JSON.stringify({ phone: "13900000001", account: "review-account", screenshot: "admin-review.png" })
     });
-    assert(manualReviewSubmission.res.status === 201, "manual review task submission failed");
+    assert(manualReviewSubmission.res.status === 201, `manual review task submission failed: ${manualReviewSubmission.res.status} ${JSON.stringify(manualReviewSubmission.body)}`);
 
     const adminTaskSubmissions = await request("/api/admin/task-submissions", { headers: { "x-admin-role": "audit_ops" } });
     assert(adminTaskSubmissions.res.status === 200 && adminTaskSubmissions.body.some((item) => item.id === manualReviewSubmission.body.id), "admin task submissions list failed");
@@ -273,11 +282,13 @@ async function run() {
 
     const signinStart = await request("/api/signin/start", { method: "POST", body: "{}" });
     let adComplete;
+    let signinSession = signinStart.body;
     for (let index = 0; index < signinStart.body.adGroups * 2; index += 1) {
       adComplete = await request("/api/signin/ad_complete", {
         method: "POST",
-        body: JSON.stringify({ sessionId: signinStart.body.sessionId })
+        body: JSON.stringify({ sessionId: signinSession.sessionId, adType: signinSession.currentAdType, completionToken: signinSession.completionToken })
       });
+      signinSession = adComplete.body;
     }
     assert(adComplete.res.status === 200 && adComplete.body.lotteryAvailable, "signin ad_complete API failed");
 

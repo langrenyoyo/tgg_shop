@@ -9,6 +9,8 @@ const USE_LITERAL_SQL = process.env.TGG_PG_MEM === "1";
 let pool;
 let initialized = false;
 let saveChain = Promise.resolve();
+let expectedPayload = null;
+let writeConflict = false;
 
 function getPool() {
   if (pool) return pool;
@@ -36,7 +38,9 @@ async function initPgState() {
       ? await client.query(`SELECT state_json FROM ${qualifiedTable("app_state")} WHERE state_id = ${sqlLiteral(DEFAULT_STATE_ID)}`)
       : await client.query(`SELECT state_json FROM ${qualifiedTable("app_state")} WHERE state_id = $1`, [DEFAULT_STATE_ID]);
     if (result.rowCount) {
+      expectedPayload = USE_LITERAL_SQL ? result.rows[0].state_json : JSON.stringify(parseStateJson(result.rows[0].state_json));
       initialized = true;
+      writeConflict = false;
       return normalizeState(parseStateJson(result.rows[0].state_json));
     }
     const seed = createSeed();
@@ -51,6 +55,8 @@ async function initPgState() {
       );
     }
     initialized = true;
+    expectedPayload = JSON.stringify(seed);
+    writeConflict = false;
     return normalizeState(seed);
   } finally {
     client.release();
@@ -59,30 +65,35 @@ async function initPgState() {
 
 async function savePgState(state) {
   const payload = JSON.stringify(state);
-  saveChain = saveChain.then(async () => {
-    const client = await getPool().connect();
+  // Each caller observes its own failure; the next attempt must still execute.
+  saveChain = saveChain.catch(() => {}).then(async () => {
+    let client;
     try {
-      if (USE_LITERAL_SQL) {
-        await client.query(`
-          INSERT INTO ${qualifiedTable("app_state")} (state_id, state_json, updated_at)
-          VALUES (${sqlLiteral(DEFAULT_STATE_ID)}, ${sqlLiteral(payload)}, NOW())
-          ON CONFLICT (state_id)
-          DO UPDATE SET state_json = EXCLUDED.state_json, updated_at = NOW()
-        `);
+      client = await getPool().connect();
+      let result;
+      if (expectedPayload === null) {
+        result = USE_LITERAL_SQL
+          ? await client.query(`INSERT INTO ${qualifiedTable("app_state")} (state_id, state_json, updated_at) VALUES (${sqlLiteral(DEFAULT_STATE_ID)}, ${sqlLiteral(payload)}, NOW()) ON CONFLICT (state_id) DO NOTHING`)
+          : await client.query(`INSERT INTO ${qualifiedTable("app_state")} (state_id, state_json, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (state_id) DO NOTHING`, [DEFAULT_STATE_ID, payload]);
       } else {
-        await client.query(`
-          INSERT INTO ${qualifiedTable("app_state")} (state_id, state_json, updated_at)
-          VALUES ($1, $2::jsonb, NOW())
-          ON CONFLICT (state_id)
-          DO UPDATE SET state_json = EXCLUDED.state_json, updated_at = NOW()
-        `, [DEFAULT_STATE_ID, payload]);
+        result = USE_LITERAL_SQL
+          ? await client.query(`UPDATE ${qualifiedTable("app_state")} SET state_json = ${sqlLiteral(payload)}, updated_at = NOW() WHERE state_id = ${sqlLiteral(DEFAULT_STATE_ID)} AND state_json = ${sqlLiteral(expectedPayload)}`)
+          : await client.query(`UPDATE ${qualifiedTable("app_state")} SET state_json = $2::jsonb, updated_at = NOW() WHERE state_id = $1 AND state_json = $3::jsonb`, [DEFAULT_STATE_ID, payload, expectedPayload]);
       }
+      if (result.rowCount !== 1) {
+        writeConflict = true;
+        const error = new Error("Stored state changed in another writer; reload and reconcile before retrying");
+        error.code = "STATE_WRITE_CONFLICT";
+        throw error;
+      }
+      expectedPayload = payload;
       initialized = true;
+    } catch (error) {
+      initialized = false;
+      throw error;
     } finally {
-      client.release();
+      if (client) client.release();
     }
-  }).catch((error) => {
-    console.error(`Failed to persist PG state: ${error.message}`);
   });
   return saveChain;
 }
@@ -96,11 +107,14 @@ async function closePgPool() {
   await pool.end();
   pool = null;
   initialized = false;
+  expectedPayload = null;
 }
 
 function isPgReady() {
   return initialized;
 }
+
+function hasPgWriteConflict() { return writeConflict; }
 
 function qualifiedTable(tableName) {
   return `${quoteIdentifier(DEFAULT_SCHEMA)}.${quoteIdentifier(tableName)}`;
@@ -128,5 +142,6 @@ module.exports = {
   savePgState,
   flushPgState,
   closePgPool,
-  isPgReady
+  isPgReady,
+  hasPgWriteConflict
 };

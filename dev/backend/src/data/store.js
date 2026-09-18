@@ -1,9 +1,10 @@
 const fs = require("fs");
 const path = require("path");
+const { trackSave } = require("./persistence-scope");
 const { createSeed } = require("./seed");
 const { normalizeState } = require("./state-normalizer");
 const { loadSQLiteState, saveSQLiteState } = require("./sqlite-store");
-const { initPgState, savePgState, flushPgState, closePgPool, isPgReady } = require("./pg-store");
+const { initPgState, savePgState, flushPgState, closePgPool, isPgReady, hasPgWriteConflict } = require("./pg-store");
 
 const STORE_FILE = process.env.TGG_STORE_FILE || path.resolve(__dirname, "..", "..", "data", "dev-store.json");
 const STORE_DRIVER = process.env.TGG_STORE_DRIVER || "json";
@@ -33,16 +34,13 @@ function loadState() {
     return state;
   }
 
-  try {
-    if (fs.existsSync(STORE_FILE)) {
-      const parsed = JSON.parse(fs.readFileSync(STORE_FILE, "utf8"));
-      state = normalizeState(parsed);
-      persist(state);
-      readyPromise = Promise.resolve(state);
-      return state;
-    }
-  } catch (error) {
-    console.warn(`Failed to read store file, using seed data: ${error.message}`);
+  // Never replace an existing unreadable/corrupt business store with seed data.
+  // Fail startup so the original file remains available for recovery.
+  if (fs.existsSync(STORE_FILE)) {
+    const parsed = JSON.parse(fs.readFileSync(STORE_FILE, "utf8"));
+    state = normalizeState(parsed);
+    readyPromise = Promise.resolve(state);
+    return state;
   }
 
   state = normalizeState(createSeed());
@@ -52,6 +50,11 @@ function loadState() {
 }
 
 function getState() {
+  if (STORE_DRIVER === "pg" && hasPgWriteConflict()) {
+    const error = new Error("数据已被其他实例更新，请暂停当前实例并核对后重新加载");
+    error.code = "STATE_WRITE_CONFLICT";
+    throw error;
+  }
   return state;
 }
 
@@ -63,7 +66,11 @@ function whenReady() {
   return readyPromise || Promise.resolve(state);
 }
 
-async function saveState() {
+function saveState() {
+  return trackSave(persistState());
+}
+
+async function persistState() {
   if (process.env.TGG_STORE_MODE === "memory") return state;
   if (STORE_DRIVER === "pg") {
     await savePgState(state);
@@ -73,7 +80,9 @@ async function saveState() {
     saveSQLiteState(state);
     return state;
   }
-  persistQueue = persistQueue.then(() => { persist(state); });
+  // A failed write must reject its caller without poisoning later retries.
+  const payload = JSON.stringify(state, null, 2);
+  persistQueue = persistQueue.catch(() => {}).then(() => { persistPayload(payload); });
   await persistQueue;
   return state;
 }
@@ -92,9 +101,13 @@ function resetState(nextState = createSeed()) {
 }
 
 function persist(nextState) {
+  persistPayload(JSON.stringify(nextState, null, 2));
+}
+
+function persistPayload(payload) {
   fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
   const tempFile = `${STORE_FILE}.tmp`;
-  fs.writeFileSync(tempFile, JSON.stringify(nextState, null, 2), "utf8");
+  fs.writeFileSync(tempFile, payload, "utf8");
   fs.renameSync(tempFile, STORE_FILE);
 }
 

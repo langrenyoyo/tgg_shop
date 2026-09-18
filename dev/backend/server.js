@@ -1,40 +1,25 @@
 const http = require("http");
-const fs = require("fs");
-const path = require("path");
+
+require("./src/config/env-file").loadEnv();
+
+// Validate before importing services that initialize storage or provider clients.
+const { validateRuntimeConfig } = require("./src/config/runtime-config");
+const runtimeConfig = validateRuntimeConfig();
+if (!runtimeConfig.ok) throw new Error(runtimeConfig.errors.join("; "));
+for (const warning of runtimeConfig.warnings) console.warn(warning);
+
 const { send } = require("./src/http/http-utils");
 const { routeStatic } = require("./src/http/static-router");
 const { routeApi } = require("./src/routes/api-router");
 const { whenReady, getStoreDriver, isPgReady, shutdownStore, getState } = require("./src/data/store");
-const { validateRuntimeConfig } = require("./src/config/runtime-config");
 const { settleMonthlyPointRewards } = require("./src/services/monthly-point-reward-service");
-
-function loadDotEnv() {
-  const file = path.join(__dirname, ".env");
-  if (!fs.existsSync(file)) return;
-  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const separator = trimmed.indexOf("=");
-    if (separator <= 0) continue;
-    const key = trimmed.slice(0, separator).trim();
-    const value = trimmed.slice(separator + 1).trim().replace(/^(['"])(.*)\1$/, "$2");
-    if (!(key in process.env)) process.env[key] = value;
-  }
-}
-
-loadDotEnv();
-
-const runtimeConfig = validateRuntimeConfig(process.env, process.env.NODE_ENV === "production");
-if (!runtimeConfig.ok) {
-  throw new Error(runtimeConfig.errors.join("; "));
-}
-for (const warning of runtimeConfig.warnings) {
-  console.warn(warning);
-}
+const { withPersistence } = require("./src/data/persistence-scope");
+const { createTaskSweep } = require("./src/services/task-sweep-service");
 
 const PORT = Number(process.env.PORT || 5177);
 let rewardSweepTimer = null;
+let taskSweepTimer = null;
+const taskSweep = createTaskSweep();
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -48,14 +33,17 @@ const server = http.createServer(async (req, res) => {
         pgReady: getStoreDriver() !== "pg" ? null : isPgReady()
       });
     }
-    if (url.pathname.startsWith("/api/")) return routeApi(req, res, url);
+    if (url.pathname.startsWith("/api/")) return await routeApi(req, res, url);
 
     const staticHandled = routeStatic(req, res, url);
     if (staticHandled !== false) return staticHandled;
 
     return send(res, 404, { error: "Not found" });
   } catch (error) {
-    return send(res, 500, { error: error.message });
+    const status = Number(error?.status || error?.statusCode);
+    const safeStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
+    const safeMessage = safeStatus === 500 ? "服务器暂时无法处理请求" : String(error?.message || "请求处理失败");
+    return send(res, safeStatus, { error: safeMessage });
   }
 });
 
@@ -71,7 +59,9 @@ async function start() {
     console.log(`TGG Shop dev server: http://localhost:${PORT}`);
     console.log(`User app: http://localhost:${PORT}/user`);
     console.log(`Admin app: http://localhost:${PORT}/admin`);
+    runTaskSweep();
   });
+  taskSweepTimer = setInterval(runTaskSweep, 15 * 60 * 1000);
 }
 
 start().catch((error) => {
@@ -84,16 +74,25 @@ process.on("SIGTERM", shutdown);
 
 async function shutdown() {
   if (rewardSweepTimer) clearInterval(rewardSweepTimer);
+  if (taskSweepTimer) clearInterval(taskSweepTimer);
+  await taskSweep.stop().catch(() => {});
   await shutdownStore().catch(() => {});
   server.close(() => process.exit(0));
 }
 
+function runTaskSweep() {
+  if (process.env.TGG_TASK_SWEEP_ENABLED === "0") return;
+  taskSweep.run().then(result => {
+    if (result.checked) console.log(`Task sweep: checked=${result.checked}, reconciled=${result.reconciled}, deferred=${result.deferred}`);
+  }).catch(() => console.error("Task sweep failed; remaining submissions will be retried on the next interval"));
+}
+
 async function sweepMonthlyRewards(source) {
-  const result = settleMonthlyPointRewards(getState(), {
+  const result = await withPersistence(() => settleMonthlyPointRewards(getState(), {
     now: new Date(),
     reason: `monthly reward sweep:${source}`,
     actor: { id: "system", role: { id: "system" } }
-  });
+  }));
   if (result.appliedCount > 0) {
     console.log(`Monthly reward sweep applied ${result.appliedCount} grants`);
   }

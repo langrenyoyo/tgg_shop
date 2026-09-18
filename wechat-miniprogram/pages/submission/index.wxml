@@ -1,0 +1,6 @@
+<view class="page"><button bindtap="refresh" loading="{{loading}}" disabled="{{loading}}">刷新审核结果</button><view wx:if="{{error}}">{{error}}</view>
+<button wx:if="{{error === '请登录后查看提交记录'}}" bindtap="goLogin">去登录</button>
+<view wx:if="{{submission}}" class="card"><view class="title">{{submission.taskTitle || submission.title}}</view><view>提交单 {{submission.id}}</view><view>{{submission.submissionState === 'unknown' || submission.submissionState === 'sending' ? '提交结果待核对，请勿重复交单' : submission.status === 'approved' ? '已通过' : submission.status === 'rejected' ? '已驳回' : '审核中'}}</view><view>{{submission.reasons || submission.remarks}}</view><view>{{submission.createdAt}}</view>
+<view wx:if="{{submission.status === 'rejected'}}">请查看驳回原因及任务要求，是否允许再次提交以任务当前规则为准。</view>
+<button wx:if="{{submission.taskId}}" bindtap="openTask">查看任务要求</button></view>
+<button bindtap="openRecords">查看全部提交记录</button></view>
