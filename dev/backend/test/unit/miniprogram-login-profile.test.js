@@ -83,6 +83,27 @@ test("profile upload failure can retry and an account switch cannot update anoth
   assert.equal(h.storage.get("tgg_user").id, "bob");
 });
 
+test("profile identifies upload and save server failures while preserving retry input", async () => {
+  const h = setup(); edit(h);
+  const upload = h.page.saveProfile();
+  h.uploads[0].reject(Object.assign(new Error("服务器暂时无法处理请求"), { statusCode: 500 }));
+  await upload;
+  assert.match(h.page.data.error, /头像上传失败（500）/);
+  assert.equal(h.page.avatarTemp, "wxfile://selected.png");
+  assert.equal(h.pending.length, 0);
+  assert.equal(h.page.data.loading, false);
+  const save = h.page.saveProfile();
+  h.uploads[1].resolve({ path: "https://shop.taoguoguo.cc/uploads/avatar.png" });
+  await new Promise(resolve => setImmediate(resolve));
+  h.pending[0].reject(Object.assign(new Error("服务器暂时无法处理请求"), { statusCode: 500 }));
+  await save;
+  assert.match(h.page.data.error, /资料保存失败（500）/);
+  assert.equal(h.page.avatarPath, "/uploads/avatar.png");
+  assert.equal(h.page.data.nickname, "Alice");
+  assert.equal(h.storage.get("tgg_user").avatarUrl, undefined);
+  assert.equal(h.navigations(), 0);
+});
+
 test("unloaded login cannot continue after privacy consent and stale profile cannot overwrite storage", async () => {
   const login = setup(); login.page.setData({ agreed: true });
   const attempt = login.page.handleLogin(); login.page.onUnload(); login.privacy[0].success(); await attempt;

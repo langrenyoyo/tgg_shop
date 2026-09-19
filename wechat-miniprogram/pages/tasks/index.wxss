@@ -1,24 +1,24 @@
-page { background: #eef2f3; color: #101828; }
-.earn-page { padding: 28rpx; }
+page { background: #f5f8f5; color: #203b30; }
+.earn-page { padding: 28rpx; padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 button { margin: 0; border: 0; font-weight: 400; }
 button::after { border: 0; }
-.subtabs { display: flex; gap: 16rpx; margin-bottom: 24rpx; }
-.tab { padding: 0 24rpx; line-height: 56rpx; border-radius: 999rpx; color: #8a94a6; background: #fff; font-size: 24rpx; }
-.tab.active { color: #087443; background: #e8fbf1; font-weight: 800; }
-.search { height: 76rpx; padding: 0 28rpx; border-radius: 999rpx; background: #fff; font-size: 26rpx; }
-.choice-row { margin-top: 20rpx; }
-.choice { padding: 24rpx; margin-bottom: 16rpx; border-radius: 20rpx; background: #fff; text-align: left; font-size: 28rpx; line-height: 1.4; }
-.choice.selected { background: #e8fbf1; color: #087443; }
-.task-card { display: flex; align-items: center; gap: 20rpx; padding: 28rpx; border: 1rpx solid #e6ebef; border-radius: 24rpx; background: #fff; }
-.invite-card, .task-list { margin-top: 24rpx; }
-.task-list .task-card { margin-bottom: 20rpx; }
-.icon-column { flex: 0 0 72rpx; }
-.dot { width: 56rpx; height: 56rpx; line-height: 56rpx; border-radius: 50%; color: #fff; background: #10bd70; text-align: center; font-size: 24rpx; font-weight: 900; }
+.earn-heading { margin: 4rpx 0 28rpx; }.earn-heading .title { font-size: 40rpx; }.earn-heading .muted { margin-top: 8rpx; }
+.subtabs { display: flex; gap: 8rpx; padding: 8rpx; background: #e8efe4; border-radius: 999rpx; margin-bottom: 24rpx; }
+.tab { flex: 1; padding: 0 12rpx; line-height: 64rpx; border-radius: 999rpx; color: #85937e; background: transparent; font-size: 25rpx; }
+.tab.active { color: #008d56; background: #fff; font-weight: 700; box-shadow: 0 4rpx 12rpx rgba(35,72,38,.04); }
+.search { height: 84rpx; padding: 0 28rpx; border-radius: 999rpx; background: #fff; font-size: 26rpx; border: 2rpx solid #e5ede1; }
+.choice-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 24rpx; }
+.choice { padding: 12rpx 22rpx; border-radius: 999rpx; background: #fff; text-align: center; color: #7b8d74; font-size: 24rpx; line-height: 1.4; }
+.choice.selected { background: #00a865; color: #fff; }
+.task-card { display: flex; align-items: center; gap: 18rpx; padding: 26rpx 22rpx; border-radius: 26rpx; background: #fff; box-shadow: 0 6rpx 24rpx rgba(32,59,48,.025); }
+.invite-card { margin-top: 24rpx; background: #e6f0db; border: 2rpx solid #dce8ce; }.invite-card .description { color: #80946f; }.invite-card .dot { background: #d4e6c0; }.invite-card .state { background: #fff; color: #57753b; }
+.task-list { margin-top: 24rpx; }.task-list .task-card { margin-bottom: 18rpx; }
+.icon-column { flex: 0 0 72rpx; }.dot { width: 72rpx; height: 72rpx; line-height: 72rpx; border-radius: 22rpx; color: #009359; background: #e7f4e6; text-align: center; font-size: 28rpx; font-weight: 700; }
 .task-main { flex: 1; min-width: 0; }
-.task-title { margin-bottom: 10rpx; font-size: 28rpx; font-weight: 700; overflow-wrap: break-word; }
-.description { color: #8a94a6; font-size: 24rpx; line-height: 1.5; }
-.state { flex-shrink: 0; padding: 8rpx 16rpx; border-radius: 999rpx; color: #087443; background: #e8fbf1; font-size: 22rpx; font-weight: 800; }
-.state.warn { color: #9a4b00; background: #fff2df; }
-.record-card { padding: 28rpx; margin-bottom: 20rpx; background: #fff; border-radius: 24rpx; }
-.empty { padding: 48rpx 0; text-align: center; color: #8a94a6; font-size: 26rpx; }
-.retry { display: inline-block; margin-top: 20rpx; }
+.task-title { margin-bottom: 8rpx; font-size: 28rpx; font-weight: 600; overflow-wrap: break-word; }
+.description { color: #8a9884; font-size: 22rpx; line-height: 1.6; }
+.state { flex-shrink: 0; padding: 12rpx 18rpx; border-radius: 999rpx; color: #008f55; background: #edf6e8; font-size: 22rpx; font-weight: 600; }
+.state.warn { color: #9a6b2e; background: #fff2df; }
+.record-card { padding: 28rpx; margin-bottom: 20rpx; background: #fff; border-radius: 26rpx; }
+.empty { padding: 48rpx 0; text-align: center; color: #8a9884; font-size: 26rpx; }
+.retry { display: inline-block; margin-top: 20rpx; background: #e2efdc; padding: 0 32rpx; }

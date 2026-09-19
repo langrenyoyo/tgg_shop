@@ -20,18 +20,49 @@
   ],
   "window": {
     "navigationBarTitleText": "TGG Shop",
-    "navigationBarBackgroundColor": "#0f172a",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f7fb"
+    "navigationBarBackgroundColor": "#f5f8f5",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f8f5"
   },
   "tabBar": {
-    "color": "#6b7280",
-    "selectedColor": "#16a34a",
+    "color": "#91a08b",
+    "selectedColor": "#009e60",
     "backgroundColor": "#ffffff",
-    "list": [ { "pagePath": "pages/home/index", "text": "首页" }, { "pagePath": "pages/tasks/index", "text": "赚积分" }, { "pagePath": "pages/shop/index", "text": "分类" }, { "pagePath": "pages/cart/index", "text": "购物车" }, { "pagePath": "pages/me/index", "text": "我的" } ]
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "assets/icons/home.png",
+        "selectedIconPath": "assets/icons/home-active.png"
+      },
+      {
+        "pagePath": "pages/tasks/index",
+        "text": "赚积分",
+        "iconPath": "assets/icons/tasks.png",
+        "selectedIconPath": "assets/icons/tasks-active.png"
+      },
+      {
+        "pagePath": "pages/shop/index",
+        "text": "分类",
+        "iconPath": "assets/icons/shop.png",
+        "selectedIconPath": "assets/icons/shop-active.png"
+      },
+      {
+        "pagePath": "pages/cart/index",
+        "text": "购物车",
+        "iconPath": "assets/icons/cart.png",
+        "selectedIconPath": "assets/icons/cart-active.png"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我的",
+        "iconPath": "assets/icons/me.png",
+        "selectedIconPath": "assets/icons/me-active.png"
+      }
+    ],
+    "borderStyle": "white"
   },
   "style": "v2",
-  "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }
 

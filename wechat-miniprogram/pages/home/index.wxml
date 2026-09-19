@@ -1,8 +1,29 @@
-<view class="page home-page"><view class="greet"><view class="title">{{home.pickupSite.name || 'TGG Shop'}}</view><view>{{home.pickupSite.address}}</view></view>
-<input class="search" placeholder="搜索水果、蔬菜" bindconfirm="search" confirm-type="search"/>
-<view class="hero"><view><view class="hero-title">{{home.banners[0].title || '时令鲜果季'}}</view><view>{{home.banners[0].subtitle}}</view><button bindtap="goShop">进入商城</button></view></view>
-<view class="quick"><view bindtap="goMembership">会员权益与续费</view><view bindtap="goExchange">纯积分兑换</view></view>
-<view class="feature"><view class="orange" bindtap="goSignin">签到攒积分</view><view class="blue" bindtap="goTasks">做任务拿积分</view><view class="green" bindtap="goInvite">邀请好友</view></view>
-<view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重试</button></view>
-<view class="section-title">热门推荐<text bindtap="goExchange"> · 纯积分专区 ›</text></view>
-<view class="products"><view class="product card" wx:for="{{home.recommendProducts}}" wx:key="id" bindtap="openProduct" data-id="{{item.id}}"><image wx:if="{{item.image}}" src="{{item.image}}" mode="aspectFill" style="width:100%;height:200rpx"/><view>{{item.name}}</view><view class="price">{{item.purePointsOnly ? item.pointsPrice + ' 积分' : '¥' + item.cashPrice}}</view></view></view></view>
+<view class="page home-page">
+  <view class="greet">
+    <view class="location-mark"><view></view></view>
+    <view class="location-copy"><view class="location-label">美好生活 · 从新鲜开始</view><view class="location-name">{{home.pickupSite.name || 'TGG Shop'}}</view><view wx:if="{{home.pickupSite.address}}" class="location-address">{{home.pickupSite.address}}</view></view>
+    <view class="brand-mark">TGG<text>SHOP</text></view>
+  </view>
+  <view class="search-box"><view class="search-icon"></view><input placeholder="搜一搜，发现今天的新鲜好物" placeholder-style="color:#91a08f" bindconfirm="search" confirm-type="search"/></view>
+  <view class="hero">
+    <view class="hero-copy"><view class="hero-kicker">FRESH EVERY DAY</view><view class="hero-title">{{home.banners[0].title || '时令鲜果季'}}</view><view class="hero-subtitle">{{home.banners[0].subtitle || '把新鲜，装进每一天'}}</view><button class="hero-button" bindtap="goShop">逛逛商城 <text>›</text></button></view>
+    <view class="hero-art"><image src="/assets/fresh-strawberry.jpg" mode="aspectFill"/><view class="hero-stamp">今日份新鲜</view></view>
+  </view>
+  <view class="quick-actions">
+    <view class="quick-item" bindtap="goSignin"><view class="quick-icon amber"><image src="/assets/icons/calendar.png"/></view><view>每日签到</view><text>积攒小确幸</text></view>
+    <view class="quick-item" bindtap="goTasks"><view class="quick-icon mint"><image src="/assets/icons/tasks-active.png"/></view><view>做任务</view><text>积分慢慢攒</text></view>
+    <view class="quick-item" bindtap="goInvite"><view class="quick-icon peach"><image src="/assets/icons/gift.png"/></view><view>邀请好友</view><text>一起享好物</text></view>
+    <view class="quick-item" bindtap="goMembership"><view class="quick-icon cream"><image src="/assets/icons/member.png"/></view><view>会员权益</view><text>查看专属权益</text></view>
+  </view>
+  <view class="exchange-strip" bindtap="goExchange"><view><view class="exchange-title">让积分，变成喜欢的好物</view><view class="exchange-subtitle">纯积分兑换 · 无需开通会员</view></view><view class="exchange-action">去兑换 ›</view></view>
+  <view class="section-heading"><view class="title">热门推荐<view class="section-caption">认真挑选每一份日常</view></view><view class="section-link" bindtap="goExchange">纯积分专区 ›</view></view>
+  <view wx:if="{{error}}" class="empty-state card">{{error}}<view><button class="btn btn-light" bindtap="load">重新加载</button></view></view>
+  <view wx:elif="{{loading}}" class="empty-state">正在为你挑选好物…</view>
+  <view wx:elif="{{!home.recommendProducts.length}}" class="empty-state card">好物正在上新，稍后再来看看</view>
+  <view class="product-grid">
+    <view class="product-tile" wx:for="{{home.recommendProducts}}" wx:key="id" bindtap="openProduct" data-id="{{item.id}}">
+      <image wx:if="{{item.image}}" class="product-photo" src="{{item.image}}" mode="aspectFill"/><view wx:else class="product-photo photo-empty">商品图片待更新</view>
+      <view class="product-info"><view class="product-name">{{item.name}}</view><view class="product-meta">{{item.tag || item.category}}</view><view class="product-bottom"><view class="product-price {{item.purePointsOnly ? 'points-price' : ''}}"><text class="price-label">{{item.purePointsOnly ? '纯积分兑换' : '会员价'}}</text>{{item.purePointsOnly ? item.pointsPrice + ' 积分' : '¥' + item.cashPrice}}</view><view class="product-arrow">›</view></view></view>
+    </view>
+  </view>
+</view>

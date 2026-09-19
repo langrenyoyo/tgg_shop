@@ -2,7 +2,7 @@ const { request, clearSession, resolveAssetUrl } = require("../../utils/api");
 
 Page({
   data: {
-    user: {}, avatarPreview: "", error: "", loading: false, loggingOut: false, loggedIn: false
+    user: {}, avatarPreview: "", error: "", authNotice: "", loading: false, loggingOut: false, loggedIn: false
   },
 
   onShow() {
@@ -15,7 +15,7 @@ Page({
     const owner = wx.getStorageSync("tgg_user")?.id;
     const active = () => !this.disposed && version === this.version;
     const loggedIn = Boolean(wx.getStorageSync("tgg_token") && owner);
-    this.setData({ user: {}, avatarPreview: "", error: "", loading: loggedIn, loggedIn });
+    this.setData({ user: {}, avatarPreview: "", error: "", authNotice: "", loading: loggedIn, loggedIn });
     if (!loggedIn) return;
     try {
       const user = await request("/api/me");
@@ -24,8 +24,15 @@ Page({
       this.setData({ user, avatarPreview: user.avatarUrl ? resolveAssetUrl(user.avatarUrl) : "", error: "" });
       wx.setStorageSync("tgg_user", user);
     } catch (error) {
-      if (active()) this.setData({ user: {}, error: error.message });
-    } finally { if (active()) this.setData({ loading: false, loggedIn: Boolean(wx.getStorageSync("tgg_token")) }); }
+      if (!active()) return;
+      const currentOwner = wx.getStorageSync("tgg_user")?.id;
+      if (currentOwner && currentOwner !== owner) return;
+      if (!wx.getStorageSync("tgg_token") || !currentOwner) {
+        this.setData({ user: {}, avatarPreview: "", error: "", loggedIn: false, authNotice: "登录已失效，请重新登录后查看积分和订单" });
+      } else {
+        this.setData({ user: {}, avatarPreview: "", error: error.message });
+      }
+    } finally { if (active()) this.setData({ loading: false, loggedIn: Boolean(wx.getStorageSync("tgg_token") && wx.getStorageSync("tgg_user")?.id) }); }
   },
 
   goLogin() {

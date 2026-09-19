@@ -39,3 +39,16 @@ test("mini upload resolves relative screenshot paths to absolute URLs for task r
   assert.equal(result.path, "https://shop.taoguoguo.cc/uploads/proof.png");
   assert.equal(result.url, result.path);
 });
+
+test("mini upload preserves the server status for actionable upload failure messages", async () => {
+  const context = { module: { exports: {} }, require: () => ({ develop: "https://shop.taoguoguo.cc" }), wx: {
+    getAccountInfoSync: () => ({ miniProgram: { envVersion: "develop" } }), getStorageSync: () => null,
+    uploadFile: options => options.success({ statusCode: 500, data: JSON.stringify({ error: "服务器暂时无法处理请求" }) })
+  } };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/api.js"), "utf8"), context);
+  await assert.rejects(context.module.exports.uploadFile("avatar.png"), error => {
+    assert.equal(error.statusCode, 500);
+    assert.equal(error.message, "服务器暂时无法处理请求");
+    return true;
+  });
+});

@@ -15,3 +15,18 @@ page { background: #fff; }
 .field-label { font-size: 28rpx; margin-bottom: 12rpx; }
 .nickname { box-sizing: border-box; width: 100%; height: 88rpx; padding: 0 24rpx; border: 1px solid #d1d5db; border-radius: 12rpx; font-size: 30rpx; background: #f9fafb; }
 .error { color: #b91c1c; font-size: 26rpx; line-height: 1.6; margin-top: 24rpx; overflow-wrap: break-word; }
+
+/* Fresh green brand treatment; consent and profile controls retain native behavior. */
+page { background: #f4f8f0; }
+.login-page { min-height: 100vh; padding: 88rpx 44rpx 48rpx; background: linear-gradient(155deg, #e0f0da, #f9fbf6 62%); }
+.brand { color: #008f55; font-size: 46rpx; letter-spacing: -1rpx; margin-bottom: 64rpx; }
+.heading { font-size: 42rpx; color: #27452f; margin-bottom: 28rpx; }
+.notice { color: #76856d; font-size: 27rpx; }
+.consent { color: #64765a; font-size: 24rpx; }
+.primary, .secondary { border-radius: 999rpx; }
+.primary { background: #00a865; box-shadow: 0 10rpx 24rpx rgba(0,168,101,.12); }
+.secondary { background: #e8f0e2; color: #627954; }
+.privacy-link { color: #008e55; }
+.login-page .avatar-picker { background: #e0eed5; color: #4f7942; border: 8rpx solid #fff; box-sizing: border-box; width: 168rpx; min-width: 168rpx; max-width: 168rpx; height: 168rpx; padding: 0; overflow: hidden; flex-shrink: 0; }
+.login-page .primary, .login-page .secondary { width: 100%; box-sizing: border-box; }
+.nickname { border-color: #dbe7d3; border-radius: 22rpx; background: #fff; }

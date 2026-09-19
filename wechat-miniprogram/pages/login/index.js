@@ -63,8 +63,10 @@ Page({
     if (!nickname || [...nickname].length > 32) return this.setData({ error: "请填写 1 至 32 个字符的昵称" });
     if (!this.avatarTemp && !this.avatarPath) return this.setData({ error: "请选择头像，或点击稍后完善" });
     this.setData({ loading: true, nickname, error: "" });
+    let step = "资料保存";
     try {
       if (this.avatarTemp) {
+        step = "头像上传";
         const file = await uploadFile(this.avatarTemp);
         if (!this.isCurrentUser()) return;
         const absolute = file.path || file.url;
@@ -74,6 +76,7 @@ Page({
         this.avatarTemp = "";
       }
       if (!this.isCurrentUser()) return;
+      step = "资料保存";
       const user = await request("/api/me", { method: "PATCH", data: { nickname, avatarUrl: this.avatarPath } });
       if (!this.isCurrentUser()) return;
       if (user.id !== this.ownerId) throw new Error("账号信息不一致，请重新登录");
@@ -81,7 +84,12 @@ Page({
       getApp().globalData.user = user;
       this.finish();
     } catch (error) {
-      if (this.isCurrentUser()) this.setData({ error: error.message || "资料保存失败，请重试" });
+      if (this.isCurrentUser()) {
+        const message = error.statusCode >= 500
+          ? `${step}失败（${error.statusCode}），服务器暂时无法处理，请稍后重试`
+          : error.message || `${step}失败，请重试`;
+        this.setData({ error: message });
+      }
     } finally { if (!this.disposed) this.setData({ loading: false }); }
   },
   skipProfile() { if (!this.data.loading && this.isCurrentUser()) this.finish(); },

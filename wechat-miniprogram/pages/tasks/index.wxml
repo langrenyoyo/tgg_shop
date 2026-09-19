@@ -1,4 +1,5 @@
 <view class="earn-page">
+  <view class="earn-heading"><view class="title">攒积分，兑好物</view><view class="muted">从今天的小任务开始</view></view>
   <view class="subtabs">
     <button class="tab {{activeTab === 'tasks' ? 'active' : ''}}" bindtap="showTasks">做任务</button>
     <button class="tab" bindtap="openSignin">签到</button>

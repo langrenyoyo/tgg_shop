@@ -1,25 +1,21 @@
-<view class="page">
-  <view class="card" wx:if="{{error}}">{{error}}<button bindtap="load">重新加载</button></view>
-  <view class="card">
-    <view class="row">
-      <image wx:if="{{avatarPreview}}" class="profile-avatar" src="{{avatarPreview}}" mode="aspectFill" />
-      <view>
-        <view class="title">{{loading ? '加载中' : user.nickname || (loggedIn ? '账号信息待刷新' : '未登录')}}</view>
-        <view wx:if="{{user.id}}" class="muted">积分 {{user.points || 0}}</view>
-      </view>
-      <button wx:if="{{!loggedIn}}" class="btn btn-light" bindtap="goLogin">登录</button>
-      <button wx:elif="{{user.id}}" class="btn btn-light" bindtap="editProfile">编辑资料</button>
-    </view>
+<view class="page profile-page">
+  <view wx:if="{{authNotice}}" class="auth-notice"><view>{{authNotice}}</view><button class="btn btn-primary" bindtap="goLogin">重新登录</button></view>
+  <view wx:if="{{error}}" class="card empty-state">{{error}}<view><button class="btn btn-light" bindtap="load">重新加载</button></view></view>
+  <view class="profile-header">
+    <image wx:if="{{avatarPreview}}" class="profile-avatar" src="{{avatarPreview}}" mode="aspectFill" />
+    <view wx:else class="profile-avatar default-avatar"><image src="/assets/icons/me-active.png"/></view>
+    <view class="profile-copy"><view class="profile-name">{{loading ? '加载中' : user.nickname || (loggedIn ? '账号信息待刷新' : '你好，欢迎来到 TGG')}}</view><view class="profile-subtitle">{{user.id ? '新鲜日常，积分相伴' : '登录后开启你的积分生活'}}</view></view>
+    <button wx:if="{{!loggedIn}}" class="profile-edit" bindtap="goLogin">登录 ›</button>
+    <button wx:elif="{{user.id}}" class="profile-edit" bindtap="editProfile">编辑 ›</button>
   </view>
-
-  <view class="card">
-    <view class="list-item" bindtap="goOrders">订单</view>
-    <view class="list-item" bindtap="goMembership">会员权益与续费</view>
-    <view class="list-item" bindtap="goPoints">积分流水</view>
-    <view class="list-item" bindtap="goInvite">邀请</view>
+  <view class="balance-card" bindtap="goPoints"><view><view class="balance-label">我的积分</view><view class="balance-value">{{loading ? '…' : user.id ? (user.points || 0) : '—'}}<text>积分</text></view><view class="balance-note">一点一滴，兑换喜欢的生活</view></view><view class="balance-link">查看明细 ›</view></view>
+  <view class="member-card" bindtap="goMembership"><view class="member-icon"><image src="/assets/icons/member.png"/></view><view class="member-copy"><view>{{user.isMember ? '我的会员权益' : 'TGG 月会员'}}</view><text>现金购物 · 更多会员权益</text></view><view class="member-action">{{user.isMember ? '查看' : '了解'}} ›</view></view>
+  <view class="section-heading"><view class="title">我的服务</view></view>
+  <view class="card service-card">
+    <view class="service-row" bindtap="goOrders"><view class="service-icon"><image src="/assets/icons/orders.png"/></view><view class="service-copy">我的订单<text>查看订单与配送进度</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goPoints"><view class="service-icon"><image src="/assets/icons/tasks-active.png"/></view><view class="service-copy">积分明细<text>每一笔积累，都有记录</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goInvite"><view class="service-icon warm"><image src="/assets/icons/gift.png"/></view><view class="service-copy">邀请好友<text>把好物分享给身边的人</text></view><text class="chevron">›</text></view>
   </view>
-
-  <view class="card" wx:if="{{loggedIn}}">
-    <button class="btn btn-light" bindtap="logout" loading="{{loggingOut}}" disabled="{{loggingOut}}">退出登录</button>
-  </view>
+  <button wx:if="{{loggedIn}}" class="logout-button" bindtap="logout" loading="{{loggingOut}}" disabled="{{loggingOut}}">退出登录</button>
+  <view class="profile-footer">TGG SHOP · 让日常多一点美好</view>
 </view>

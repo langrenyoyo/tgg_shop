@@ -1,8 +1,12 @@
-<view class="page"><view class="title">购物车</view>
-<view wx:if="{{error}}">{{error}}<button bindtap="load">重试</button></view>
-<view class="card" wx:for="{{items}}" wx:key="productId">
-<view bindtap="select" data-id="{{item.productId}}">{{item.selected ? '☑' : '□'}} {{item.product.name || '商品已下架'}}</view>
-<view wx:if="{{item.product}}">{{item.product.supportsPoints ? item.product.pointsPrice + ' 积分' : '¥' + item.product.cashPrice}}</view>
-<view class="row"><button data-id="{{item.productId}}" data-delta="-1" bindtap="quantity">－</button><text>{{item.quantity}}</text><button data-id="{{item.productId}}" data-delta="1" bindtap="quantity">＋</button><button data-id="{{item.productId}}" bindtap="remove">移除</button></view>
-</view><view wx:if="{{loading}}">正在加载购物车</view><view wx:if="{{!loading && !error && !items.length}}" class="card">购物车为空</view>
-<button wx:if="{{items.length}}" bindtap="checkout" disabled="{{loading || error}}" class="btn btn-primary">去结算</button></view>
+<view class="page cart-page">
+  <view class="cart-heading"><view class="title">我的购物车</view><view class="muted">装下喜欢，也装下新鲜</view></view>
+  <view wx:if="{{error}}" class="empty-state card">{{error}}<view><button class="btn btn-light" bindtap="load">重新加载</button></view></view>
+  <view class="card cart-item" wx:for="{{items}}" wx:key="productId">
+    <view class="cart-selection" bindtap="select" data-id="{{item.productId}}" aria-label="{{item.selected ? '取消选择商品' : '选择商品'}}"><view class="check-circle {{item.selected ? 'checked' : ''}}">{{item.selected ? '✓' : ''}}</view></view>
+    <image wx:if="{{item.product.image}}" class="cart-photo" src="{{item.product.image}}" mode="aspectFill"/><view wx:else class="cart-photo cart-photo-empty">{{item.product ? '待更新' : '已下架'}}</view>
+    <view class="cart-content"><view class="cart-name">{{item.product.name || '商品已下架'}}</view><view class="cart-category">{{item.product.category || '暂不可购买'}}</view><view wx:if="{{item.product}}" class="cart-price">{{item.product.supportsPoints ? item.product.pointsPrice + ' 积分' : '¥' + item.product.cashPrice}}</view><view class="cart-controls"><view class="stepper"><button data-id="{{item.productId}}" data-delta="-1" bindtap="quantity" disabled="{{loading || error || item.quantity <= 1}}" aria-label="减少数量">−</button><text>{{item.quantity}}</text><button data-id="{{item.productId}}" data-delta="1" bindtap="quantity" disabled="{{loading || error}}" aria-label="增加数量">+</button></view><button class="remove-button" data-id="{{item.productId}}" bindtap="remove" disabled="{{loading || error}}">移除</button></view></view>
+  </view>
+  <view wx:if="{{loading}}" class="empty-state">正在加载购物车…</view>
+  <view wx:if="{{!loading && !error && !items.length}}" class="empty-cart"><view class="empty-cart-icon"><image src="/assets/icons/cart-active.png"/></view><view class="title">购物车还是空的</view><view class="muted">去发现喜欢的好物，给生活添点新鲜</view><navigator class="btn btn-primary" url="/pages/shop/index" open-type="switchTab">去逛逛商城</navigator></view>
+  <view wx:if="{{items.length}}" class="checkout-bar"><view class="checkout-note">好物已备好<text>价格与配送信息将在结算时确认</text></view><button bindtap="checkout" disabled="{{loading || error}}" class="btn btn-primary">去结算 ›</button></view>
+</view>

@@ -1,5 +1,13 @@
 # TGG Shop 微信小程序端
 
+## 页面视觉
+
+当前使用默认代码加载方式。开发者工具 2.02.2608070 / 基础库 3.17.3 出现首页正常、切换页面报 `wx://not-found` 时，已撤回最近新增的 `lazyCodeLoading: requiredComponents` 作为兼容处理。更新后请在开发者工具中执行“清缓存 → 清除编译缓存”，再重新编译；无需清除登录或业务数据。此处理仍需模拟器复核。
+
+首页、分类、赚积分、购物车、个人中心及登录页使用清新绿色商城风格：浅绿底色、统一圆角卡片、双列商品展示与本地图标导航。首页与分类页展示接口提供的商品图片；首页横幅复用设计资源中的鲜果照片。
+
+品牌素材位于 `assets/`。需要重新生成导航图标及横幅照片时，在仓库根目录安装 Pillow 后运行 `python wechat-miniprogram/scripts/generate-brand-assets.py`。模板与样式可运行 `node wechat-miniprogram/scripts/compile.js --compiler-dir "开发者工具内的 wcc-exec 目录"` 检查；最终渲染以微信开发者工具和真机为准。
+
 ## 说明
 
 当前已注册 17 个页面，覆盖：

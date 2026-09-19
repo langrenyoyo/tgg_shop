@@ -27,6 +27,12 @@ function getToken() {
 let refreshPromise = null;
 let sessionVersion = 0;
 function sessionChanged() { return new Error("登录账号已变更，请刷新页面后重试"); }
+function loginRequired() {
+  const error = new Error("登录已失效，请重新登录");
+  error.statusCode = 401;
+  error.code = "AUTH_REQUIRED";
+  return error;
+}
 function clearSession() {
   sessionVersion += 1;
   refreshPromise = null;
@@ -70,14 +76,17 @@ function request(path, { method = "GET", data = null, retry = true } = {}) {
               const refreshToken = wx.getStorageSync("tgg_refresh_token");
               if (!refreshToken) {
                 clearSession();
-                throw new Error("请先登录");
+                throw loginRequired();
               }
               const pending = request("/api/auth/refresh", { method: "POST", data: { refreshToken }, retry: false })
                 .then(result => {
                   if (version !== sessionVersion) throw sessionChanged();
                   saveSession(result, { refreshed: true });
                 }).catch(error => {
-                  if (version === sessionVersion && error.statusCode === 401) clearSession();
+                  if (version === sessionVersion && error.statusCode === 401) {
+                    clearSession();
+                    throw loginRequired();
+                  }
                   throw error;
                 }).finally(() => { if (refreshPromise === pending) refreshPromise = null; });
               refreshPromise = pending;
@@ -89,6 +98,12 @@ function request(path, { method = "GET", data = null, retry = true } = {}) {
             return;
           }
           request(path, { method, data, retry: false }).then(resolve, reject);
+        } else if (res.statusCode === 401 && !path.startsWith("/api/auth/")) {
+          // A rejected retry must not leave an unusable token in storage, or the
+          // login page would treat it as an authenticated profile-edit session.
+          if (token !== getToken()) return reject(sessionChanged());
+          clearSession();
+          reject(loginRequired());
         } else {
           const error = new Error(res.data?.error || `请求失败 ${res.statusCode}`);
           error.statusCode = res.statusCode;
@@ -115,7 +130,11 @@ function uploadFile(filePath) {
         if (version !== sessionVersion) return reject(sessionChanged());
         try {
           const json = JSON.parse(res.data);
-          if (res.statusCode < 200 || res.statusCode >= 300 || json.code !== 0) return reject(new Error(json.error || json.msg || "上传失败"));
+          if (res.statusCode < 200 || res.statusCode >= 300 || json.code !== 0) {
+            const error = new Error(json.error || json.msg || "上传失败");
+            error.statusCode = res.statusCode;
+            return reject(error);
+          }
           const file = json.data?.[0] || {};
           const rawUrl = file.path || file.url;
           const absoluteUrl = typeof rawUrl === "string" && /^\/(?!\/)/.test(rawUrl) ? getBaseUrl() + rawUrl : rawUrl;
