@@ -1,1 +1,5 @@
 /* shared */
+.profile-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; flex-shrink: 0; margin-right: 16rpx; }
+.row { flex-wrap: wrap; gap: 16rpx; }
+.row .title { overflow-wrap: anywhere; font-size: 32rpx; }
+.row > view { flex: 1; min-width: 0; }

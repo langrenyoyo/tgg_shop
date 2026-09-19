@@ -9,7 +9,7 @@ for (const depth of [1, 2]) {
     let page;
     let destination;
     vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/login/index.js"), "utf8"), {
-      require: () => ({ wechatLogin: async () => ({}) }),
+      require: () => ({ wechatLogin: async () => ({ user: { id: "alice", nickname: "Alice", avatarUrl: "/uploads/avatar.png" } }), resolveAssetUrl: value => value }),
       Page: value => { page = value; },
       getCurrentPages: () => Array(depth).fill({}),
       wx: {
@@ -19,6 +19,7 @@ for (const depth of [1, 2]) {
       }
     });
     page.setData = value => Object.assign(page.data, value);
+    page.setData({ agreed: true });
     await page.handleLogin();
     assert.equal(destination, depth === 1 ? "/pages/home/index" : 1);
     assert.equal(page.data.loading, false);

@@ -1,8 +1,24 @@
-<view class="page">
-  <view class="card">
-    <view class="title">TGG Shop</view><view class="muted" style="margin-top:12rpx;">使用微信账号安全登录</view>
-    <view style="margin-top:24rpx;">
-      <button class="btn btn-primary" loading="{{loading}}" bindtap="handleLogin">微信一键登录</button>
-    </view>
-  </view>
+<view class="login-page">
+  <view class="brand">TGG Shop</view>
+  <block wx:if="{{stage === 'login'}}">
+    <view class="heading">微信登录</view>
+    <view class="notice">登录将使用你的微信身份标识创建或关联商城账号，用于订单、积分及会员服务。头像和昵称由你主动选择，供个人资料展示，可稍后完善。</view>
+    <checkbox-group bindchange="onConsentChange">
+      <label class="consent"><checkbox value="agree" checked="{{agreed}}" disabled="{{loading}}" color="#16a34a" /><text>我已阅读并同意以上登录授权说明</text></label>
+    </checkbox-group>
+    <button class="privacy-link" bindtap="openPrivacy">查看隐私保护指引</button>
+    <button class="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="handleLogin">同意并微信登录</button>
+  </block>
+  <form wx:else bindsubmit="saveProfile">
+    <view class="heading">{{editing ? '编辑个人资料' : '完善个人资料'}}</view>
+    <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" disabled="{{loading}}" aria-label="选择头像">
+      <image wx:if="{{avatarPreview}}" class="avatar" src="{{avatarPreview}}" mode="aspectFill" />
+      <text wx:else>选择头像</text>
+    </button>
+    <view class="field-label">昵称</view>
+    <input class="nickname" name="nickname" type="nickname" value="{{nickname}}" maxlength="32" placeholder="填写昵称" bindinput="onNicknameInput" bindblur="onNicknameInput" disabled="{{loading}}" />
+    <button class="primary" form-type="submit" loading="{{loading}}" disabled="{{loading}}">{{editing ? '保存' : '保存并继续'}}</button>
+    <button class="secondary" bindtap="skipProfile" disabled="{{loading}}">{{editing ? '取消' : '稍后完善'}}</button>
+  </form>
+  <view wx:if="{{error}}" class="error">{{error}}</view>
 </view>

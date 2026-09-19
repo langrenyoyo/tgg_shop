@@ -199,6 +199,34 @@ paths:
           description: Refresh token invalid or expired
 
   /api/me:
+    patch:
+      tags: [Auth]
+      summary: Update the authenticated user's nickname and uploaded avatar
+      security:
+        - UserBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [nickname, avatarUrl]
+              properties:
+                nickname: { type: string, minLength: 1, maxLength: 32 }
+                avatarUrl:
+                  type: string
+                  description: Relative /uploads/ path of an existing PNG, JPEG, GIF or WebP image uploaded after authentication. Temporary WeChat URLs and remote URLs are rejected.
+      responses:
+        "200":
+          description: Updated current user; unrelated account fields are unchanged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        "400":
+          description: Invalid nickname, avatar or unexpected field
+        "401":
+          description: Authentication required
     get:
       tags: [Auth]
       summary: Alias of current user endpoint
@@ -2243,6 +2271,9 @@ components:
           type: string
         nickname:
           type: string
+        avatarUrl:
+          type: string
+          description: Relative uploaded avatar path; empty for accounts without an avatar
         role:
           type: string
           enum: [normal, member]

@@ -64,6 +64,12 @@ For an explicit read-only connectivity check, run `node scripts/check-task-platf
 npm start
 ```
 
+## Mini-program profile authorization
+
+Deploy the backend with `PATCH /api/me` before releasing the updated mini-program login page. Login requires an explicit consent selection and uses WeChat privacy authorization when available. New accounts can select an avatar with `chooseAvatar`, enter a nickname with `type="nickname"`, or skip profile completion. Existing accounts can edit their profile from the account page. Configure the real user privacy protection guidelines in the WeChat console, including the use of avatar/nickname for profile display; the mini-program opens these guidelines through `wx.openPrivacyContract`.
+
+Avatars use the existing authenticated upload endpoint and store a relative `/uploads/` path. Persist `dev/backend/data/uploads` across deployments and serve it from the mini-program HTTPS origin. Multiple backend instances must share the upload directory. SQLite adds the avatar column automatically; JSON and PostgreSQL retain the profile in their existing state snapshots. Verify consent refusal, avatar selection, nickname entry and relogin on a real device before release.
+
 ## Health
 
 - `GET /api/health`

@@ -1,39 +1,17 @@
-page {
-  background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 55%, #eef2f7 100%);
-}
-
-.page {
-  min-height: 100vh;
-  box-sizing: border-box;
-  padding: 160rpx 32rpx 48rpx;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-.card {
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 40rpx 32rpx 36rpx;
-  border-radius: 24rpx;
-  box-shadow: 0 12rpx 40rpx rgba(15, 23, 42, .09);
-}
-
-.title { font-size: 38rpx; letter-spacing: .5rpx; }
-
-.input {
-  display: block;
-  width: 100%;
-  height: 88rpx;
-  box-sizing: border-box;
-  padding: 0 24rpx;
-  line-height: 88rpx;
-  font-size: 30rpx;
-  color: #111827;
-  border: 2rpx solid #e2e8f0;
-  border-radius: 14rpx;
-  background: #f8fafc;
-}
-
-.btn { width: 100%; height: 88rpx; line-height: 88rpx; padding: 0; font-size: 32rpx; font-weight: 600; }
+page { background: #fff; }
+.login-page { box-sizing: border-box; max-width: 560px; margin: 0 auto; padding: 96rpx 40rpx 48rpx; letter-spacing: 0; }
+.brand { font-size: 40rpx; font-weight: 700; color: #166534; margin-bottom: 56rpx; }
+.heading { font-size: 36rpx; font-weight: 600; margin-bottom: 24rpx; }
+.notice { font-size: 28rpx; line-height: 1.8; color: #4b5563; }
+.consent { display: flex; align-items: flex-start; gap: 12rpx; margin-top: 36rpx; font-size: 26rpx; line-height: 1.7; }
+.consent checkbox { flex-shrink: 0; }
+.primary, .secondary { width: 100%; min-height: 88rpx; margin-top: 32rpx; padding: 18rpx 24rpx; line-height: 1.5; font-size: 30rpx; border-radius: 12rpx; }
+.primary { background: #16a34a; color: #fff; }
+.secondary { background: #f3f4f6; color: #374151; margin-top: 20rpx; }
+.privacy-link { background: transparent; color: #166534; padding: 16rpx 0; text-align: left; font-size: 26rpx; line-height: 1.6; }
+.privacy-link::after, .avatar-picker::after { border: 0; }
+.avatar-picker { width: 144rpx; height: 144rpx; padding: 0; margin: 32rpx auto; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 26rpx; color: #166534; }
+.avatar { width: 100%; height: 100%; }
+.field-label { font-size: 28rpx; margin-bottom: 12rpx; }
+.nickname { box-sizing: border-box; width: 100%; height: 88rpx; padding: 0 24rpx; border: 1px solid #d1d5db; border-radius: 12rpx; font-size: 30rpx; background: #f9fafb; }
+.error { color: #b91c1c; font-size: 26rpx; line-height: 1.6; margin-top: 24rpx; overflow-wrap: break-word; }

@@ -1,4 +1,5 @@
 const authService = require("../services/auth-service");
+const { updateProfile } = require("../services/profile-service");
 
 async function handleAuthRoutes(ctx) {
   const { req, url, state, user, send, readBody, publicUser } = ctx;
@@ -43,6 +44,11 @@ async function handleAuthRoutes(ctx) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/me") return send(ctx.res, 200, authService.getCurrentUser(user));
+
+  if (req.method === "PATCH" && url.pathname === "/api/me") {
+    const result = await updateProfile(user, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.user : { error: result.error });
+  }
 
   return false;
 }

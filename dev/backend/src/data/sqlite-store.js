@@ -44,6 +44,7 @@ function runMigrations(database) {
   ensureWithdrawalColumns(database);
   const userColumns = new Set(database.prepare("PRAGMA table_info(app_user)").all().map(column => column.name));
   if (!userColumns.has("wechat_openid")) database.exec("ALTER TABLE app_user ADD COLUMN wechat_openid TEXT;");
+  if (!userColumns.has("avatar_url")) database.exec("ALTER TABLE app_user ADD COLUMN avatar_url TEXT;");
   database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_wechat_openid ON app_user(wechat_openid);");
   for (const table of ["shop_order", "task_submission", "signin_session"]) {
     const columns = new Set(database.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name));
@@ -93,7 +94,7 @@ function readState(database) {
 
   const users = database
     .prepare(
-      "SELECT id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid FROM app_user ORDER BY id"
+      "SELECT id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid, avatar_url FROM app_user ORDER BY id"
     )
     .all()
     .map((row) => ({
@@ -106,6 +107,7 @@ function readState(database) {
       withdrawableBalance: centsToMoney(row.withdrawable_balance_cents),
       inviteCode: row.invite_code,
       wechatOpenid: row.wechat_openid,
+      avatarUrl: row.avatar_url || "",
       signinStreak: row.signin_streak,
       status: row.status || "active"
     }));
@@ -603,7 +605,7 @@ function insertState(database, state) {
   }
 
   const insertUser = database.prepare(
-    "INSERT INTO app_user (id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO app_user (id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const user of state.users) {
     insertUser.run(
@@ -617,7 +619,8 @@ function insertState(database, state) {
       user.inviteCode,
       user.signinStreak || 0,
       user.status || "active",
-      user.wechatOpenid || null
+      user.wechatOpenid || null,
+      user.avatarUrl || null
     );
   }
 

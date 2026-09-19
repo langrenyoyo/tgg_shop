@@ -2,11 +2,13 @@
   <view class="card" wx:if="{{error}}">{{error}}<button bindtap="load">重新加载</button></view>
   <view class="card">
     <view class="row">
+      <image wx:if="{{avatarPreview}}" class="profile-avatar" src="{{avatarPreview}}" mode="aspectFill" />
       <view>
         <view class="title">{{loading ? '加载中' : user.nickname || (loggedIn ? '账号信息待刷新' : '未登录')}}</view>
         <view wx:if="{{user.id}}" class="muted">积分 {{user.points || 0}}</view>
       </view>
       <button wx:if="{{!loggedIn}}" class="btn btn-light" bindtap="goLogin">登录</button>
+      <button wx:elif="{{user.id}}" class="btn btn-light" bindtap="editProfile">编辑资料</button>
     </view>
   </view>
 

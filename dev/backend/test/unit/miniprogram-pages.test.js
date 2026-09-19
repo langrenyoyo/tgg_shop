@@ -8,6 +8,10 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "app.json"), "utf8")
 const registered = new Set(manifest.pages);
 const tabs = new Set(manifest.tabBar.list.map(item => item.pagePath));
 
+test("mini manifest enables on-demand component injection", () => {
+  assert.equal(manifest.lazyCodeLoading, "requiredComponents");
+});
+
 for (const page of manifest.pages) {
   test(`mini page ${page}: registration, handlers and literal navigation`, () => {
     const source = fs.readFileSync(path.join(root, page + ".js"), "utf8");

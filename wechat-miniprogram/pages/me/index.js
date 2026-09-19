@@ -1,8 +1,8 @@
-const { request, clearSession } = require("../../utils/api");
+const { request, clearSession, resolveAssetUrl } = require("../../utils/api");
 
 Page({
   data: {
-    user: {}, error: "", loading: false, loggingOut: false, loggedIn: false
+    user: {}, avatarPreview: "", error: "", loading: false, loggingOut: false, loggedIn: false
   },
 
   onShow() {
@@ -15,13 +15,13 @@ Page({
     const owner = wx.getStorageSync("tgg_user")?.id;
     const active = () => !this.disposed && version === this.version;
     const loggedIn = Boolean(wx.getStorageSync("tgg_token") && owner);
-    this.setData({ user: {}, error: "", loading: loggedIn, loggedIn });
+    this.setData({ user: {}, avatarPreview: "", error: "", loading: loggedIn, loggedIn });
     if (!loggedIn) return;
     try {
       const user = await request("/api/me");
       if (!active() || owner !== wx.getStorageSync("tgg_user")?.id) return;
       if (user.id !== owner) throw new Error("账号信息不一致，请重新登录");
-      this.setData({ user, error: "" });
+      this.setData({ user, avatarPreview: user.avatarUrl ? resolveAssetUrl(user.avatarUrl) : "", error: "" });
       wx.setStorageSync("tgg_user", user);
     } catch (error) {
       if (active()) this.setData({ user: {}, error: error.message });
@@ -31,6 +31,7 @@ Page({
   goLogin() {
     wx.navigateTo({ url: "/pages/login/index" });
   },
+  editProfile() { wx.navigateTo({ url: "/pages/login/index?edit=1" }); },
 
   goOrders() {
     wx.navigateTo({ url: "/pages/orders/index" });
@@ -50,7 +51,7 @@ Page({
     const owner = wx.getStorageSync("tgg_user")?.id;
     if (!owner || !wx.getStorageSync("tgg_token")) return this.goLogin();
     this.version = (this.version || 0) + 1;
-    this.setData({ loggingOut: true, loading: false, user: {}, error: "" });
+    this.setData({ loggingOut: true, loading: false, user: {}, avatarPreview: "", error: "" });
     try {
       await request("/api/auth/logout", { method: "POST", data: {} });
       if (this.disposed || owner !== wx.getStorageSync("tgg_user")?.id) return;
