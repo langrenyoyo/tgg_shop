@@ -1,7 +1,9 @@
 import { api, getAdminRole, safeApi, retryApprovalIntent } from "./api.js";
-import { renderAdminPage } from "./render.js";
+import { renderAdminPage, promotionEditor } from "./render.js";
+import { productPreview } from "./product-editor.js";
 
 const state = {
+  loading: true,
   view: "dashboard",
   summary: {},
   orders: [],
@@ -62,7 +64,7 @@ const state = {
 async function loadDashboard() {
   const summaryPath = buildSummaryPath();
   const monthlyRewardPath = buildMonthlyRewardPath();
-  const [identity, summary, orders, products, inventoryLedger, ledger, roles, refunds, exceptions, config, monthlyPointRewardOverview, pickupSites, deliveryTeams, withdrawals, users, addresses, invites, tickets, ranking, approvalRequests, orderStatusLogs, operationLogs, taskSubmissions, dashboardViews] = await Promise.all([
+  const [identity, summary, orders, products, inventoryLedger, ledger, roles, refunds, exceptions, config, monthlyPointRewardOverview, pickupSites, deliveryTeams, withdrawals, users, addresses, invites, tickets, ranking, approvalRequests, orderStatusLogs, operationLogs, taskSubmissions, dashboardViews, permissionCatalog] = await Promise.all([
     safeApi("/api/admin/auth/me", null),
     safeApi(summaryPath, {}),
     safeApi("/api/admin/orders", []),
@@ -86,11 +88,13 @@ async function loadDashboard() {
     safeApi("/api/admin/order-status-logs", []),
     safeApi("/api/admin/operation-logs", []),
     safeApi("/api/admin/task-submissions", []),
-    safeApi("/api/admin/dashboard-views", [])
+    safeApi("/api/admin/dashboard-views", []),
+    safeApi("/api/admin/permissions/catalog", [])
   ]);
 
   state.identity = identity.ok ? identity.data : null;
   state.summary = summary.ok ? summary.data : { role: state.role };
+  state.summaryError = summary.ok ? "" : summary.error?.message || "统计数据加载失败，请刷新重试";
   state.orders = orders.ok ? orders.data : [];
   state.products = products.ok ? products.data : [];
   state.inventoryLedger = inventoryLedger.ok ? inventoryLedger.data : [];
@@ -98,9 +102,11 @@ async function loadDashboard() {
   state.refundReturns = refundReturns.ok ? refundReturns.data : [];
   state.ledger = ledger.ok ? ledger.data : { pointLedger: [], paymentLedger: [] };
   state.roles = roles.ok ? roles.data : [];
+  state.permissionCatalog = permissionCatalog.ok ? permissionCatalog.data : [];
   state.refunds = refunds.ok ? refunds.data : [];
   state.exceptions = exceptions.ok ? exceptions.data : [];
   state.config = config.ok ? config.data : {};
+  state.configError = config.ok ? "" : config.error?.message || "首页配置加载失败，请刷新重试";
   state.monthlyPointRewardOverview = monthlyPointRewardOverview.ok ? monthlyPointRewardOverview.data : {};
   state.pickupSites = pickupSites.ok ? pickupSites.data : [];
   state.deliveryTeams = deliveryTeams.ok ? deliveryTeams.data : [];
@@ -115,6 +121,7 @@ async function loadDashboard() {
   state.operationLogs = operationLogs.ok ? operationLogs.data : [];
   state.taskSubmissions = taskSubmissions.ok ? taskSubmissions.data : [];
   state.dashboardViews = dashboardViews.ok ? dashboardViews.data : [];
+  state.loading = false;
   renderAdminPage(state);
 }
 
@@ -266,7 +273,10 @@ function setDashboardQueueFilter(key, value) {
 }
 
 async function runDashboardBatch(kind, action) {
-  const selection = state.dashboardBatchSelection[kind] || [];
+  const candidates = kind === "refunds"
+    ? state.refunds.filter(item => item.status === "pending_review" && !state.approvalRequests.some(request => request.action === "refund.approve" && request.targetId === item.id && request.status === "pending"))
+    : state.exceptions.filter(item => item.status === "pending");
+  const selection = (state.dashboardBatchSelection[kind] || []).filter(id => candidates.some(item => item.id === id));
   if (!selection.length) return;
   const confirmation = requestSensitiveReason(
     kind === "refunds" ? "批量提交退款复核" : "批量处理异常",
@@ -337,6 +347,73 @@ document.querySelector("#refresh").addEventListener("click", () => {
 });
 
 document.body.addEventListener("click", (event) => {
+  if (event.target.closest("button:disabled")) return;
+  if (event.target.closest("[data-product-preview-close]")) {
+    document.querySelector("[data-product-preview-dialog]")?.remove();
+    return;
+  }
+  const productPreviewButton = event.target.closest("[data-product-preview], [data-product-preview-form]");
+  if (productPreviewButton) {
+    const product = productPreviewButton.hasAttribute("data-product-preview-form") ? readProductForm(productPreviewButton.closest("form")) : state.products.find(item => item.id === productPreviewButton.dataset.productPreview);
+    if (!product) return;
+    document.querySelector("[data-product-preview-dialog]")?.remove();
+    const escape = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+    document.body.insertAdjacentHTML("beforeend", productPreview(product, escape));
+    document.querySelector("[data-product-preview-dialog]").showModal();
+    return;
+  }
+  const productEdit = event.target.closest("[data-product-edit]");
+  if (productEdit || event.target.closest("[data-product-edit-cancel], [data-product-new-pure]")) {
+    state.editingProductId = productEdit?.dataset.productEdit || null;
+    state.newProductPure = Boolean(event.target.closest("[data-product-new-pure]"));
+    state.view = "products";
+    renderAdminPage(state);
+    document.getElementById("product-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  const stockButton = event.target.closest("[data-product-stock]");
+  if (stockButton) {
+    const product = state.products.find(item => item.id === stockButton.dataset.productStock);
+    if (!product) return;
+    const raw = window.prompt(`调整 ${product.name} 的可售库存。当前库存 ${product.stock}，请输入盘点后的数量：`, String(product.stock));
+    if (raw === null) return;
+    const stock = Number(raw);
+    if (!raw.trim() || !Number.isSafeInteger(stock) || stock < 0) return window.alert("库存必须是非负整数");
+    const confirmation = requestSensitiveReason("确认调整库存", `库存从 ${product.stock} 调整为 ${stock}，将记录库存流水。`, "商品库存盘点");
+    if (!confirmation.ok) return;
+    stockButton.disabled = true;
+    api(`/api/admin/products/${encodeURIComponent(product.id)}`, { method: "PATCH", body: JSON.stringify({ stock, expectedStock: product.stock, inventoryChangeType: "stocktake", reason: confirmation.reason }) })
+      .then(() => { state.productMessage = "库存已调整，已记录库存流水"; return loadDashboard(); })
+      .catch(error => window.alert(error.message)).finally(() => { stockButton.disabled = false; });
+    return;
+  }
+  const dashboardView = event.target.closest("[data-dashboard-view]");
+  if (dashboardView) {
+    setView(dashboardView.dataset.dashboardView);
+    return;
+  }
+  const roleEdit = event.target.closest("[data-role-edit]");
+  if (roleEdit) {
+    state.editingRoleId = roleEdit.dataset.roleEdit;
+    state.roleMessage = "";
+    renderAdminPage(state);
+    document.querySelector("[data-role-form]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (event.target.closest("[data-role-cancel]")) {
+    state.editingRoleId = null;
+    renderAdminPage(state);
+    return;
+  }
+  if (event.target.closest("[data-promotion-add]")) {
+    document.querySelector("[data-promotion-rows]")?.insertAdjacentHTML("beforeend", promotionEditor());
+    return;
+  }
+  const promotionRemove = event.target.closest("[data-promotion-remove]");
+  if (promotionRemove) {
+    promotionRemove.closest("[data-promotion-row]")?.remove();
+    return;
+  }
   const withdrawSubmit = event.target.closest("[data-withdraw-submit]");
   if (withdrawSubmit) {
     if (withdrawSubmit.disabled || !window.confirm(`确认将提现单 ${withdrawSubmit.dataset.withdrawSubmit} 提交服务商？提交后须等待服务商回调或查单结果。`)) return;
@@ -486,6 +563,13 @@ document.body.addEventListener("click", (event) => {
     return;
   }
 
+  if (event.target.closest("[data-dashboard-filters-reset]")) {
+    state.dashboardFilters = { range: "month", startDate: "", endDate: "", orderStatus: "all", fulfillmentStatus: "all", paymentMode: "all", payScene: "all" };
+    state.dashboardBatchSelection = { refunds: [], exceptions: [] };
+    loadDashboard().catch(error => window.alert(error.message));
+    return;
+  }
+
   const dashboardExport = event.target.closest("[data-dashboard-export]");
   if (dashboardExport) {
     if (dashboardExport.dataset.dashboardExport === "csv") exportDashboardCsv();
@@ -596,21 +680,15 @@ document.body.addEventListener("click", (event) => {
 
   const productAction = event.target.closest("[data-product-action]");
   if (productAction) {
-    const body = {};
-    if (productAction.dataset.status) body.status = productAction.dataset.status;
-    if (productAction.dataset.stock !== undefined) body.stock = Number(productAction.dataset.stock);
-    if (productAction.dataset.pointsPrice !== undefined) body.pointsPrice = Number(productAction.dataset.pointsPrice);
-    if (productAction.dataset.cashPrice !== undefined) body.cashPrice = Number(productAction.dataset.cashPrice);
-    if (productAction.dataset.supportsCash !== undefined) body.supportsCash = productAction.dataset.supportsCash === "true";
-    if (productAction.dataset.inventoryChangeType) body.inventoryChangeType = productAction.dataset.inventoryChangeType;
-    if (body.status || body.stock === 0 || body.supportsCash === false) {
-      const confirmation = requestSensitiveReason("确认商品敏感变更", `商品 ${productAction.dataset.productAction} 将调整上下架、库存或现金购买能力。`, "后台商品运营调整");
-      if (!confirmation.ok) return;
-      body.reason = confirmation.reason;
-    }
-    api(`/api/admin/products/${productAction.dataset.productAction}`, { method: "PATCH", body: JSON.stringify(body) })
-      .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+    const product = state.products.find(item => item.id === productAction.dataset.productAction);
+    if (!product) return;
+    const status = productAction.dataset.status;
+    const confirmation = requestSensitiveReason(status === "on" ? "确认上架商品" : "确认下架商品", `${product.name} ${status === "on" ? "校验通过后将对用户开放购买" : "将从商品列表隐藏并停止新订单购买，已有订单继续履约"}。`, "后台商品上下架调整");
+    if (!confirmation.ok) return;
+    productAction.disabled = true;
+    api(`/api/admin/products/${encodeURIComponent(product.id)}`, { method: "PATCH", body: JSON.stringify({ status, expectedRevision: product.revision || 0, reason: confirmation.reason }) })
+      .then(() => { state.productMessage = status === "on" ? "商品已上架，用户端可查看和购买" : "商品已下架，已停止新订单购买"; return loadDashboard(); })
+      .catch(error => window.alert(error.message)).finally(() => { productAction.disabled = false; });
     return;
   }
 
@@ -791,6 +869,33 @@ document.body.addEventListener("change", (event) => {
 });
 
 document.body.addEventListener("submit", (event) => {
+  const productFilter = event.target.closest("[data-product-filter-form]");
+  if (productFilter) {
+    event.preventDefault();
+    const fields = new FormData(productFilter);
+    state.productSearch = String(fields.get("search") || "").trim();
+    state.productStatus = fields.get("status") || "";
+    renderAdminPage(state);
+    return;
+  }
+  const roleForm = event.target.closest("[data-role-form]");
+  if (roleForm) {
+    event.preventDefault();
+    const button = roleForm.querySelector('[type="submit"]');
+    if (button.disabled) return;
+    const formData = new FormData(roleForm);
+    if (!window.confirm("确认保存该角色权限？此角色已登录的会话也将立即使用新权限。")) return;
+    button.disabled = true;
+    api(`/api/admin/permissions/${encodeURIComponent(roleForm.dataset.roleForm)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: formData.get("name"), permissions: formData.getAll("permissions"), reason: formData.get("reason") })
+    }).then(() => {
+      state.editingRoleId = null;
+      state.roleMessage = "角色权限已保存";
+      return loadDashboard();
+    }).catch(error => window.alert(error.message)).finally(() => { button.disabled = false; });
+    return;
+  }
   const dashboardRangeForm = event.target.closest("[data-dashboard-range-form]");
   if (dashboardRangeForm) {
     event.preventDefault();
@@ -815,23 +920,23 @@ document.body.addEventListener("submit", (event) => {
   const productForm = event.target.closest("[data-product-create-form]");
   if (productForm) {
     event.preventDefault();
-    const formData = new FormData(productForm);
-    const purePointsOnly = formData.get("purePointsOnly") === "on";
-    const payload = {
-      name: String(formData.get("name") || ""),
-      category: String(formData.get("category") || ""),
-      cashPrice: purePointsOnly ? null : Number(formData.get("cashPrice")),
-      pointsPrice: Number(formData.get("pointsPrice")),
-      stock: Number(formData.get("stock")),
-      tag: String(formData.get("tag") || ""),
-      image: String(formData.get("image") || ""),
-      status: String(formData.get("status") || "on"),
-      supportsCash: !purePointsOnly && formData.get("supportsCash") === "on",
-      purePointsOnly
-    };
-    api("/api/admin/products", { method: "POST", body: JSON.stringify(payload) })
-      .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+    if (productForm.dataset.saving || productForm.dataset.uploading || productForm.querySelector("fieldset:disabled")) return;
+    const payload = readProductForm(productForm);
+    payload.status = event.submitter?.value === "on" ? "on" : "off";
+    const existing = productForm.dataset.productId;
+    if (existing) { delete payload.stock; payload.expectedRevision = Number(productForm.dataset.revision); }
+    if (payload.status === "on" && !window.confirm("确认校验并上架商品？上架后用户可以立即购买。")) return;
+    productForm.dataset.saving = "1";
+    const buttons = productForm.querySelectorAll('button[type="submit"]');
+    buttons.forEach(button => { button.disabled = true; });
+    productForm.querySelector("[data-product-form-error]").textContent = "";
+    api(existing ? `/api/admin/products/${encodeURIComponent(existing)}` : "/api/admin/products", { method: existing ? "PATCH" : "POST", body: JSON.stringify(payload) })
+      .then(() => {
+        state.productMessage = payload.status === "on" ? "商品已上架，用户端可查看和购买" : "商品资料已保存，尚未上架";
+        state.editingProductId = null; state.newProductPure = false; state.productSearch = ""; state.productStatus = "";
+        return loadDashboard();
+      }).catch(error => { productForm.querySelector("[data-product-form-error]").textContent = error.message; })
+      .finally(() => { delete productForm.dataset.saving; buttons.forEach(button => { button.disabled = false; }); });
     return;
   }
 
@@ -876,6 +981,8 @@ document.body.addEventListener("submit", (event) => {
   const form = event.target.closest("[data-config-form]");
   if (!form) return;
   event.preventDefault();
+  const submitButton = form.querySelector('[type="submit"]');
+  if (submitButton?.disabled || form.querySelector("fieldset:disabled")) return;
   const formData = new FormData(form);
   const group = form.dataset.configForm || "settings";
   const payload = buildConfigPayload(group, formData);
@@ -892,9 +999,80 @@ document.body.addEventListener("submit", (event) => {
   const confirmation = requestSensitiveReason(title, message, `后台保存${title.replace("确认保存", "")}`);
   if (!confirmation.ok) return;
   payload.reason = confirmation.reason;
+  if (submitButton) submitButton.disabled = true;
   api("/api/admin/config", { method: "PATCH", body: JSON.stringify(payload) })
-    .then(loadDashboard)
-    .catch(() => renderAdminPage(state));
+    .then(() => {
+      if (group === "home") state.homeMessage = "首页配置已保存";
+      return loadDashboard();
+    })
+    .catch(error => window.alert(error.message))
+    .finally(() => { if (submitButton) submitButton.disabled = false; });
+});
+
+document.body.addEventListener("reset", event => {
+  if (event.target.matches('[data-config-form="home"]')) {
+    event.preventDefault();
+    state.homeMessage = "";
+    renderAdminPage(state);
+  }
+});
+
+function readProductForm(form) {
+  const fields = new FormData(form);
+  const purePointsOnly = form.querySelector('[name="productType"]').value === "pure";
+  const existing = state.products.find(item => item.id === form.dataset.productId);
+  return {
+    name: String(fields.get("name") || ""), category: String(fields.get("category") || ""), unit: String(fields.get("unit") || ""),
+    description: String(fields.get("description") || ""), image: String(fields.get("image") || ""), tag: String(fields.get("tag") || ""),
+    cashPrice: purePointsOnly ? null : Number(fields.get("cashPrice") || 0), pointsPrice: Number(fields.get("pointsPrice") || 0),
+    stock: existing ? existing.stock : Number(fields.get("stock") || 0), purePointsOnly, supportsCash: !purePointsOnly,
+    supportsPoints: purePointsOnly || fields.get("supportsPoints") === "on", reason: String(fields.get("reason") || "")
+  };
+}
+
+document.body.addEventListener("change", async event => {
+  const homeForm = event.target.closest('[data-config-form="home"]');
+  if (homeForm && event.target.matches("[data-home-banner-image-upload]")) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const message = homeForm.querySelector("[data-home-banner-upload-message]");
+    if (file.size > 10 * 1024 * 1024) { message.textContent = "图片不能超过 10 MB"; return; }
+    if (homeForm.dataset.uploading) return;
+    homeForm.dataset.uploading = "1";
+    message.textContent = "图片上传中…";
+    try {
+      const body = new FormData(); body.append("file", file);
+      const result = await api("/api/admin/home-images", { method: "POST", body });
+      homeForm.querySelector('[name="homeBannerImage"]').value = result.data[0].url;
+      message.textContent = "首页图片上传成功，保存首页配置后生效";
+    } catch (error) { message.textContent = error.message; }
+    finally { delete homeForm.dataset.uploading; }
+    return;
+  }
+  const form = event.target.closest("[data-product-create-form]");
+  if (!form) return;
+  if (event.target.name === "productType") {
+    const pure = event.target.value === "pure";
+    form.querySelector('[name="cashPrice"]').disabled = pure;
+    const points = form.querySelector('[name="supportsPoints"]');
+    points.disabled = pure;
+    if (pure) points.checked = true;
+  }
+  if (!event.target.matches("[data-product-image-upload]")) return;
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const message = form.querySelector("[data-product-upload-message]");
+  if (file.size > 10 * 1024 * 1024) { message.textContent = "图片不能超过 10 MB"; return; }
+  if (form.dataset.uploading) return;
+  form.dataset.uploading = "1";
+  message.textContent = "图片上传中…";
+  try {
+    const body = new FormData(); body.append("file", file);
+    const result = await api("/api/admin/product-images", { method: "POST", body });
+    form.querySelector('[name="image"]').value = result.data[0].url;
+    message.textContent = "主图上传成功，可点击预览检查";
+  } catch (error) { message.textContent = error.message; }
+  finally { delete form.dataset.uploading; }
 });
 
 function buildConfigPayload(group, formData) {
@@ -947,6 +1125,7 @@ function buildConfigPayload(group, formData) {
       homeBannerTitle: String(formData.get("homeBannerTitle") || ""),
       homeBannerSubtitle: String(formData.get("homeBannerSubtitle") || ""),
       homeBannerProductId: String(formData.get("homeBannerProductId") || ""),
+      homeBannerImage: String(formData.get("homeBannerImage") || ""),
       homeServiceBadges: parseListField(formData.get("homeServiceBadges")),
       homeDeliveryPromise: {
         title: String(formData.get("homePromiseTitle") || ""),
@@ -1010,7 +1189,7 @@ function exportDashboardSnapshot() {
     filters: state.dashboardFilters,
     summary: state.summary,
     analytics: state.summary?.analytics || null,
-    recentOrders: (state.orders || []).slice(0, 10)
+    recentOrders: (state.orders || []).filter(order => (state.summary?.analytics?.dashboard?.selectedOrderIds || []).includes(order.id)).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 20)
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -1055,7 +1234,7 @@ function exportDashboardCsv() {
 renderAdminPage(state);
 loadDashboard().catch(() => renderAdminPage(state));
 window.setInterval(() => {
-  if (document.visibilityState === "visible") {
+  if (document.visibilityState === "visible" && !["homeOps", "products", "pointsExchange"].includes(state.view) && !state.editingRoleId) {
     loadDashboard().catch(() => renderAdminPage(state));
   }
 }, 60000);

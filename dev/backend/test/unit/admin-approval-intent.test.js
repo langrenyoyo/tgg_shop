@@ -36,7 +36,7 @@ test("admin approval retry after reload keeps exact intent and key until a defin
 });
 
 test("pending approval panel shows escaped original intent only to roles allowed to request approval", () => {
-  const renderSource = fs.readFileSync(path.resolve(__dirname, "../../../frontend/admin/js/render.js"), "utf8").replace(/^import .*;\r?\n/, "").replace(/export /g, "");
+  const renderSource = fs.readFileSync(path.resolve(__dirname, "../../../frontend/admin/js/render.js"), "utf8").replace(/^import .*;\r?\n/gm, "").replace(/export /g, "");
   let panel = "";
   const element = { textContent: "", innerHTML: "", insertAdjacentHTML: (_, value) => { panel += value; } };
   const context = {

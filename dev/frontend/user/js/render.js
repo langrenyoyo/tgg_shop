@@ -117,6 +117,8 @@ export function toast(message) {
 }
 
 function homeView(state) {
+  const banner = state.home?.banners?.[0] || { title: "时令鲜果季", subtitle: "新鲜到站，会员现金购物更优惠", productId: "p_strawberry" };
+  const bannerProduct = state.home?.bannerProduct || [...(state.products || []), ...(state.exchangeProducts || [])].find(item => item.id === banner.productId && item.status !== "off");
   const pickup = state.home?.pickupSite || state.pickupSites[0];
   const promise = state.home?.deliveryPromise || {};
   const badges = state.home?.serviceBadges || ["自建配送", "坏果包赔", "低价会员购"];
@@ -130,26 +132,26 @@ function homeView(state) {
     <div class="home-head">
       <button type="button" class="location location-button" data-page="pickupSite">
         <span class="pin">T</span>
-        <span><strong>${pickup?.name || "师大自提站"}</strong><em>${promise.serviceAreaText || "师大周边 5km 可配送"}</em></span>
+        <span><strong>${homeEscape(pickup?.name || "师大自提站")}</strong><em>${homeEscape(promise.serviceAreaText || "师大周边 5km 可配送")}</em></span>
       </button>
       <button type="button" class="link" data-page="customerService">消息</button>
     </div>
     <div class="search">搜索水果、蔬菜、纯积分兑换</div>
     <section class="delivery-promise">
-      <div class="promise-main"><strong>${promise.title || "最快 30 分钟送达"}</strong><span>${promise.subtitle || "TGG 自建配送队 · 师大周边 5km"}</span></div>
-      <span class="promise-chip">${promise.cutoffText || "今日可送"}</span>
+      <div class="promise-main"><strong>${homeEscape(promise.title || "最快 30 分钟送达")}</strong><span>${homeEscape(promise.subtitle || "TGG 自建配送队 · 师大周边 5km")}</span></div>
+      <span class="promise-chip">${homeEscape(promise.cutoffText || "今日可送")}</span>
     </section>
-    <section class="service-strip">${badges.map((item) => `<span>${item}</span>`).join("")}</section>
+    <section class="service-strip">${badges.map((item) => `<span>${homeEscape(item)}</span>`).join("")}</section>
     <section class="banner">
       <div>
-        <h1>时令鲜果季</h1>
-        <p>新鲜到站，会员现金购物更优惠</p>
-        <button type="button" class="mini-button" data-buy="p_strawberry" data-mode="cash">立即抢购</button>
+        <h1>${homeEscape(banner.title)}</h1>
+        <p>${homeEscape(banner.subtitle)}</p>
+        <button type="button" class="mini-button" ${bannerProduct ? `data-buy="${homeEscape(bannerProduct.id)}" data-mode="${bannerProduct.purePointsOnly ? "pure_points" : "cash"}"` : 'data-tab="category"'}>立即选购</button>
       </div>
-      <img src="/assets/strawberry.jpg" alt="丹东草莓" decoding="async" />
+      ${(state.home?.bannerImage || bannerProduct?.image) ? `<img src="${homeEscape(state.home?.bannerImage || bannerProduct.image)}" alt="${homeEscape(bannerProduct?.name || banner.title)}" decoding="async" />` : ""}
     </section>
     <section class="promo-rail">
-      ${promotions.map((item) => `<button type="button" class="promo-card ${item.tone || "green"}" data-page="${item.page || "category"}"><strong>${item.title}</strong><span>${item.text}</span></button>`).join("")}
+      ${promotions.map((item) => `<button type="button" class="promo-card ${homeEscape(item.tone || "green")}" data-page="${homeEscape(item.page || "category")}"><strong>${homeEscape(item.title)}</strong><span>${homeEscape(item.text)}</span></button>`).join("")}
     </section>
     <section class="quick">
       <button type="button" data-page="signin">签到拿积分<span>连续签到奖励</span></button>
@@ -162,7 +164,7 @@ function homeView(state) {
       <button type="button" class="points-entry" data-page="pointsExchange">纯积分兑换</button>
       <button type="button" class="link" data-tab="category">更多 &gt;</button>
     </section>
-    <div class="product-grid">${productCards(state.products)}</div>
+    <div class="product-grid">${productCards(state.home?.recommendProducts || state.products)}</div>
     ${floatingCart(state)}
     </div>
   `;
@@ -262,8 +264,9 @@ function inviteView(state) {
 function categoryView(state) {
   const selectedCategory = state.categoryName || "全部";
   const selectedMode = state.categoryMode || "all";
-  const products = filterCategoryProducts((state.products || []).concat(state.exchangeProducts || []), selectedCategory, selectedMode);
-  const categoryNames = ["全部", "水果", "蔬菜", "肉禽", "乳品", "零食", "纯积分"];
+  const allProducts = [...new Map((state.products || []).concat(state.exchangeProducts || []).map(item => [item.id, item])).values()];
+  const products = filterCategoryProducts(allProducts, selectedCategory, selectedMode);
+  const categoryNames = [...new Set(["全部", "水果", "蔬菜", "肉禽", "乳品", "零食", "纯积分", ...allProducts.map(item => item.category).filter(Boolean)])];
   const modeButtons = [
     ["all", "综合"],
     ["delivery", "30 分钟达"],
@@ -276,9 +279,9 @@ function categoryView(state) {
       ${modeButtons.map(([mode, label]) => `<button type="button" class="${selectedMode === mode ? "active" : ""}" data-category-mode="${mode}">${label}</button>`).join("")}
     </section>
     <div class="category-layout">
-      <aside class="category-sidebar">${categoryNames.map((name) => `<button type="button" class="${selectedCategory === name ? "active" : ""}" data-category-name="${name}">${name}</button>`).join("")}</aside>
+      <aside class="category-sidebar">${categoryNames.map((name) => `<button type="button" class="${selectedCategory === name ? "active" : ""}" data-category-name="${homeEscape(name)}">${homeEscape(name)}</button>`).join("")}</aside>
       <div class="category-products">
-        <section class="category-promise"><strong>${selectedCategory} · ${categoryModeLabel(selectedMode)}</strong><span>TGG 自建配送队履约，可自提也可送货上门</span></section>
+        <section class="category-promise"><strong>${homeEscape(selectedCategory)} · ${categoryModeLabel(selectedMode)}</strong><span>TGG 自建配送队履约，可自提也可送货上门</span></section>
         ${products.map((item) => horizontalProduct(item)).join("") || `<div class="empty">暂无商品</div>`}
       </div>
     </div>
@@ -309,10 +312,10 @@ function productView(product, state = {}) {
   const stock = Number(product.stock || 0);
   return `
     <article class="hero-product top-card product-detail-hero">
-      <img src="${product.image}" alt="${product.name}" loading="eager" decoding="async" />
+      <img src="${homeEscape(product.image)}" alt="${homeEscape(product.name)}" loading="eager" decoding="async" />
       <div class="body">
-        <div class="detail-title-row"><span class="tag">${product.tag || (isPure ? "纯积分" : "会员价")}</span><span class="stock-state ${stock <= 10 ? "warn" : ""}">${stock > 0 ? `库存 ${stock}` : "已售罄"}</span></div>
-        <h2>${product.name}</h2>
+        <div class="detail-title-row"><span class="tag">${homeEscape(product.tag || (isPure ? "纯积分" : "会员价"))}</span><span class="stock-state ${stock <= 10 ? "warn" : ""}">${stock > 0 ? `库存 ${stock}` : "已售罄"}</span></div>
+        <h2>${homeEscape(product.name)}</h2>
         <p class="muted">${productMetaLine(product, isPure)}</p>
         <div class="service-tags">${productServiceTags(product, isPure).map((tag) => `<span>${tag}</span>`).join("")}</div>
         <div class="price" style="margin-top:8px">${productPriceText(product, isPure)}</div>
@@ -321,6 +324,7 @@ function productView(product, state = {}) {
     <section class="notice detail-rule"><strong>${isPure ? "纯积分兑换" : "会员现金购"}</strong><p>${isPure ? "无需开通会员，不展示现金补差入口；积分不足时直接提示积分不足。" : "普通用户需先开通月会员，会员可使用现金购物和积分不足现金补差。"}</p></section>
     ${memberLocked ? `<section class="member-lock"><strong>当前为普通用户</strong><span>开通月会员后可使用现金购买该商品；纯积分商品无需会员。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
     <section class="field-card"><h3>履约服务</h3><div class="detail-service-grid"><span>最快 30 分钟送达</span><span>TGG 自建配送队</span><span>师大周边 5km</span><span>支持自提核销</span></div></section>
+    <section class="field-card"><h3>商品介绍</h3><p>${homeEscape(product.unit || "")}</p><p style="white-space:pre-wrap">${homeEscape(product.description || "暂无商品介绍")}</p></section>
     <section class="field-card"><h3>商品保障</h3><p>商品由平台统一上架和库存管理；生鲜商品支持坏果包赔，售后进入退款/补偿流程。</p></section>
     <section class="total-bar">
       <button type="button" class="chip active" data-cart-product="${product.id}" ${stock <= 0 ? "disabled" : ""}>${isPure ? "加入兑换车" : "加入购物车"}</button>
@@ -523,13 +527,13 @@ function ticketActionView(state, type, title, text, button) {
 function productCards(products = [], mode = "cash") {
   return products.map((product) => {
     const isPure = product.purePointsOnly || mode === "points";
-    return `<article class="product-card"><img src="${product.image}" alt="${product.name}" data-product-open="${product.id}" loading="lazy" decoding="async"><span class="tag">${product.tag || (isPure ? "兑换" : "会员价")}</span><h3 data-product-open="${product.id}">${product.name}</h3><p class="product-meta">${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${tag}</span>`).join("")}</div><div class="price-row"><strong class="price ${isPure ? "exchange-price" : ""}">${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${product.id}">${isPure ? "兑" : "+"}</button></div><p class="stock-hint">库存 ${product.stock ?? 0}</p></article>`;
+    return `<article class="product-card"><img src="${homeEscape(product.image)}" alt="${homeEscape(product.name)}" data-product-open="${product.id}" loading="lazy" decoding="async"><span class="tag">${homeEscape(product.tag || (isPure ? "兑换" : "会员价"))}</span><h3 data-product-open="${product.id}">${homeEscape(product.name)}</h3><p class="product-meta">${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${tag}</span>`).join("")}</div><div class="price-row"><strong class="price ${isPure ? "exchange-price" : ""}">${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${product.id}">${isPure ? "兑" : "+"}</button></div><p class="stock-hint">库存 ${product.stock ?? 0}</p></article>`;
   }).join("") || `<div class="empty">暂无商品</div>`;
 }
 
 function horizontalProduct(product) {
   const isPure = product.purePointsOnly;
-  return `<article class="horizontal-product"><img src="${product.image}" alt="${product.name}" data-product-open="${product.id}" loading="lazy" decoding="async" /><div class="horizontal-product-body"><div><span class="tag">${product.tag || (isPure ? "兑换" : "会员价")}</span><span class="stock-state ${Number(product.stock || 0) <= 10 ? "warn" : ""}">库存 ${product.stock ?? 0}</span></div><strong data-product-open="${product.id}">${product.name}</strong><p>${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${tag}</span>`).join("")}</div><div class="price-row"><strong class="price ${isPure ? "exchange-price" : ""}">${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${product.id}">${isPure ? "兑" : "+"}</button></div></div></article>`;
+  return `<article class="horizontal-product"><img src="${homeEscape(product.image)}" alt="${homeEscape(product.name)}" data-product-open="${product.id}" loading="lazy" decoding="async" /><div class="horizontal-product-body"><div><span class="tag">${homeEscape(product.tag || (isPure ? "兑换" : "会员价"))}</span><span class="stock-state ${Number(product.stock || 0) <= 10 ? "warn" : ""}">库存 ${product.stock ?? 0}</span></div><strong data-product-open="${product.id}">${homeEscape(product.name)}</strong><p>${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${tag}</span>`).join("")}</div><div class="price-row"><strong class="price ${isPure ? "exchange-price" : ""}">${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${product.id}">${isPure ? "兑" : "+"}</button></div></div></article>`;
 }
 
 function floatingCart(state) {
@@ -539,6 +543,10 @@ function floatingCart(state) {
   const totalPoints = items.reduce((sum, item) => sum + (item.purePointsOnly ? (item.pointsPrice || 0) * (item.quantity || 1) : 0), 0);
   const totalCash = items.reduce((sum, item) => sum + (!item.purePointsOnly ? (item.cashPrice || 0) * (item.quantity || 1) : 0), 0);
   return `<button type="button" class="floating-cart" data-page="cart"><span><i>${count}</i> 件商品</span><strong>${totalText(totalCash, totalPoints)}</strong><em>去结算</em></button>`;
+}
+
+function homeEscape(value) {
+  return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
 function homeSignature(state) {
@@ -566,8 +574,12 @@ function homeSignature(state) {
     pickup: [pickup.id, pickup.name],
     promise: [promise.title, promise.subtitle, promise.cutoffText, promise.serviceAreaText],
     badges: home.serviceBadges || [],
+    banners: home.banners || [],
+    bannerImage: home.bannerImage || "",
+    bannerProduct: home.bannerProduct || null,
     promotions: home.promotionEntries || [],
     products,
+    recommendations: (home.recommendProducts || []).map(item => [item.id, item.name, item.image, item.cashPrice, item.pointsPrice, item.stock]),
     cart
   });
 }
@@ -658,9 +670,9 @@ function getMemberDaysLeft(user = {}) {
 }
 
 function productMetaLine(product, isPure = product.purePointsOnly) {
-  const spec = product.spec || product.origin || product.category || (isPure ? "纯积分兑换" : "会员现金购");
+  const spec = product.unit || product.spec || product.origin || product.category || (isPure ? "纯积分兑换" : "会员现金购");
   const sales = product.monthlySales || product.salesText || "月售 100+";
-  return `${spec} · ${sales}`;
+  return `${homeEscape(spec)} · ${homeEscape(sales)}`;
 }
 
 function productServiceTags(product, isPure = product.purePointsOnly) {

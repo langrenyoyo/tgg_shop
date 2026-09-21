@@ -8,6 +8,10 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "app.json"), "utf8")
 const registered = new Set(manifest.pages);
 const tabs = new Set(manifest.tabBar.list.map(item => item.pagePath));
 
+test("mini manifest keeps component injection enabled for the WeChat quality audit", () => {
+  assert.equal(manifest.lazyCodeLoading, "requiredComponents");
+});
+
 // Check the components actually referenced by templates. A syntactically valid
 // WXML tag can still fail at runtime when it has no native/custom registration.
 const nativeTags = new Set([

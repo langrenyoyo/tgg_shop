@@ -152,7 +152,7 @@ async function handleAdminRoutes(ctx) {
 
   const productMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
   if (req.method === "PATCH" && productMatch) {
-    const check = adminService.requirePermission(req, state, "product:write");
+    const check = adminService.requirePermission(req, state, "product:read");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
     const result = adminService.updateProduct(state, productMatch[1], await ctx.readBody(req), check);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.product : { error: result.error });
@@ -266,6 +266,18 @@ async function handleAdminRoutes(ctx) {
     return send(ctx.res, 200, result);
   }
   if (req.method === "GET" && url.pathname === "/api/admin/permissions") return send(ctx.res, 200, adminService.listRoles(state));
+  if (req.method === "GET" && url.pathname === "/api/admin/permissions/catalog") {
+    const check = adminService.requirePermission(req, state, "role:read");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    return send(ctx.res, 200, adminService.listPermissionCatalog());
+  }
+  const roleMatch = url.pathname.match(/^\/api\/admin\/permissions\/([^/]+)$/);
+  if (req.method === "PATCH" && roleMatch) {
+    const check = adminService.requirePermission(req, state, "role:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const result = adminService.updateRole(state, roleMatch[1], await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.role : { error: result.error });
+  }
   if (req.method === "GET" && url.pathname === "/api/admin/exceptions") return send(ctx.res, 200, adminService.listExceptions(state));
   if (req.method === "POST" && url.pathname === "/api/admin/exceptions") {
     const check = adminService.requirePermission(req, state, "exception:write");

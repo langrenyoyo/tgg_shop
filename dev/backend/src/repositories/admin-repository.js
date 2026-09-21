@@ -13,6 +13,9 @@ function countSummary(state) {
     userCount: state.users.length,
     pointLedgerCount: state.pointLedger.length,
     exceptionCount: state.exceptions.length,
+    pendingRefundCount: state.refundOrders.filter(item => item.status === "pending_review").length,
+    pendingExceptionCount: state.exceptions.filter(item => item.status === "pending").length,
+    paymentLedgerCount: state.paymentLedger.length,
     productCount: state.products.length
   };
 }

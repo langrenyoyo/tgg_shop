@@ -112,6 +112,7 @@ function readState(database) {
       status: row.status || "active"
     }));
 
+  const productContent = database.prepare("SELECT content_json FROM product_content WHERE product_id = ?");
   const products = database
     .prepare(
       "SELECT id, name, category, cash_price_cents, points_price, stock, tag, image_url, supports_cash, supports_points, pure_points_only, status FROM product ORDER BY id"
@@ -129,7 +130,8 @@ function readState(database) {
       supportsCash: Boolean(row.supports_cash),
       supportsPoints: Boolean(row.supports_points),
       purePointsOnly: Boolean(row.pure_points_only),
-      status: row.status
+      status: row.status,
+      ...JSON.parse(productContent.get(row.id)?.content_json || "{}")
     }));
 
   const inventoryLedger = database
@@ -587,6 +589,7 @@ function deleteExistingRows(database) {
     "delivery_team",
     "pickup_site",
     "inventory_ledger",
+    "product_content",
     "product",
     "user_address",
     "app_user",
@@ -647,6 +650,7 @@ function insertState(database, state) {
   const insertProduct = database.prepare(
     "INSERT INTO product (id, name, category, cash_price_cents, points_price, stock, tag, image_url, supports_cash, supports_points, pure_points_only, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
+  const insertProductContent = database.prepare("INSERT INTO product_content (product_id, content_json) VALUES (?, ?)");
   for (const product of state.products) {
     insertProduct.run(
       product.id,
@@ -662,6 +666,7 @@ function insertState(database, state) {
       product.purePointsOnly ? 1 : 0,
       product.status || "on"
     );
+    insertProductContent.run(product.id, JSON.stringify({ description: product.description || "", unit: product.unit || "", revision: product.revision || 0, createdAt: product.createdAt || "", updatedAt: product.updatedAt || "", publishedAt: product.publishedAt || "" }));
   }
 
   const insertInventory = database.prepare(

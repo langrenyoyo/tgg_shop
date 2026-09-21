@@ -180,7 +180,9 @@ test("user and admin frontends support core click flows", async (t) => {
     await adminPage.goto(`${BASE}/admin`);
     await adminPage.waitForText("运营仪表盘");
     await adminPage.waitForText("最近订单");
+    await runAdminRepairPatrol(adminPage, userPage);
     await runAdminConsistencyPatrol(adminPage);
+    await runAdminProductPatrol(adminPage, userPage);
     await adminPage.waitForExpression(`(() => {
       const button = document.querySelector('button[data-view="financeRefund"]');
       return Boolean(button && !button.disabled);
@@ -191,6 +193,7 @@ test("user and admin frontends support core click flows", async (t) => {
     await adminPage.click('[data-withdraw-action][data-action-type="approve"]');
     await adminPage.waitForText("复核中");
     await adminPage.waitForText("二级审批队列");
+    assert.deepEqual(adminPage.runtimeErrors(), [], "admin page should not emit runtime errors");
 
     const hasGarbledText = await userPage.evaluate(`/[璧鎴閫绉鍟姣浠濮鏀寰锟�]/.test(document.body.innerText)`);
     assert.equal(hasGarbledText, false, "user page should not show mojibake text");
@@ -204,6 +207,162 @@ test("user and admin frontends support core click flows", async (t) => {
   }
 });
 
+async function runAdminRepairPatrol(adminPage, userPage) {
+  await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  assert.equal(await adminPage.evaluate(`getComputedStyle(document.querySelector('.dashboard-metrics')).display`), "grid");
+  assert.equal(await adminPage.evaluate(`document.querySelectorAll('.dashboard-metric').length`), 6);
+  assert.equal(await adminPage.evaluate(`document.querySelectorAll('[data-dashboard-chart]').length`), 3);
+  assert.equal(await adminPage.evaluate(`document.documentElement.scrollWidth <= window.innerWidth`), true);
+  await adminPage.click('[data-dashboard-filter][data-filter-value="today"]');
+  await adminPage.waitForExpression(`document.querySelector('[data-filter-value="today"]').classList.contains('active')`);
+  await adminPage.waitForExpression(`document.querySelector('[data-dashboard-range-label]').textContent === '今日'`);
+  await adminPage.click('[data-dashboard-filter][data-filter-value="pure_points"]');
+  await adminPage.waitForExpression(`document.querySelector('[data-filter-value="pure_points"]').classList.contains('active')`);
+  assert.equal(await adminPage.evaluate(`Array.from(document.querySelectorAll('#dashboard-orders tbody tr')).every(row => row.innerText.includes('纯积分兑换'))`), true);
+  await adminPage.click('[data-dashboard-save-view]');
+  await adminPage.waitForText("E2E 自动确认");
+  await adminPage.click('[data-dashboard-view-pin]');
+  await adminPage.waitForText("取消置顶");
+  await adminPage.click('[data-dashboard-filters-reset]');
+  await adminPage.waitForExpression(`document.querySelector('[data-dashboard-range-label]').textContent === '近30日'`);
+  await adminPage.click('[data-dashboard-view-apply]');
+  await adminPage.waitForExpression(`document.querySelector('[data-dashboard-range-label]').textContent === '今日' && document.querySelector('[data-filter-value="pure_points"]').classList.contains('active')`);
+  await adminPage.click('[data-dashboard-view-delete]');
+  await adminPage.waitForText("暂无保存的视图");
+  await adminPage.fillFormAndSubmit('[data-dashboard-range-form]', { startDate: "2000-01-01", endDate: "2000-01-02" });
+  await adminPage.waitForExpression(`document.querySelector('[data-dashboard-range-label]').textContent === '2000-01-01 至 2000-01-02'`);
+  assert.equal(await adminPage.evaluate(`document.querySelector('.dashboard-metric strong').textContent`), "0");
+  await adminPage.waitForText("暂无数据");
+  await adminPage.click('[data-dashboard-filters-reset]');
+  await adminPage.waitForExpression(`document.querySelector('[data-dashboard-range-label]').textContent === '近30日'`);
+  await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 760, height: 1000, deviceScaleFactor: 1, mobile: false });
+  assert.equal(await adminPage.evaluate(`document.documentElement.scrollWidth <= window.innerWidth`), true);
+  await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await adminPage.evaluate(`window.scrollTo({ top: 0, behavior: 'instant' })`);
+  const screenshot = await adminPage.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+  fs.writeFileSync(path.join(os.tmpdir(), "tgg-dashboard-fixed.png"), Buffer.from(screenshot.data, "base64"));
+  await adminPage.click('[data-dashboard-view="ledger"]');
+  await adminPage.waitForText("支付单流水");
+
+  await adminPage.click('button[data-view="homeOps"]');
+  await adminPage.waitForText("保存首页配置");
+  const homeScreenshot = await adminPage.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+  fs.writeFileSync(path.join(os.tmpdir(), "tgg-home-ops-fixed.png"), Buffer.from(homeScreenshot.data, "base64"));
+  await adminPage.click('[data-promotion-add]');
+  await adminPage.evaluate(`(() => {
+    const row = document.querySelector('[data-promotion-row]:last-child');
+    row.querySelector('[name="promotionTitle"]').value = '巡检活动';
+    row.querySelector('[name="promotionText"]').value = '邀请有礼';
+    row.querySelector('[name="promotionPage"]').value = 'invite';
+  })()`);
+  await adminPage.fillFormAndSubmit('[data-config-form="home"]', {
+    homeBannerTitle: "巡检鲜果专场", homeBannerSubtitle: "后台配置已生效", homeBannerProductId: "p_banana",
+    homeServiceBadges: "自建配送，品质保障", homePromiseTitle: "当日配送"
+  });
+  await adminPage.waitForText("首页配置已保存");
+  await adminPage.goto(`${BASE}/admin`);
+  await adminPage.waitForText("最近订单");
+  await adminPage.click('button[data-view="homeOps"]');
+  assert.equal(await adminPage.evaluate(`document.querySelector('[name="homeBannerTitle"]').value`), "巡检鲜果专场");
+  assert.equal(await adminPage.evaluate(`document.querySelectorAll('[data-promotion-row]').length`), 4);
+  await adminPage.click('[data-promotion-row]:last-child [data-promotion-remove]');
+  assert.equal(await adminPage.evaluate(`document.querySelectorAll('[data-promotion-row]').length`), 3);
+  await adminPage.click('[data-config-form="home"] [type="reset"]');
+  assert.equal(await adminPage.evaluate(`document.querySelectorAll('[data-promotion-row]').length`), 4);
+  await userPage.goto(`${BASE}/user?skipSplash=1`);
+  await userPage.waitForText("巡检鲜果专场");
+  await userPage.waitForText("巡检活动");
+  assert.equal(await userPage.evaluate(`document.querySelector('.banner [data-buy="p_banana"]').dataset.mode`), "pure_points");
+
+  await adminPage.click('button[data-view="permissions"]');
+  await adminPage.click('[data-role-edit="product_admin"]');
+  const roleScreenshot = await adminPage.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+  fs.writeFileSync(path.join(os.tmpdir(), "tgg-permissions-fixed.png"), Buffer.from(roleScreenshot.data, "base64"));
+  await adminPage.evaluate(`document.querySelector('[name="permissions"][value="stock:write"]').checked = false`);
+  await adminPage.fillFormAndSubmit('[data-role-form]', { name: "商品管理员（受限）", reason: "巡检撤销库存权限" });
+  await adminPage.waitForText("角色权限已保存");
+  await adminPage.goto(`${BASE}/admin`);
+  await adminPage.waitForText("最近订单");
+  await adminPage.click('button[data-view="permissions"]');
+  await adminPage.waitForText("商品管理员（受限）");
+  await adminPage.click('[data-role-edit="product_admin"]');
+  assert.equal(await adminPage.evaluate(`document.querySelector('[value="stock:write"]').checked`), false);
+  await adminPage.evaluate(`document.querySelector('[value="stock:write"]').checked = true`);
+  await adminPage.fillFormAndSubmit('[data-role-form]', { name: "商品管理员", reason: "巡检恢复库存权限" });
+  await adminPage.waitForText("角色权限已保存");
+}
+
+async function runAdminProductPatrol(adminPage, userPage) {
+  await adminPage.click('button[data-view="products"]');
+  await adminPage.waitForText("商品上架与销售设置");
+  const form = '[data-product-create-form]';
+  assert.equal((await fetch(`${BASE}/api/admin/product-images`, { method: "POST" })).status, 401);
+  const invalidImageStatus = await adminPage.evaluate(`(() => {
+    const body = new FormData(); body.append('file', new File(['invalid image'], 'fake.png', { type: 'image/png' }));
+    return fetch('/api/admin/product-images', { method: 'POST', headers: { Authorization: 'Bearer ' + localStorage.getItem('tggAdminToken') }, body }).then(r => r.status);
+  })()`);
+  assert.equal(invalidImageStatus, 400, "renaming a non-image file must not bypass image validation");
+  await adminPage.evaluate(`(() => {
+    const file = new File([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4xkAAAAASUVORK5CYII='), c => c.charCodeAt(0))], 'product.png', { type: 'image/png' });
+    const transfer = new DataTransfer(); transfer.items.add(file);
+    const input = document.querySelector('[data-product-image-upload]');
+    input.files = transfer.files; input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await adminPage.waitForText("主图上传成功");
+  const uploadedImage = await adminPage.evaluate(`document.querySelector('${form} [name="image"]').value`);
+  assert.match(uploadedImage, /^\/uploads\/.+\.png$/);
+  assert.equal((await fetch(`${BASE}${uploadedImage}`)).status, 200);
+  await adminPage.fillFormAndSubmit(form, { name: '闭环 "鲜果"', stock: 5, reason: "浏览器保存草稿" });
+  await adminPage.waitForText("商品资料已保存，尚未上架");
+  const product = await adminPage.evaluate(`fetch('/api/admin/products', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggAdminToken') } }).then(r => r.json()).then(rows => rows.find(p => p.name === '闭环 "鲜果"'))`);
+  assert.ok(product);
+  assert.equal(product.status, "off");
+  assert.equal((await fetch(`${BASE}/api/products/${product.id}`)).status, 404);
+  await adminPage.click(`[data-product-edit="${product.id}"]`);
+  await adminPage.fillFormAndSubmit(form, { category: "闭环新品", unit: "500g / 盒", description: "冷藏保存\n开封即食", cashPrice: 1.5, pointsPrice: 10, reason: "完善上架资料" });
+  await adminPage.waitForExpression(`document.querySelector('${form}').dataset.productId === ''`);
+  await adminPage.click(`[data-product-edit="${product.id}"]`);
+  assert.equal(await adminPage.evaluate(`document.querySelector('${form} [name="description"]').value`), "冷藏保存\n开封即食");
+  await adminPage.click('[data-product-preview-form]');
+  await adminPage.waitForExpression(`document.querySelector('[data-product-preview-dialog]').open`);
+  assert.equal(await adminPage.evaluate(`document.querySelector('[data-product-preview-dialog] img').alt`), '闭环 "鲜果"');
+  const screenshot = await adminPage.send("Page.captureScreenshot", { format: "png" });
+  fs.writeFileSync(path.join(os.tmpdir(), "tgg-product-preview.png"), Buffer.from(screenshot.data, "base64"));
+  await adminPage.click('[data-product-preview-close]');
+  await adminPage.evaluate(`(() => { const form = document.querySelector('${form}'); form.querySelector('[name="reason"]').value = '校验并上架'; form.requestSubmit(form.querySelector('[value="on"]')); })()`);
+  await adminPage.waitForText("商品已上架，用户端可查看和购买");
+  assert.equal((await fetch(`${BASE}/api/products/${product.id}`)).status, 200);
+
+  await userPage.goto(`${BASE}/user?skipSplash=1`);
+  await userPage.waitForText("热门推荐");
+  await userPage.click('button[data-tab="category"]');
+  await userPage.waitForExpression(`Boolean(document.querySelector('[data-category-name="闭环新品"]'))`);
+  await userPage.click('[data-category-name="闭环新品"]');
+  await userPage.waitForText('闭环 "鲜果"');
+  await userPage.click(`[data-product-open="${product.id}"]`);
+  await userPage.waitForText("冷藏保存");
+  assert.equal(await userPage.evaluate(`document.querySelector('.product-detail-hero img').alt`), '闭环 "鲜果"');
+  await userPage.click(`[data-buy="${product.id}"]`);
+  await userPage.waitForText("我的订单");
+  const orders = await userPage.evaluate(`fetch('/api/orders', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') } }).then(r => r.json())`);
+  const purchased = orders.find(order => order.items.some(item => item.productId === product.id));
+  assert.ok(purchased, "newly published product can be purchased from the user UI");
+  assert.equal(purchased.status, "paid");
+  assert.equal((await (await fetch(`${BASE}/api/products/${product.id}`)).json()).stock, 4);
+
+  await adminPage.click(`[data-product-action="${product.id}"][data-status="off"]`);
+  await adminPage.waitForExpression(`Boolean(document.querySelector('[data-product-action="${product.id}"][data-status="on"]'))`);
+  assert.equal((await fetch(`${BASE}/api/products/${product.id}`)).status, 404);
+  assert.ok(!(await (await fetch(`${BASE}/api/products`)).json()).some(item => item.id === product.id));
+  const rejected = await userPage.evaluate(`fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') }, body: JSON.stringify({ paymentMode: 'cash', fulfillmentType: 'pickup', items: [{ productId: '${product.id}', quantity: 1 }] }) }).then(r => r.status)`);
+  assert.equal(rejected, 400);
+  const retained = await userPage.evaluate(`fetch('/api/orders', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') } }).then(r => r.json()).then(rows => rows.find(order => order.id === '${purchased.id}'))`);
+  assert.equal(retained.status, "paid", "unpublishing must preserve existing orders");
+  await userPage.click('button[data-tab="category"]');
+  await userPage.waitForExpression(`!document.querySelector('[data-product-open="${product.id}"]')`);
+  assert.deepEqual(userPage.runtimeErrors(), []);
+}
+
 async function runAdminConsistencyPatrol(adminPage) {
   const views = [
     ["dashboard", "最近订单"],
@@ -212,6 +371,7 @@ async function runAdminConsistencyPatrol(adminPage) {
     ["deliveryTeam", "配送员"],
     ["products", "商品上架与销售设置"],
     ["pointsExchange", "纯积分兑换设置"],
+    ["homeOps", "保存首页配置"],
     ["users", "用户列表"],
     ["customerTickets", "客服/反馈/合作/招聘工单"],
     ["agentsPickup", "自提点与代理"],
@@ -471,12 +631,14 @@ class CDPPage {
   }
 
   async goto(url) {
+    await this.send("Page.bringToFront");
     const loaded = new Promise((resolve) => this.loadResolvers.push(resolve));
     await this.send("Page.navigate", { url });
     await loaded;
   }
 
   async click(selector) {
+    await this.send("Page.bringToFront");
     await this.waitForExpression(`Boolean(document.querySelector(${JSON.stringify(selector)}))`);
     await this.evaluate(`(() => {
       const el = document.querySelector(${JSON.stringify(selector)});

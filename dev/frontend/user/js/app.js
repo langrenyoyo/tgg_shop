@@ -42,7 +42,7 @@ async function safeApi(path, fallback, options) {
 }
 
 async function loadInitialData() {
-  const [home, config, exchangeProducts, taskTypes, tasks, submissions, orders, invite, pickupSites, deliveryTeams, addresses, signinStatus, pointLedger, payments, ranking, withdrawals, supportTickets] = await Promise.all([
+  const [home, config, exchangeProducts, taskTypes, tasks, submissions, orders, invite, pickupSites, deliveryTeams, addresses, signinStatus, pointLedger, payments, ranking, withdrawals, supportTickets, catalogProducts] = await Promise.all([
     safeApi("/api/home", {}),
     safeApi("/api/config", {}),
     safeApi("/api/points-exchange", []),
@@ -59,13 +59,14 @@ async function loadInitialData() {
     safeApi("/api/payments", []),
     safeApi("/api/ranking", null),
     safeApi("/api/withdrawals", []),
-    safeApi("/api/tickets", [])
+    safeApi("/api/tickets", []),
+    safeApi("/api/products", [])
   ]);
 
   state.home = home;
   state.config = config;
   state.user = home.user || (await safeApi("/api/me", null));
-  state.products = home.recommendProducts || [];
+  state.products = catalogProducts;
   state.exchangeProducts = exchangeProducts;
   state.taskTypes = taskTypes;
   state.tasks = tasks;
@@ -265,10 +266,17 @@ async function switchTab(tab) {
     button.classList.toggle("active", button.dataset.tab === tab);
   });
   setPage(tab);
+  if (["home", "category"].includes(tab)) {
+    const version = state.catalogVersion = (state.catalogVersion || 0) + 1;
+    const [home, products, exchangeProducts] = await Promise.all([api("/api/home"), api("/api/products"), api("/api/points-exchange")]);
+    if (version !== state.catalogVersion || state.activeTab !== tab) return;
+    state.home = home; state.products = products; state.exchangeProducts = exchangeProducts;
+    renderPage(state);
+  }
 }
 
 function findProduct(productId) {
-  return state.products.concat(state.exchangeProducts).find((item) => item.id === productId);
+  return state.products.concat(state.exchangeProducts, state.home?.bannerProduct || []).find((item) => item.id === productId);
 }
 
 function addToCart(product) {
@@ -328,8 +336,11 @@ function bindGlobalActions() {
 
     const productOpen = event.target.closest("[data-product-open]")?.dataset.productOpen;
     if (productOpen) {
-      state.selectedProduct = findProduct(productOpen);
-      setPage("product");
+      api(`/api/products/${encodeURIComponent(productOpen)}`).then(product => {
+        state.selectedProduct = product;
+        state.products = state.products.filter(item => item.id !== product.id).concat(product);
+        setPage("product");
+      }).catch(error => toast(error.message));
       return;
     }
 

@@ -1316,7 +1316,7 @@ paths:
     post:
       tags: [Admin]
       summary: Create a product and optionally publish it
-      description: Requires product:write permission; pure-points products are created with cash disabled.
+      description: Defaults to an unpublished draft (off). Requires product:write; pure-points products additionally require points_product:write, and initial stock requires stock:write. Publishing validates category, image, positive prices and stock. Pure-points products always have cash disabled.
       security:
         - AdminBearerAuth: []
       requestBody:
@@ -1324,7 +1324,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name]
+              required: [name, reason]
               properties:
                 name:
                   type: string
@@ -1345,6 +1345,14 @@ paths:
                   type: boolean
                 purePointsOnly:
                   type: boolean
+                supportsPoints:
+                  type: boolean
+                description:
+                  type: string
+                unit:
+                  type: string
+                reason:
+                  type: string
                 status:
                   type: string
                   enum: [on, off]
@@ -1360,11 +1368,54 @@ paths:
     patch:
       tags: [Admin]
       summary: Update product status, stock, prices, and display fields
-      description: Requires product:write permission; pure-points products remain cash disabled.
+      description: Requires product:read and field-specific write permissions. Stock updates require stock:write and expectedStock; other edits require product:write, plus points_product:write for pure-points goods. A reason is required. Optional expectedRevision prevents overwriting newer edits. Listed products must be unpublished before editing their content or prices. Sale type cannot be changed.
       security:
         - AdminBearerAuth: []
       parameters:
         - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                expectedRevision:
+                  type: integer
+                  minimum: 0
+                expectedStock:
+                  type: integer
+                  minimum: 0
+                  description: Required when setting stock; must equal the current stock.
+                stock:
+                  type: integer
+                  minimum: 0
+                status:
+                  type: string
+                  enum: [on, off]
+                name:
+                  type: string
+                category:
+                  type: string
+                image:
+                  type: string
+                tag:
+                  type: string
+                unit:
+                  type: string
+                description:
+                  type: string
+                cashPrice:
+                  type: number
+                  nullable: true
+                pointsPrice:
+                  type: integer
+                supportsPoints:
+                  type: boolean
       responses:
         "200":
           description: Product updated
@@ -1372,6 +1423,66 @@ paths:
           description: Missing product write permission
         "404":
           description: Product not found
+        "400":
+          description: Invalid product data or incomplete publication requirements
+        "409":
+          description: Stale stock or revision, or editing a listed product
+
+  /api/admin/product-images:
+    post:
+      tags: [Admin]
+      summary: Upload a product image
+      description: Requires product:write. Accepts PNG, JPEG, GIF or WebP files up to 10 MB; verifies the image signature.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Uploaded image URL in data[0].url
+        "400":
+          description: Invalid image
+        "403":
+          description: Missing product write permission
+        "413":
+          description: Image exceeds size limit
+
+  /api/admin/home-images:
+    post:
+      tags: [Admin]
+      summary: Upload a homepage banner image
+      description: Requires config:write. Accepts PNG, JPEG, GIF or WebP files up to 10 MB and verifies the image signature.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Uploaded homepage image URL in data[0].url
+        "400":
+          description: Invalid image
+        "403":
+          description: Missing config write permission
+        "413":
+          description: Image exceeds size limit
 
   /api/admin/refund-returns:
     get:
@@ -2119,6 +2230,58 @@ paths:
           description: Role list
         "403":
           description: Missing role read permission
+
+  /api/admin/permissions/catalog:
+    get:
+      tags: [Admin]
+      summary: List assignable admin permissions
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Permission keys, excluding the reserved super admin wildcard
+        "403":
+          description: Missing role read permission
+
+  /api/admin/permissions/{roleId}:
+    patch:
+      tags: [Admin]
+      summary: Update role name and permissions
+      description: Requires role:write. Reserved super admin roles and the current actor role cannot be modified. Changes are audited and persist across restarts.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - in: path
+          name: roleId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, permissions, reason]
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Updated role
+        "400":
+          description: Invalid input or protected role
+        "403":
+          description: Missing permission or attempted privilege escalation
+        "404":
+          description: Role not found
 
   /api/admin/exceptions:
     get:

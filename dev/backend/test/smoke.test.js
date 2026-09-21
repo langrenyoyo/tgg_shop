@@ -589,21 +589,22 @@ async function run() {
     const createdProduct = await request("/api/admin/products", {
       method: "POST",
       headers: { "x-admin-role": "product_admin" },
-      body: JSON.stringify({ name: "测试新品蓝莓", category: "水果", cashPrice: 16.8, pointsPrice: 288, stock: 60, tag: "新品", image: "/assets/apple.jpg", status: "on" })
+      body: JSON.stringify({ name: "测试新品蓝莓", category: "水果", cashPrice: 16.8, pointsPrice: 288, stock: 60, tag: "新品", image: "/assets/apple.jpg", status: "on", reason: "新品发布" })
     });
     assert(createdProduct.res.status === 201 && createdProduct.body.id && createdProduct.body.status === "on" && createdProduct.body.supportsCash === true, "admin product create failed");
 
     const createdPureProduct = await request("/api/admin/products", {
       method: "POST",
       headers: { "x-admin-role": "product_admin" },
-      body: JSON.stringify({ name: "测试纯积分商品", category: "纯积分", cashPrice: 99, pointsPrice: 99, stock: 20, purePointsOnly: true, status: "on" })
+      body: JSON.stringify({ name: "测试纯积分商品", category: "纯积分", cashPrice: 99, pointsPrice: 99, stock: 20, purePointsOnly: true, image: "/assets/banana.jpg", status: "on", reason: "积分商品发布" })
     });
     assert(createdPureProduct.res.status === 201 && createdPureProduct.body.cashPrice === null && createdPureProduct.body.supportsCash === false, "pure points product create failed");
 
+    const beforeProductPatch = await request("/api/admin/products", { headers: { "x-admin-role": "product_admin" } });
     const patchedProduct = await request("/api/admin/products/p_apple", {
       method: "PATCH",
       headers: { "x-admin-role": "product_admin" },
-      body: JSON.stringify({ stock: 155, status: "off" })
+      body: JSON.stringify({ stock: 155, expectedStock: beforeProductPatch.body.find(item => item.id === "p_apple").stock, status: "off", reason: "下架盘点" })
     });
     assert(patchedProduct.res.status === 200 && patchedProduct.body.stock === 155 && patchedProduct.body.status === "off", "admin product patch failed");
 
@@ -620,7 +621,7 @@ async function run() {
     await request("/api/admin/products/p_apple", {
       method: "PATCH",
       headers: { "x-admin-role": "product_admin" },
-      body: JSON.stringify({ status: "on" })
+      body: JSON.stringify({ status: "on", reason: "盘点后重新上架" })
     });
 
     const adminPickupSites = await request("/api/admin/pickup-sites");

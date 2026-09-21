@@ -3,7 +3,7 @@ const { createSeed } = require("./seed");
 function normalizeState(nextState) {
   const seed = createSeed();
   nextState.config = { ...seed.config, ...(nextState.config || {}) };
-  nextState.roles = mergeRoles(nextState.roles || [], seed.roles);
+  nextState.roles = mergeRoles(nextState.roles || [], seed.roles, nextState.config.rolePermissionOverrides || {});
   nextState.inviteRelations = nextState.inviteRelations || seed.inviteRelations;
   nextState.addresses = nextState.addresses || seed.addresses;
   nextState.signinSessions = nextState.signinSessions || seed.signinSessions;
@@ -22,7 +22,7 @@ function normalizeState(nextState) {
   return nextState;
 }
 
-function mergeRoles(currentRoles, seedRoles) {
+function mergeRoles(currentRoles, seedRoles, permissionOverrides) {
   const rolesById = new Map(currentRoles.map((role) => [role.id, { ...role, permissions: [...role.permissions] }]));
   for (const seedRole of seedRoles) {
     const current = rolesById.get(seedRole.id);
@@ -31,7 +31,11 @@ function mergeRoles(currentRoles, seedRoles) {
       continue;
     }
     current.name = current.name || seedRole.name;
-    current.permissions = Array.from(new Set([...current.permissions, ...seedRole.permissions]));
+    if (Object.prototype.hasOwnProperty.call(permissionOverrides, current.id)) {
+      current.permissions = [...permissionOverrides[current.id]];
+    } else {
+      current.permissions = Array.from(new Set([...current.permissions, ...seedRole.permissions]));
+    }
   }
   return Array.from(rolesById.values());
 }

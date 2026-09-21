@@ -6,6 +6,20 @@ const UPLOAD_DIR = path.resolve(__dirname, "..", "..", "data", "uploads");
 async function handleCommonRoutes(ctx) {
   const { req, url, send } = ctx;
 
+  if (req.method === "POST" && url.pathname === "/api/admin/product-images") {
+    const check = require("../domain/auth").requireAdminPermission(req, ctx.state, "product:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const result = await handleUpload(req, true);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.body : { error: result.error });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/home-images") {
+    const check = require("../domain/auth").requireAdminPermission(req, ctx.state, "config:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const result = await handleUpload(req, true, "首页");
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.body : { error: result.error });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/common/upload") {
     if (!ctx.user) return send(ctx.res, 401, { error: "请先登录后上传" });
     const result = await handleUpload(req);
@@ -15,7 +29,7 @@ async function handleCommonRoutes(ctx) {
   return false;
 }
 
-async function handleUpload(req) {
+async function handleUpload(req, imageOnly = false, imageLabel = "商品") {
   const contentType = String(req.headers["content-type"] || "");
   const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
   if (!contentType.toLowerCase().includes("multipart/form-data") || !boundaryMatch) {
@@ -26,9 +40,18 @@ async function handleUpload(req) {
   if (!raw) return { ok: false, status: 413, error: "上传文件过大，请压缩后重试（最大 10 MB）" };
   const filePart = parseMultipartFile(raw, boundaryMatch[1].trim().replace(/^"|"$/g, ""));
   if (!filePart) return { ok: false, status: 400, error: "未找到上传文件" };
+  let imageExtension = "";
+  if (imageOnly) {
+    const bytes = filePart.buffer;
+    if (bytes.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"))) imageExtension = "png";
+    else if (bytes.subarray(0, 3).equals(Buffer.from("ffd8ff", "hex"))) imageExtension = "jpg";
+    else if (["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString())) imageExtension = "gif";
+    else if (bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WEBP") imageExtension = "webp";
+    if (!imageExtension) return { ok: false, status: 400, error: imageLabel + "图片仅支持 PNG、JPEG、GIF 或 WebP 格式" };
+  }
 
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  const safeName = sanitizeFilename(filePart.filename || "upload.bin");
+  const safeName = imageOnly ? (imageLabel === "首页" ? "home" : "product") + "." + imageExtension : sanitizeFilename(filePart.filename || "upload.bin");
   const storedName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
   const storedPath = path.join(UPLOAD_DIR, storedName);
   fs.writeFileSync(storedPath, filePart.buffer);

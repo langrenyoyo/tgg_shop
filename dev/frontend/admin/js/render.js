@@ -1,4 +1,6 @@
 import { pendingApprovalIntents } from "./api.js";
+import { renderDashboard } from "./dashboard.js";
+import { productEditor } from "./product-editor.js";
 let currentAdminState = {};
 
 const viewPermissions = {
@@ -64,6 +66,7 @@ const labelMaps = {
     closed: "已关闭",
     completed: "已完成",
     refunded: "已退款",
+    refunding: "退款处理中",
     resolved: "已处理",
     executed: "已执行",
     on: "上架",
@@ -134,9 +137,14 @@ export function renderAdminPage(state) {
   document.querySelectorAll("#adminNav button").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === state.view);
     const permission = viewPermissions[button.dataset.view];
-    button.disabled = Boolean(permission && !can(permission));
+    button.disabled = Boolean(state.loading || (permission && !can(permission)));
     button.title = button.disabled ? `当前角色缺少权限：${permission}` : "";
   });
+
+  if (state.loading) {
+    document.querySelector("#adminScreen").innerHTML = '<section class="panel" role="status">正在加载后台数据…</section>';
+    return;
+  }
 
   const views = {
     dashboard,
@@ -175,26 +183,7 @@ export function renderPanelError(selector, error) {
 }
 
 function dashboard(state) {
-  const orders = state.orders || [];
-  const refunds = state.refunds || [];
-  const exceptions = state.exceptions || [];
-  const users = state.users || [];
-  const pointLedger = state.ledger?.pointLedger || [];
-  const paymentLedger = state.ledger?.paymentLedger || [];
-  const paidOrders = orders.filter((item) => ["paid", "completed", "refunded"].includes(item.status));
-  const gmv = paidOrders.reduce((sum, item) => sum + Number(item.cashAmount || 0), 0);
-  const pointNet = pointLedger.reduce((sum, item) => sum + (item.direction === "in" ? Number(item.points || 0) : -Number(item.points || 0)), 0);
-  return `
-    ${statCards([["订单数", orders.length], ["成交额", `¥${gmv.toFixed(1)}`], ["用户数", users.length], ["积分净额", pointNet]])}
-    <section class="grid-2">
-      <article class="table-panel">${simpleTable("最近订单", ["订单", "用户", "状态", "履约", "金额/积分"], orders.slice(0, 10).map((item) => [item.id, item.userId, badge(item.status), badge(item.fulfillmentStatus, "orange"), paymentText(item)]))}</article>
-      <article class="table-panel">${simpleTable("运营队列", ["队列", "数量", "动作"], [
-        ["待退款", refunds.filter((item) => item.status === "pending_review").length, `<button class="action" data-dashboard-jump="financeRefund">查看</button>`],
-        ["异常补偿", exceptions.filter((item) => item.status === "pending").length, `<button class="action" data-dashboard-jump="exceptions">查看</button>`],
-        ["支付流水", paymentLedger.length, `<button class="action" data-dashboard-jump="ledger">查看</button>`]
-      ])}</article>
-    </section>
-  `;
+  return renderDashboard(state, { escapeHtml, can, gatedAction, simpleTable, badge, paymentText, orderActionButtons });
 }
 
 function orders(state) {
@@ -251,17 +240,23 @@ function deliveryTeam(state) {
 }
 
 function products(state) {
+  const rows = (state.products || []).filter(item => (!state.productStatus || item.status === state.productStatus) && (!state.productSearch || `${item.name} ${item.category} ${item.id}`.includes(state.productSearch)));
+  const editing = (state.products || []).find(item => item.id === state.editingProductId) || { purePointsOnly: Boolean(state.newProductPure) };
   return `
     ${statCards([["商品数", (state.products || []).length], ["上架", (state.products || []).filter((item) => item.status === "on").length], ["低库存", (state.products || []).filter((item) => Number(item.stock || 0) <= 20).length], ["纯积分", (state.products || []).filter((item) => item.purePointsOnly).length]])}
-    <section class="table-panel">${simpleTable("商品上架与销售设置", ["商品", "分类", "价格", "库存", "状态", "操作"], (state.products || []).map((item) => [
+    ${state.productMessage ? `<p class="note" role="status">${escapeHtml(state.productMessage)}</p>` : ""}
+    <form class="admin-form product-filter" data-product-filter-form><label>搜索商品<input name="search" value="${escapeAttr(state.productSearch || "")}" placeholder="名称、分类或商品编号"></label><label>状态<select name="status"><option value="">全部</option><option value="on" ${state.productStatus === "on" ? "selected" : ""}>已上架</option><option value="off" ${state.productStatus === "off" ? "selected" : ""}>草稿 / 已下架</option></select></label><button class="action" type="submit">查询</button><button class="action" type="button" data-product-edit-cancel>新增商品</button></form>
+    <section class="table-panel">${simpleTable("商品上架与销售设置", ["商品", "分类", "价格", "库存", "状态", "操作"], rows.map((item) => [
       `${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${item.id}</span>`,
-      item.category || "-",
-      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `¥${Number(item.cashPrice || 0).toFixed(1)} / ${item.pointsPrice || 0} 积分`,
+      escapeHtml(item.category || "-"),
+      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `¥${Number(item.cashPrice || 0).toFixed(2)}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
       item.stock ?? 0,
-      badge(item.status === "on" ? "on" : "off", item.status === "on" ? "" : "orange"),
+      badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)
     ]))}</section>
-    <section class="panel">${createProductForm()}</section>
+    <datalist id="product-categories">${[...new Set(["水果", "蔬菜", "肉禽", "乳品", "零食", "日用", "纯积分", ...(state.products || []).map(item => item.category)])].filter(Boolean).map(category => `<option value="${escapeAttr(category)}"></option>`).join("")}</datalist>
+    ${productEditor(editing, { escapeHtml, can })}
+    ${can("stock:write") ? `<section class="table-panel">${simpleTable("库存变动记录", ["时间", "商品", "变动数量", "变动前", "变动后", "原因"], (state.inventoryLedger || []).slice(0, 30).map(item => [formatDateTime(item.createdAt), escapeHtml(item.productName || item.productId), item.quantityDelta, item.stockBefore, item.stockAfter, escapeHtml(item.reason)]))}</section>` : ""}
     <section class="table-panel">${simpleTable("退款商品验收", ["退款单", "订单", "商品", "状态", "处理"], (state.refundReturns || []).map(item => [
       escapeHtml(item.refundId), escapeHtml(item.orderId || "-"),
       item.items.map(product => `${escapeHtml(product.title || product.productId)} × ${product.quantity}`).join("<br>"),
@@ -271,13 +266,42 @@ function products(state) {
 }
 
 function pointsExchange(state) {
-  const products = (state.products || []).filter((item) => item.purePointsOnly || Number(item.pointsPrice || 0) > 0);
-  return `<section class="table-panel">${simpleTable("纯积分兑换设置", ["商品", "积分价", "库存", "现金入口"], products.map((item) => [item.name || item.id, item.pointsPrice || 0, item.stock ?? 0, item.purePointsOnly ? badge("已关闭现金", "orange") : badge(item.supportsCash ? "开启" : "关闭")]))}</section>`;
+  const products = (state.products || []).filter((item) => item.purePointsOnly);
+  return `<section class="table-panel"><div class="panel-head"><p>纯积分商品无需会员，不支持现金补差。</p>${gatedAction("points_product:write", '<button class="action" data-product-new-pure>新增纯积分商品</button>')}</div>${simpleTable("纯积分兑换设置", ["商品", "积分价", "库存", "状态", "操作"], products.map((item) => [escapeHtml(item.name || item.id), item.pointsPrice || 0, item.stock ?? 0, badge(item.status), productActionButtons(item)]))}</section>`;
 }
 
 function homeOps(state) {
+  if (state.configError) return `<section class="panel" role="alert">${escapeHtml(state.configError)}，请点击刷新后重试。</section>`;
   const config = state.config || {};
-  return `<section class="panel"><div class="panel-head"><h2>首页运营配置</h2><span>Banner、服务承诺和活动入口</span></div><div class="list">${infoItem("Banner", config.homeBannerTitle || "-")}${infoItem("副标题", config.homeBannerSubtitle || "-")}${infoItem("推荐商品", config.homeBannerProductId || "-")}${infoItem("服务标签", (config.homeServiceBadges || []).join(" / ") || "-")}</div></section>`;
+  const promise = config.homeDeliveryPromise || {};
+  const products = state.products || [];
+  const field = (label, name, value, required = false) => `<label>${label}<input name="${name}" value="${escapeAttr(value || "")}" ${required ? "required" : ""}></label>`;
+  return `<section class="panel"><div class="panel-head"><h2>首页运营配置</h2><span>保存后在用户首页生效</span></div>
+    ${state.homeMessage ? `<p role="status">${escapeHtml(state.homeMessage)}</p>` : ""}
+    <form class="admin-form" data-config-form="home"><fieldset class="editor-fields" ${can("config:write") ? "" : "disabled"}>
+      <div class="editor-grid">${field("Banner 标题", "homeBannerTitle", config.homeBannerTitle, true)}${field("Banner 副标题", "homeBannerSubtitle", config.homeBannerSubtitle)}
+        <label>推荐商品<select name="homeBannerProductId" required>${config.homeBannerProductId && !products.some(item => item.id === config.homeBannerProductId) ? `<option value="${escapeAttr(config.homeBannerProductId)}">${escapeHtml(config.homeBannerProductId)}（当前不可见）</option>` : ""}${products.map(item => `<option value="${escapeAttr(item.id)}" ${item.id === config.homeBannerProductId ? "selected" : ""}>${escapeHtml(item.name)}${item.status === "on" ? "" : "（已下架）"}</option>`).join("")}</select></label>
+        ${field("服务标签（逗号分隔）", "homeServiceBadges", (config.homeServiceBadges || []).join("，"))}
+        <label class="wide">首页 Banner 图片地址<input name="homeBannerImage" value="${escapeAttr(config.homeBannerImage || "")}" placeholder="上传图片或填写 https 图片地址 / 本地图片路径"></label>
+        <div class="product-upload wide"><label>上传首页 Banner 图片<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-home-banner-image-upload></label><span data-home-banner-upload-message role="status">支持 PNG / JPEG / GIF / WebP，最大 10 MB</span></div>
+      </div>
+      <h3>配送服务承诺</h3><div class="editor-grid">${field("承诺标题", "homePromiseTitle", promise.title)}${field("承诺副标题", "homePromiseSubtitle", promise.subtitle)}${field("截单说明", "homePromiseCutoffText", promise.cutoffText)}${field("配送费说明", "homePromiseDeliveryFeeText", promise.deliveryFeeText)}${field("服务范围", "homePromiseServiceAreaText", promise.serviceAreaText)}</div>
+      <div class="panel-head"><h3>活动入口</h3><button class="action" type="button" data-promotion-add>新增入口</button></div>
+      <div class="promotion-editors" data-promotion-rows>${(config.homePromotionEntries || []).map(promotionEditor).join("")}</div>
+      <button class="action" type="submit">保存首页配置</button><button class="action muted-action" type="reset">重置填写</button>
+    </fieldset></form>${can("config:write") ? "" : `<p class="muted-text">当前角色仅可查看，保存需要配置修改权限。</p>`}</section>`;
+}
+
+export function promotionEditor(item = {}) {
+  const pages = [["category", "商品分类"], ["membership", "会员中心"], ["pointsExchange", "纯积分兑换"], ["signin", "签到"], ["earn", "赚积分"], ["invite", "邀请好友"]];
+  if (item.page && !pages.some(([page]) => page === item.page)) pages.push([item.page, item.page]);
+  return `<div class="promotion-editor" data-promotion-row>
+    <label>入口标题<input name="promotionTitle" value="${escapeAttr(item.title || "")}" required></label>
+    <label>说明<input name="promotionText" value="${escapeAttr(item.text || "")}"></label>
+    <label>跳转页面<select name="promotionPage">${pages.map(([value, label]) => `<option value="${escapeAttr(value)}" ${item.page === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>
+    <label>颜色<select name="promotionTone">${[["green", "绿色"], ["orange", "橙色"], ["blue", "蓝色"]].map(([value, label]) => `<option value="${value}" ${item.tone === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+    <button type="button" class="action danger-action" data-promotion-remove>移除</button>
+  </div>`;
 }
 
 function users(state) {
@@ -410,7 +434,18 @@ function monthlyReward(state) {
 }
 
 function permissions(state) {
-  return `<section class="table-panel">${simpleTable("角色权限矩阵", ["角色", "权限"], (state.roles || []).map((role) => [role.name || role.id, (role.permissions || []).join(" / ")]))}</section>`;
+  const roles = state.roles || [];
+  const editing = roles.find(role => role.id === state.editingRoleId);
+  return `<section class="table-panel">${state.roleMessage ? `<p role="status">${escapeHtml(state.roleMessage)}</p>` : ""}${simpleTable("角色权限矩阵", ["角色", "权限", "操作"], roles.map(role => [
+    `${escapeHtml(role.name || role.id)}<br><span class="muted-text">${escapeHtml(role.id)}</span>`,
+    `<div class="permission-list">${role.permissions.includes("*") ? "全部权限" : role.permissions.map(permission => escapeHtml(permission)).join(" / ") || "未分配权限"}</div>`,
+    role.permissions.includes("*") ? "系统保留" : role.id === state.identity?.id ? "当前角色" : gatedAction("role:write", `<button class="action" data-role-edit="${escapeAttr(role.id)}">编辑权限</button>`)
+  ]))}</section>
+  ${editing && can("role:write") ? `<section class="panel role-editor"><div class="panel-head"><h2>编辑角色：${escapeHtml(editing.name)}</h2><button type="button" class="action muted-action" data-role-cancel>取消</button></div>
+    <form class="admin-form" data-role-form="${escapeAttr(editing.id)}"><label>角色名称<input name="name" value="${escapeAttr(editing.name)}" maxlength="50" required></label>
+      <div class="permission-options">${(state.permissionCatalog || []).map(permission => `<label class="check"><input type="checkbox" name="permissions" value="${escapeAttr(permission)}" ${editing.permissions.includes(permission) ? "checked" : ""}>${escapeHtml(permission)}</label>`).join("")}</div>
+      <label>修改原因<input name="reason" required placeholder="填写调整权限的原因"></label><button class="action" type="submit" ${state.permissionCatalog?.length ? "" : "disabled"}>保存权限</button>
+    </form></section>` : ""}`;
 }
 
 function exceptions(state) {
@@ -507,7 +542,7 @@ function tableHead(title, action = "") {
 }
 
 function statCards(items) {
-  return `<section class="stats-grid">${items.map(([label, value]) => `<article class="stat-card"><span>${label}</span><strong>${value}</strong></article>`).join("")}</section>`;
+  return `<section class="stats">${items.map(([label, value]) => `<article class="stat"><span>${label}</span><strong>${value}</strong></article>`).join("")}</section>`;
 }
 
 function badge(text, tone = "") {
@@ -527,7 +562,6 @@ function gatedAction(permission, html, label = "无权限") {
 
 function can(permission) {
   const permissions = currentAdminState.identity?.permissions || [];
-  if (!permissions.length && currentAdminState.role === "super_admin") return true;
   return permissions.includes("*") || permissions.includes(permission);
 }
 
@@ -537,13 +571,12 @@ function permissionDenied(permission) {
 
 function productActionButtons(item) {
   const nextStatus = item.status === "on" ? "off" : "on";
-  const stock = Number(item.stock || 0);
-  const pointsPrice = Number(item.pointsPrice || 0);
+  const writable = can("product:write") && (!item.purePointsOnly || can("points_product:write"));
   return `<div class="table-actions">
-    ${gatedAction("product:write", `<button class="action" data-product-action="${item.id}" data-status="${nextStatus}">${item.status === "on" ? "下架" : "上架"}</button>`, "无商品权限")}
-    ${gatedAction("stock:write", `<button class="action" data-product-action="${item.id}" data-stock="${stock + 10}">补货 +10</button>`, "无库存权限")}
-    ${gatedAction("stock:write", `<button class="action" data-product-action="${item.id}" data-stock="0">库存清零</button>`, "无库存权限")}
-    ${gatedAction(item.purePointsOnly ? "points_product:write" : "product:write", `<button class="action" data-product-action="${item.id}" data-points-price="${pointsPrice + 10}">积分价 +10</button>`, "无价格权限")}
+    <button class="action muted-action" data-product-preview="${escapeAttr(item.id)}">预览</button>
+    <button class="action" data-product-edit="${escapeAttr(item.id)}" ${writable && item.status !== "on" ? "" : "disabled"} title="已上架商品请先下架后编辑">编辑</button>
+    <button class="action" data-product-action="${escapeAttr(item.id)}" data-status="${nextStatus}" ${writable ? "" : "disabled"}>${item.status === "on" ? "下架" : "上架"}</button>
+    ${gatedAction("stock:write", `<button class="action" data-product-stock="${escapeAttr(item.id)}">调整库存</button>`, "无库存权限")}
   </div>`;
 }
 
@@ -561,22 +594,6 @@ function userActionButtons(item) {
     ${gatedAction("customer:read", `<button class="action" data-user-action="${item.id}" data-action-type="extend">续 1 月</button>`, "无用户权限")}
     ${gatedAction("customer:read", `<button class="action" data-user-action="${item.id}" data-action-type="${item.status === "disabled" ? "enable" : "disable"}">${item.status === "disabled" ? "启用" : "禁用"}</button>`, "无用户权限")}
   </div>`;
-}
-
-function createProductForm() {
-  return `<div class="panel-head"><h2>新增商品</h2><span>商品上架与销售设置</span></div><form class="config-form" data-product-create-form>
-    <label>名称<input name="name" required></label>
-    <label>分类<input name="category"></label>
-    <label>现金价<input name="cashPrice" type="number" step="0.1" value="0"></label>
-    <label>积分价<input name="pointsPrice" type="number" value="0"></label>
-    <label>库存<input name="stock" type="number" value="0"></label>
-    <label>标签<input name="tag"></label>
-    <label class="wide">图片<input name="image"></label>
-    <label>状态<select name="status"><option value="on">上架</option><option value="off">下架</option></select></label>
-    <label class="check"><input name="supportsCash" type="checkbox" checked> 支持现金</label>
-    <label class="check"><input name="purePointsOnly" type="checkbox"> 纯积分</label>
-    <button class="action" type="submit">新增商品</button>
-  </form>`;
 }
 
 function createPickupSiteForm() {

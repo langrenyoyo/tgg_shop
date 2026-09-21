@@ -3,7 +3,7 @@ function listActive(state, category) {
 }
 
 function listRecommended(state) {
-  return state.products.filter((product) => !product.purePointsOnly).slice(0, 4);
+  return state.products.filter((product) => product.status === "on" && !product.purePointsOnly).slice(0, 4);
 }
 
 function listPurePoints(state) {

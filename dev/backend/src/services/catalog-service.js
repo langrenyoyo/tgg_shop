@@ -6,6 +6,7 @@ function getHome(state, user) {
   const config = state.config || {};
   return {
     user: publicUser(user),
+    bannerProduct: productRepository.findActiveById(state, config.homeBannerProductId || "p_strawberry") || null,
     pickupSite: siteRepository.findEnabledPickupSite(state),
     categories: ["\u6c34\u679c", "\u852c\u83dc", "\u8089\u79bd", "\u4e73\u54c1", "\u96f6\u98df", "\u65e5\u7528", "\u66f4\u591a"],
     deliveryPromise: config.homeDeliveryPromise || {
@@ -23,7 +24,8 @@ function getHome(state, user) {
     ],
     banners: [{ title: config.homeBannerTitle || "\u65f6\u4ee4\u9c9c\u679c\u5b63", subtitle: config.homeBannerSubtitle || "\u65b0\u9c9c\u5230\u7ad9 \u4f4e\u81f3 5 \u6298", productId: config.homeBannerProductId || "p_strawberry" }],
     recommendProducts: productRepository.listRecommended(state),
-    pointsExchangeEntry: { title: "\u7eaf\u79ef\u5206\u5151\u6362", path: "/api/points-exchange" }
+    pointsExchangeEntry: { title: "\u7eaf\u79ef\u5206\u5151\u6362", path: "/api/points-exchange" },
+    bannerImage: config.homeBannerImage || ""
   };
 }
 
@@ -32,7 +34,7 @@ function listProducts(state, category) {
 }
 
 function getProduct(state, productId) {
-  return productRepository.findById(state, productId);
+  return productRepository.findActiveById(state, productId);
 }
 
 function listPointsExchangeProducts(state) {

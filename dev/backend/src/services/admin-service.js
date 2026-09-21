@@ -36,9 +36,9 @@ function getSummary(state, filters = {}) {
 
 function buildAnalyticsSummary(state, filters = {}) {
   const orders = state.orders || [];
-  const refunds = state.refunds || [];
+  const refunds = state.refundOrders || [];
   const exceptions = state.exceptions || [];
-  const tasks = state.taskSubmissions || [];
+  const tasks = state.submissions || [];
   const paymentLedger = state.paymentLedger || [];
   const pointLedger = state.pointLedger || [];
   const users = state.users || [];
@@ -63,7 +63,7 @@ function buildAnalyticsSummary(state, filters = {}) {
     const start = helpers.since(daysBack);
     const end = helpers.until();
     const periodOrders = orders.filter((item) => helpers.inRange(item, start, end));
-    const paidOrders = periodOrders.filter((item) => ["paid", "completed", "refunded"].includes(item.status));
+    const paidOrders = periodOrders.filter((item) => ["paid", "completed", "refunding", "refunded"].includes(item.status));
     const periodPayments = paymentLedger.filter((item) => helpers.inRange(item, start, end));
     const periodPoints = pointLedger.filter((item) => helpers.inRange(item, start, end));
     const periodRefunds = refunds.filter((item) => helpers.inRange(item, start, end));
@@ -131,7 +131,7 @@ function buildAnalyticsSummary(state, filters = {}) {
     paymentMode: normalizedFilters.paymentMode || "",
     payScene: normalizedFilters.payScene || "",
     orderCount: selectedOrders.length,
-    gmv: selectedOrders.filter((item) => ["paid", "completed", "refunded"].includes(item.status)).reduce((sum, item) => sum + Number(item.cashAmount || 0), 0),
+    gmv: selectedOrders.filter((item) => ["paid", "completed", "refunding", "refunded"].includes(item.status)).reduce((sum, item) => sum + Number(item.cashAmount || 0), 0),
     memberOpenCount: selectedPayments.filter((item) => item.payScene === "member_open" && item.status === "paid").length,
     taskCount: selectedTasks.length,
     refundCount: selectedRefunds.length,
@@ -160,6 +160,9 @@ function buildAnalyticsSummary(state, filters = {}) {
         pendingShip: orders.filter((item) => item.fulfillmentStatus === "pending_ship").length
       },
       selected,
+      window: { start: dashboardWindow.start.toISOString(), end: dashboardWindow.end.toISOString() },
+      selectedOrderIds: selectedOrders.map(item => item.id),
+      series: buildDashboardSeries(dashboardWindow, selectedOrders, selectedPointLedger),
       trends,
       alerts,
       alertThresholds
@@ -186,6 +189,30 @@ function buildAnalyticsSummary(state, filters = {}) {
   };
 }
 
+function buildDashboardSeries(window, orders, points) {
+  const start = window.start.getTime();
+  const end = window.end.getTime();
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  const step = end - start <= day ? hour : Math.max(1, Math.ceil((end - start) / day / 30)) * day;
+  const series = Array.from({ length: Math.ceil((end - start) / step) }, (_, index) => {
+    const date = new Date(start + index * step);
+    return { label: step === hour ? `${String(date.getHours()).padStart(2, "0")}:00` : `${date.getMonth() + 1}/${date.getDate()}`, orderCount: 0, gmv: 0, pointNet: 0 };
+  });
+  const bucket = item => series[Math.floor((new Date(item.createdAt || item.createtime || item.updatedAt || item.updated_at).getTime() - start) / step)];
+  for (const order of orders) {
+    const item = bucket(order);
+    if (!item) continue;
+    item.orderCount += 1;
+    if (["paid", "completed", "refunding", "refunded"].includes(order.status)) item.gmv += Number(order.cashAmount || 0);
+  }
+  for (const entry of points) {
+    const item = bucket(entry);
+    if (item) item.pointNet += (entry.direction === "in" ? 1 : -1) * Number(entry.points || 0);
+  }
+  return series;
+}
+
 function buildDashboardTrends(helpers, filters, orders, refunds, exceptions, paymentLedger, pointLedger, tasks) {
   const slices = {
     today: 0,
@@ -202,7 +229,7 @@ function buildDashboardTrends(helpers, filters, orders, refunds, exceptions, pay
     const periodRefunds = refunds.filter((item) => helpers.inRange(item, start, end));
     const periodTasks = tasks.filter((item) => helpers.inRange(item, start, end));
     const periodExceptions = exceptions.filter((item) => helpers.inRange(item, start, end));
-    const paidOrders = periodOrders.filter((item) => ["paid", "completed", "refunded"].includes(item.status));
+    const paidOrders = periodOrders.filter((item) => ["paid", "completed", "refunding", "refunded"].includes(item.status));
     return [key, {
       orderCount: periodOrders.length,
       gmv: paidOrders.reduce((sum, item) => sum + Number(item.cashAmount || 0), 0),
@@ -348,8 +375,9 @@ function normalizeDashboardFilters(filters) {
 function buildDashboardWindow(filters, helpers) {
   if (filters.range === "custom" && filters.startDate && filters.endDate) {
     const start = new Date(`${filters.startDate}T00:00:00`);
-    const end = new Date(`${filters.endDate}T23:59:59.999`);
-    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end >= start) {
+    const end = new Date(`${filters.endDate}T00:00:00`);
+    end.setDate(end.getDate() + 1);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start) {
       return { start, end, label: `${filters.startDate} 至 ${filters.endDate}` };
     }
   }
@@ -433,6 +461,43 @@ function getLedger(state, filters = {}) {
 
 function listRoles(state) {
   return adminRepository.listRoles(state);
+}
+
+function listPermissionCatalog() {
+  const { createSeed } = require("../data/seed");
+  return [...new Set([...createSeed().roles.flatMap(role => role.permissions), "role:read", "role:write"])]
+    .filter(permission => permission !== "*").sort();
+}
+
+function updateRole(state, roleId, input, actor = {}) {
+  const actorPermissions = actor.role?.permissions || [];
+  if (!actorPermissions.includes("*") && !actorPermissions.includes("role:write")) {
+    return { ok: false, status: 403, error: "缺少角色管理权限" };
+  }
+  const role = state.roles.find(item => item.id === roleId);
+  if (!role) return { ok: false, status: 404, error: "角色不存在" };
+  if (role.id === "super_admin" || role.permissions.includes("*")) {
+    return { ok: false, status: 400, error: "超级管理员权限为系统保留，不可修改" };
+  }
+  if (role.id === actor.role.id) return { ok: false, status: 400, error: "不能修改当前登录角色的权限" };
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  const reason = cleanReason(input.reason);
+  const catalog = listPermissionCatalog();
+  if (!name || name.length > 50 || !reason || !Array.isArray(input.permissions)
+    || input.permissions.some(permission => !catalog.includes(permission))) {
+    return { ok: false, status: 400, error: "请填写角色名称、操作原因，并选择有效权限" };
+  }
+  if (!actorPermissions.includes("*") && [...role.permissions, ...input.permissions].some(permission => !actorPermissions.includes(permission))) {
+    return { ok: false, status: 403, error: "不能管理超出当前角色权限范围的角色" };
+  }
+  const before = structuredClone(role);
+  role.name = name;
+  role.permissions = [...new Set(input.permissions)];
+  // Keep explicit grants in config: legacy SQLite seed migrations reinsert default grants on startup.
+  state.config.rolePermissionOverrides = { ...(state.config.rolePermissionOverrides || {}), [role.id]: [...role.permissions] };
+  logOperation(state, actor, "role.update", "role", role.id, { before, after: structuredClone(role), reason });
+  saveState();
+  return { ok: true, role };
 }
 
 function listDashboardViews(state, actor = {}) {
@@ -589,6 +654,13 @@ function updateConfig(state, input, actor = {}) {
   for (const key of textKeys) {
     if (typeof input[key] === "string") state.config[key] = input[key].trim();
   }
+  if (typeof input.homeBannerImage === "string") {
+    const image = input.homeBannerImage.trim();
+    if (!image) state.config.homeBannerImage = "";
+    else if ((/^\/(assets|uploads)\/[\w.%/-]+$/.test(image) && !image.includes("..")) || /^https?:\/\/[^\s"'<>\\]+$/i.test(image)) {
+      state.config.homeBannerImage = image;
+    }
+  }
   if (Array.isArray(input.deliveryTimeSlots)) {
     state.config.deliveryTimeSlots = input.deliveryTimeSlots.map(String).filter(Boolean);
   }
@@ -651,85 +723,11 @@ function parseJsonArray(value, fallback = []) {
 }
 
 function updateProduct(state, productId, input, actor = {}) {
-  const product = state.products.find((item) => item.id === productId);
-  if (!product) return { ok: false, status: 404, error: "operation failed" };
-
-  const before = { ...product };
-  const stockBefore = Number(product.stock || 0);
-  if (["on", "off"].includes(input.status)) product.status = input.status;
-  if (Number.isFinite(Number(input.stock))) product.stock = Math.max(0, Math.floor(Number(input.stock)));
-  if (Number.isFinite(Number(input.pointsPrice))) product.pointsPrice = Math.max(0, Math.floor(Number(input.pointsPrice)));
-  if (!product.purePointsOnly && Object.prototype.hasOwnProperty.call(input, "cashPrice")) {
-    product.cashPrice = input.cashPrice === null ? null : Math.max(0, roundMoney(input.cashPrice));
-  }
-  for (const key of ["name", "category", "tag", "image"]) {
-    if (typeof input[key] === "string" && input[key].trim()) product[key] = input[key].trim();
-  }
-  if (typeof input.supportsPoints === "boolean") product.supportsPoints = input.supportsPoints;
-  if (!product.purePointsOnly && typeof input.supportsCash === "boolean") product.supportsCash = input.supportsCash;
-  if (product.purePointsOnly) {
-    product.cashPrice = null;
-    product.supportsCash = false;
-    product.supportsPoints = true;
-  }
-  if (Number.isFinite(Number(input.stock)) && Number(product.stock || 0) !== stockBefore) {
-    inventoryRepository.addEntry(state, {
-      product,
-      changeType: inventoryRepository.inferAdminChangeType(stockBefore, product.stock, input.inventoryChangeType),
-      quantityDelta: Number(product.stock || 0) - stockBefore,
-      stockBefore,
-      stockAfter: Number(product.stock || 0),
-      batchNo: input.batchNo,
-      reason: input.reason || "admin operation",
-      actor
-    });
-  }
-
-  logOperation(state, actor, "product.update", "product", product.id, { before, after: product, reason: cleanReason(input.reason) });
-  saveState();
-  return { ok: true, product };
+  return require("./product-admin-service").updateProduct(state, productId, input, actor, logOperation);
 }
 
 function createProduct(state, input, actor = {}) {
-  const name = typeof input.name === "string" ? input.name.trim() : "";
-  if (!name) return { ok: false, status: 400, error: "operation failed" };
-
-  const purePointsOnly = Boolean(input.purePointsOnly);
-  const product = {
-    id: nextId("p"),
-    name,
-    category: typeof input.category === "string" && input.category.trim() ? input.category.trim() : purePointsOnly ? "points" : "fruit",
-    cashPrice: purePointsOnly ? null : Math.max(0, roundMoney(input.cashPrice)),
-    pointsPrice: Number.isFinite(Number(input.pointsPrice)) ? Math.max(0, Math.floor(Number(input.pointsPrice))) : 0,
-    stock: Number.isFinite(Number(input.stock)) ? Math.max(0, Math.floor(Number(input.stock))) : 0,
-    tag: typeof input.tag === "string" && input.tag.trim() ? input.tag.trim() : purePointsOnly ? "exchange" : "new",
-    image: typeof input.image === "string" && input.image.trim() ? input.image.trim() : "/assets/apple.jpg",
-    supportsCash: purePointsOnly ? false : input.supportsCash !== false,
-    supportsPoints: true,
-    purePointsOnly,
-    status: input.status === "off" ? "off" : "on"
-  };
-
-  if (product.purePointsOnly) {
-    product.cashPrice = null;
-    product.supportsCash = false;
-    product.supportsPoints = true;
-  }
-
-  state.products.unshift(product);
-  inventoryRepository.addEntry(state, {
-    product,
-    changeType: "initial_stock",
-    quantityDelta: Number(product.stock || 0),
-    stockBefore: 0,
-    stockAfter: Number(product.stock || 0),
-    batchNo: input.batchNo,
-      reason: input.reason || "admin operation",
-    actor
-  });
-  logOperation(state, actor, "product.create", "product", product.id, { after: product });
-  saveState();
-  return { ok: true, product };
+  return require("./product-admin-service").createProduct(state, input, actor, logOperation);
 }
 
 function listTaskSubmissions(state) {
@@ -1296,6 +1294,8 @@ module.exports = {
   getSummary,
   getLedger,
   listRoles,
+  listPermissionCatalog,
+  updateRole,
   listDashboardViews,
   listExceptions,
   listRefunds,

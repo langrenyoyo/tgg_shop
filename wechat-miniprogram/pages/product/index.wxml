@@ -7,6 +7,8 @@
 <view wx:if="{{product.supportsPoints}}">{{product.pointsPrice}} 积分</view>
 <view wx:if="{{product.supportsCash && !product.purePointsOnly}}">会员价 ¥{{product.cashPrice}}</view>
 <view class="muted">库存 {{product.stock}} · {{product.category}}</view>
+<view wx:if="{{product.unit}}">规格：{{product.unit}}</view>
+<view wx:if="{{product.description}}" style="white-space:pre-wrap">{{product.description}}</view>
 <button bindtap="add" disabled="{{loading || navigating || product.stock <= 0 || product.status !== 'on'}}">加入购物车</button>
 <button bindtap="buy" disabled="{{loading || navigating || product.stock <= 0 || product.status !== 'on'}}" class="btn btn-primary">{{product.purePointsOnly ? '立即兑换' : '立即购买'}}</button>
 <button bindtap="cart">查看购物车</button>
