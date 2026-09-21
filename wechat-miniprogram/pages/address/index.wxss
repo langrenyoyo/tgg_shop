@@ -1,0 +1,1 @@
+.page { padding-bottom: 40rpx; }.row { display:flex; align-items:center; justify-content:space-between; gap:16rpx; }.title { font-size:30rpx; font-weight:700; }input, textarea { width:100%; box-sizing:border-box; margin-top:14rpx; padding:18rpx; border:1rpx solid #dce8d9; border-radius:14rpx; background:#fff; }button { margin:10rpx 8rpx 0 0; }

@@ -30,6 +30,20 @@ Page({
     wx.navigateTo({ url: "/pages/login/index" });
   },
   goShop() { wx.switchTab({ url: "/pages/shop/index" }); },
+  openBanner() {
+    const productId = this.data.home?.bannerProduct?.id;
+    if (productId) return this.openProduct({ currentTarget: { dataset: { id: productId } } });
+    this.goShop();
+  },
+  openPromotion(e) {
+    const page = e.currentTarget.dataset.page;
+    if (page === "membership") return this.goMembership();
+    if (page === "pointsExchange") return this.goExchange();
+    if (page === "signin") return this.goSignin();
+    if (page === "invite") return this.goInvite();
+    if (page === "earn") return this.goTasks();
+    this.goShop();
+  },
   goExchange() { wx.setStorageSync("tgg_shop_entry", { category: "纯积分兑换", search: "" }); this.goShop(); },
   search(e) { wx.setStorageSync("tgg_shop_entry", { category: "全部", search: e.detail.value }); this.goShop(); },
   goMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
@@ -51,5 +65,5 @@ function normalizeHome(home) {
   const banners = Array.isArray(value.banners) ? value.banners.filter(item => item && typeof item === "object") : [];
   if (!banners.length) banners.push({ title: "时令鲜果季", subtitle: "每日新鲜到家" });
   const products = Array.isArray(value.recommendProducts) ? value.recommendProducts.filter(item => item && item.id && String(item.name || "").trim()) : [];
-  return { ...value, pickupSite: value.pickupSite && typeof value.pickupSite === "object" ? value.pickupSite : {}, banners, recommendProducts: products.map(item => ({ ...item, image: resolveAssetUrl(item.image) })), user: value.user && typeof value.user === "object" ? value.user : {} };
+  return { ...value, pickupSite: value.pickupSite && typeof value.pickupSite === "object" ? value.pickupSite : {}, banners, bannerImage: resolveAssetUrl(value.bannerImage || banners[0].image || ""), bannerProduct: value.bannerProduct ? { ...value.bannerProduct, image: resolveAssetUrl(value.bannerProduct.image) } : null, recommendProducts: products.map(item => ({ ...item, image: resolveAssetUrl(item.image) })), user: value.user && typeof value.user === "object" ? value.user : {} };
 }

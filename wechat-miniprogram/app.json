@@ -16,7 +16,9 @@
     "pages/invite/index",
     "pages/me/index",
     "pages/orders/index",
-    "pages/points/index"
+    "pages/points/index",
+    "pages/address/index",
+    "pages/service/index"
   ],
   "window": {
     "navigationBarTitleText": "TGG Shop",

@@ -6,8 +6,8 @@
   </view>
   <view class="search-box"><view class="search-icon"></view><input placeholder="搜一搜，发现今天的新鲜好物" placeholder-style="color:#91a08f" bindconfirm="search" confirm-type="search"/></view>
   <view class="hero">
-    <view class="hero-copy"><view class="hero-kicker">FRESH EVERY DAY</view><view class="hero-title">{{home.banners[0].title || '时令鲜果季'}}</view><view class="hero-subtitle">{{home.banners[0].subtitle || '把新鲜，装进每一天'}}</view><button class="hero-button" bindtap="goShop">逛逛商城 <text>›</text></button></view>
-    <view class="hero-art"><image src="/assets/fresh-strawberry.jpg" mode="aspectFill"/><view class="hero-stamp">今日份新鲜</view></view>
+    <view class="hero-copy"><view class="hero-kicker">FRESH EVERY DAY</view><view class="hero-title">{{home.banners[0].title || '时令鲜果季'}}</view><view class="hero-subtitle">{{home.banners[0].subtitle || '把新鲜，装进每一天'}}</view><button class="hero-button" bindtap="openBanner">立即选购 <text>›</text></button></view>
+    <view class="hero-art"><image src="{{home.bannerImage || home.bannerProduct.image || '/assets/fresh-strawberry.jpg'}}" mode="aspectFill"/><view class="hero-stamp">今日份新鲜</view></view>
   </view>
   <view class="quick-actions">
     <view class="quick-item" bindtap="goSignin"><view class="quick-icon amber"><image src="/assets/icons/calendar.png"/></view><view>每日签到</view><text>积攒小确幸</text></view>
@@ -16,7 +16,9 @@
     <view class="quick-item" bindtap="goMembership"><view class="quick-icon cream"><image src="/assets/icons/member.png"/></view><view>会员权益</view><text>查看专属权益</text></view>
   </view>
   <view class="exchange-strip" bindtap="goExchange"><view><view class="exchange-title">让积分，变成喜欢的好物</view><view class="exchange-subtitle">纯积分兑换 · 无需开通会员</view></view><view class="exchange-action">去兑换 ›</view></view>
+  <view class="service-strip"><view wx:for="{{home.serviceBadges}}" wx:key="*this" class="service-badge">{{item}}</view></view>
   <view class="section-heading"><view class="title">热门推荐<view class="section-caption">认真挑选每一份日常</view></view><view class="section-link" bindtap="goExchange">纯积分专区 ›</view></view>
+  <view class="promotion-list"><view wx:for="{{home.promotionEntries}}" wx:key="title" class="promotion-card {{item.tone}}" data-page="{{item.page}}" bindtap="openPromotion"><view>{{item.title}}</view><text>{{item.text}}</text></view></view>
   <view wx:if="{{error}}" class="empty-state card">{{error}}<view><button class="btn btn-light" bindtap="load">重新加载</button></view></view>
   <view wx:elif="{{loading}}" class="empty-state">正在为你挑选好物…</view>
   <view wx:elif="{{!home.recommendProducts.length}}" class="empty-state card">好物正在上新，稍后再来看看</view>

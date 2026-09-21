@@ -27,4 +27,5 @@
 .exchange-strip { background: #e5f0de; border: 2rpx solid #dcebd5; border-radius: 24rpx; padding: 24rpx; display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
 .exchange-title { font-size: 26rpx; font-weight: 600; color: #3f653a; }.exchange-subtitle { font-size: 21rpx; color: #849274; margin-top: 6rpx; }
 .exchange-action { color: #486d38; font-size: 23rpx; flex-shrink: 0; }
+.service-strip { display: flex; gap: 12rpx; margin: 18rpx 0; overflow-x: auto; }.service-badge { flex: 0 0 auto; padding: 10rpx 18rpx; border-radius: 999rpx; background: #fff; color: #54734d; font-size: 21rpx; }.promotion-list { display: flex; gap: 14rpx; margin: 16rpx 0 22rpx; overflow-x: auto; }.promotion-card { min-width: 190rpx; padding: 20rpx; border-radius: 22rpx; color: #fff; }.promotion-card view { font-weight: 700; font-size: 25rpx; }.promotion-card text { display: block; margin-top: 6rpx; font-size: 20rpx; opacity: .9; }.promotion-card.green { background: #3e9b69; }.promotion-card.orange { background: #d99555; }.promotion-card.blue { background: #628fc1; }
 .section-caption { font-size: 21rpx; font-weight: 400; color: #8b9988; margin-top: 4rpx; }

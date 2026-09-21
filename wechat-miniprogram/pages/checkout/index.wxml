@@ -6,7 +6,7 @@
 <picker range="{{modes}}" range-key="label" value="{{modeIndex}}" bindchange="mode"><view>支付方式：{{modes[modeIndex].label || '暂无可用方式'}}</view></picker>
 <radio-group bindchange="fulfillment"><label wx:if="{{config.pickupEnabled}}"><radio value="pickup" checked="{{fulfillmentType === 'pickup'}}"/>自提</label><label wx:if="{{config.deliveryEnabled}}"><radio value="delivery" checked="{{fulfillmentType === 'delivery'}}"/>送货上门</label></radio-group>
 <picker wx:if="{{fulfillmentType === 'pickup'}}" range="{{sites}}" range-key="name" value="{{siteIndex}}" bindchange="site"><view>自提点：{{sites[siteIndex].name || '暂无可用站点'}}</view></picker>
-<textarea wx:else value="{{deliveryAddress}}" bindinput="address" placeholder="收货人、手机号、详细地址"/>
+<textarea wx:else value="{{deliveryAddress}}" bindinput="address" placeholder="收货人、手机号、详细地址"/><button wx:else bindtap="openAddress">管理收货地址</button>
 <view>预计使用 {{estimatedPoints}} 积分 + ¥{{estimatedCash}}</view><view class="muted">提交时按最新库存、价格和余额核算</view>
 <view wx:if="{{fulfillmentError}}">{{fulfillmentError}}</view>
 <button class="btn btn-primary" loading="{{busy || loading}}" disabled="{{busy || loading || error || fulfillmentError || !modes.length}}" bindtap="submit">提交订单</button>

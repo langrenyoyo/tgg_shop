@@ -3,13 +3,13 @@ const { request } = productApi;
 const resolveAssetUrl = productApi.resolveAssetUrl || (value => value);
 const cart = require("../../utils/cart");
 Page({
-  data: { product: null, error: "", loading: false, navigating: false },
+  data: { product: null, error: "", loading: false, navigating: false, isMember: false },
   onLoad(query) { this.id = query.id; },
   onShow() { this.disposed = false; this.setData({ navigating: false }); this.load(); },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
   async load() {
     const version = this.version = (this.version || 0) + 1;
-    this.setData({ product: null, error: "", loading: false });
+    this.setData({ product: null, error: "", loading: false, isMember: Boolean(wx.getStorageSync("tgg_user")?.isMember) });
     if (!this.id) { this.setData({ error: "缺少商品编号，请从商城重新进入" }); return; }
     this.setData({ loading: true });
     try {

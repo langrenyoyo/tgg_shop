@@ -1,7 +1,7 @@
 const { request } = require("../../utils/api");
 const cart = require("../../utils/cart");
 Page({
-  data: { items: [], modes: [], modeIndex: 0, sites: [], siteIndex: 0, fulfillmentType: "pickup", deliveryAddress: "", config: {}, busy: false, loading: true, fulfillmentError: "", error: "" },
+  data: { items: [], modes: [], modeIndex: 0, sites: [], siteIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, busy: false, loading: true, fulfillmentError: "", error: "" },
   onLoad() { this.idempotencyKey = cart.checkoutIdempotencyKey(); this.ownerId = wx.getStorageSync("tgg_user")?.id; this.setData({ pending: cart.readCheckoutAttempt() }); this.load(); },
   onShow() { if (this.shown) this.load(); this.shown = true; },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
@@ -9,13 +9,15 @@ Page({
   async load() {
     const version = this.version = (this.version || 0) + 1;
     const owner = this.ownerId;
-    this.setData({ loading: true, error: "", items: [], user: null, modes: [], sites: [], config: {}, estimatedPoints: 0, estimatedCash: "0.00" });
+    this.setData({ loading: true, error: "", items: [], user: null, modes: [], sites: [], addresses: [], defaultAddress: null, config: {}, estimatedPoints: 0, estimatedCash: "0.00" });
     if (!owner || owner !== wx.getStorageSync("tgg_user")?.id) {
       this.setData({ loading: false, pending: null, deliveryAddress: "", error: "账号已变更，请重新打开结算页" });
       return;
     }
     try {
       const [user, config, sites, products] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/pickup-sites"), request("/api/products")]);
+      let addresses = [];
+      try { const loadedAddresses = await request("/api/addresses"); addresses = Array.isArray(loadedAddresses) ? loadedAddresses : []; } catch { addresses = []; }
       if (!this.active(version, owner)) return;
       if (user.id !== owner || cart.checkoutIdempotencyKey() !== this.idempotencyKey) throw new Error("结算信息已变更，请重新打开结算页");
       const items = cart.readCheckout().map(item => ({ ...item, product: products.find(p => p.id === item.productId) }));
@@ -25,7 +27,8 @@ Page({
       if (user.isMember && items.every(item => item.product.supportsCash && !item.product.purePointsOnly)) modes.push({ id: "cash", label: "会员现金购买" });
       if (user.isMember && items.every(item => item.product.supportsPoints && !item.product.purePointsOnly)) modes.push({ id: "points_plus_cash", label: "积分不足现金补差" });
       const fulfillmentType = config.pickupEnabled && sites.length ? "pickup" : config.deliveryEnabled ? "delivery" : "pickup";
-      this.setData({ items, user, config, sites, modes, modeIndex: 0, siteIndex: 0, fulfillmentType, error: "" }, () => this.calculate());
+      const defaultAddress = addresses.find(item => item.isDefault) || addresses[0] || null;
+      this.setData({ items, user, config, sites, addresses, defaultAddress, modes, modeIndex: 0, siteIndex: 0, fulfillmentType, deliveryAddress: defaultAddress ? [defaultAddress.receiverName, defaultAddress.mobile, defaultAddress.province, defaultAddress.city, defaultAddress.district, defaultAddress.detail].filter(Boolean).join(" ") : "", error: "" }, () => this.calculate());
     } catch (error) { if (this.active(version, owner)) this.setData({ error: error.message }); }
     finally { if (this.active(version, owner)) this.setData({ loading: false }); }
   },
@@ -49,6 +52,7 @@ Page({
   site(e) { if (!this.data.busy && !this.data.pending) this.setData({ siteIndex: Number(e.detail.value) }, () => this.calculate()); },
   fulfillment(e) { if (!this.data.busy && !this.data.pending) this.setData({ fulfillmentType: e.detail.value }, () => this.calculate()); },
   address(e) { if (!this.data.busy && !this.data.pending) this.setData({ deliveryAddress: e.detail.value }); },
+  openAddress() { wx.navigateTo({ url: "/pages/address/index" }); },
   async submit() {
     if (this.disposed || this.data.busy || this.data.loading || (this.data.error && !this.data.pending)) return;
     if (!this.ownerId || wx.getStorageSync("tgg_user")?.id !== this.ownerId) return wx.showToast({ title: "账号已变更，请重新结算", icon: "none" });

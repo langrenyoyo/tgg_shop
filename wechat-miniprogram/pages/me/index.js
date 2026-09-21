@@ -52,6 +52,8 @@ Page({
   goInvite() {
     wx.navigateTo({ url: "/pages/invite/index" });
   },
+  goAddress() { wx.navigateTo({ url: "/pages/address/index" }); },
+  goService(e) { wx.navigateTo({ url: "/pages/service/index?type=" + encodeURIComponent(e.currentTarget.dataset.type) }); },
 
   async logout() {
     if (this.disposed || this.data.loggingOut) return;

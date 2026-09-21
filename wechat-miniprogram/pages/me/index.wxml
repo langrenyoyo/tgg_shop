@@ -15,6 +15,12 @@
     <view class="service-row" bindtap="goOrders"><view class="service-icon"><image src="/assets/icons/orders.png"/></view><view class="service-copy">我的订单<text>查看订单与配送进度</text></view><text class="chevron">›</text></view>
     <view class="service-row" bindtap="goPoints"><view class="service-icon"><image src="/assets/icons/tasks-active.png"/></view><view class="service-copy">积分明细<text>每一笔积累，都有记录</text></view><text class="chevron">›</text></view>
     <view class="service-row" bindtap="goInvite"><view class="service-icon warm"><image src="/assets/icons/gift.png"/></view><view class="service-copy">邀请好友<text>把好物分享给身边的人</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goAddress"><view class="service-icon"><image src="/assets/icons/shop.png"/></view><view class="service-copy">收货地址<text>管理配送地址</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goService" data-type="payments"><view class="service-icon"><image src="/assets/icons/orders.png"/></view><view class="service-copy">支付记录<text>查看支付和回调状态</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goService" data-type="ranking"><view class="service-icon"><image src="/assets/icons/tasks.png"/></view><view class="service-copy">积分排行榜<text>查看积分排名</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goService" data-type="withdraw"><view class="service-icon warm"><image src="/assets/icons/member.png"/></view><view class="service-copy">提现<text>提交提现并查看进度</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goService" data-type="customerService"><view class="service-icon"><image src="/assets/icons/orders.png"/></view><view class="service-copy">联系客服<text>订单、退款和配送问题</text></view><text class="chevron">›</text></view>
+    <view class="service-row" bindtap="goService" data-type="feedback"><view class="service-icon"><image src="/assets/icons/gift.png"/></view><view class="service-copy">意见反馈<text>提交使用建议</text></view><text class="chevron">›</text></view>
   </view>
   <button wx:if="{{loggedIn}}" class="logout-button" bindtap="logout" loading="{{loggingOut}}" disabled="{{loggingOut}}">退出登录</button>
   <view class="profile-footer">TGG SHOP · 让日常多一点美好</view>
