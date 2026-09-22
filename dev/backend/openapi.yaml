@@ -17,6 +17,7 @@ tags:
   - name: Tasks
   - name: Growth
   - name: Admin
+  - name: Station
 paths:
   /api/health:
     get:
@@ -197,6 +198,141 @@ paths:
           description: New admin access and refresh token pair
         "401":
           description: Refresh token invalid or expired
+
+  /api/station/auth/login:
+    post:
+      tags: [Station]
+      summary: Station staff login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: station001 }
+                password: { type: string, example: "123456" }
+      responses:
+        "200": { description: Station session issued }
+        "401": { description: Invalid credentials }
+
+  /api/station/auth/logout:
+    post:
+      tags: [Station]
+      summary: Revoke station session
+      security:
+        - StationBearerAuth: []
+      responses:
+        "200": { description: Station session revoked }
+        "401": { description: Missing or invalid token }
+
+  /api/station/auth/refresh:
+    post:
+      tags: [Station]
+      summary: Refresh station session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200": { description: New station access and refresh token pair }
+        "401": { description: Refresh token invalid or expired }
+
+  /api/station/me:
+    get:
+      tags: [Station]
+      summary: Get station identity and authorized sites
+      security:
+        - StationBearerAuth: []
+      responses:
+        "200": { description: Station identity }
+        "401": { description: Missing or invalid token }
+
+  /api/station/dashboard:
+    get:
+      tags: [Station]
+      summary: Get station workbench counts
+      security:
+        - StationBearerAuth: []
+      responses:
+        "200": { description: Station dashboard }
+
+  /api/station/orders:
+    get:
+      tags: [Station]
+      summary: List orders assigned to authorized sites
+      security:
+        - StationBearerAuth: []
+      parameters:
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: keyword, schema: { type: string } }
+      responses:
+        "200": { description: Station order list }
+
+  /api/station/orders/{orderId}:
+    get:
+      tags: [Station]
+      summary: Get one authorized station order
+      security:
+        - StationBearerAuth: []
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Station order }
+        "404": { description: Order not found or not assigned to station }
+
+  /api/station/orders/{orderId}/receive:
+    post:
+      tags: [Station]
+      summary: Receive a pickup order at station
+      security:
+        - StationBearerAuth: []
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Order received }
+        "400": { description: Order state does not allow receiving }
+
+  /api/station/orders/{orderId}/pickup-verify:
+    post:
+      tags: [Station]
+      summary: Verify pickup code and hand over order
+      security:
+        - StationBearerAuth: []
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Pickup completed }
+        "400": { description: Invalid pickup code or order state }
+
+  /api/station/orders/{orderId}/exceptions:
+    post:
+      tags: [Station]
+      summary: Register a station fulfillment exception
+      security:
+        - StationBearerAuth: []
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: string } }
+      responses:
+        "201": { description: Exception registered }
+        "404": { description: Order not found or not assigned to station }
+
+  /api/station/operation-logs:
+    get:
+      tags: [Station]
+      summary: List station operation logs
+      security:
+        - StationBearerAuth: []
+      responses:
+        "200": { description: Station operation logs }
 
   /api/me:
     patch:
@@ -2386,6 +2522,10 @@ components:
       scheme: bearer
       bearerFormat: HMAC
     AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: HMAC
+    StationBearerAuth:
       type: http
       scheme: bearer
       bearerFormat: HMAC

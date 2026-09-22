@@ -33,13 +33,28 @@ async function handleAuthRoutes(ctx) {
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/station/auth/login") {
+    const result = authService.stationLogin(state, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/admin/auth/logout") {
+    const result = authService.logout(state, req);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { ok: true } : { error: result.error });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/station/auth/logout") {
     const result = authService.logout(state, req);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { ok: true } : { error: result.error });
   }
 
   if (req.method === "POST" && url.pathname === "/api/admin/auth/refresh") {
     const result = authService.refresh(state, await readBody(req), "admin");
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/station/auth/refresh") {
+    const result = authService.refresh(state, await readBody(req), "station");
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
   }
 

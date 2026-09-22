@@ -197,6 +197,16 @@ function createSeed() {
         verifyMode: "pickup_code"
       }
     ],
+    stationAccounts: [
+      {
+        id: "station_001",
+        username: "station001",
+        name: "师大自提站工作人员",
+        role: "station_admin",
+        siteIds: ["site_001"],
+        status: "active"
+      }
+    ],
     deliveryTeams: [
       {
         id: "team_001",

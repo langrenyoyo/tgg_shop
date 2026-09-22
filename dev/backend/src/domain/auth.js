@@ -67,8 +67,20 @@ function resolveAdmin(req, state) {
   return { ok: true, role, auth: verified.payload };
 }
 
+function resolveStation(req, state) {
+  const verified = verifyToken(getBearerToken(req));
+  if (!verified.ok) return verified;
+  if (verified.payload.type !== "station") return { ok: false, status: 401, error: "请使用站点账号登录" };
+  const session = findActiveSession(state, verified.payload);
+  if (!session) return { ok: false, status: 401, error: "站点登录会话已失效" };
+  session.lastSeenAt = new Date().toISOString();
+  const account = (state.stationAccounts || []).find((item) => item.id === verified.payload.stationId);
+  if (!account || account.status === "disabled") return { ok: false, status: 401, error: "站点账号不存在或已停用" };
+  return { ok: true, account, auth: verified.payload };
+}
+
 function findActiveSession(state, payload) {
-  const subjectId = payload.type === "admin" ? payload.roleId : payload.userId;
+  const subjectId = payload.type === "admin" ? payload.roleId : payload.type === "station" ? payload.stationId : payload.userId;
   const now = Date.now();
   return (state.authSessions || []).find((session) =>
     session.tokenId === payload.tokenId
@@ -133,6 +145,7 @@ module.exports = {
   getBearerToken,
   resolveUser,
   resolveAdmin,
+  resolveStation,
   requireAdminPermission,
   publicRole
 };

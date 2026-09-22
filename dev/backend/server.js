@@ -59,6 +59,7 @@ async function start() {
     console.log(`TGG Shop dev server: http://localhost:${PORT}`);
     console.log(`User app: http://localhost:${PORT}/user`);
     console.log(`Admin app: http://localhost:${PORT}/admin`);
+    console.log(`Station app: http://localhost:${PORT}/station`);
     runTaskSweep();
   });
   taskSweepTimer = setInterval(runTaskSweep, 15 * 60 * 1000);

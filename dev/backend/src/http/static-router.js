@@ -5,6 +5,7 @@ const { send } = require("./http-utils");
 const ROOT = path.resolve(__dirname, "..", "..", "..");
 const USER_DIR = path.join(ROOT, "frontend", "user");
 const ADMIN_DIR = path.join(ROOT, "frontend", "admin");
+const STATION_DIR = path.join(ROOT, "frontend", "station");
 const ASSETS_DIR = path.resolve(ROOT, "..", "ui", "v17", "assets");
 const UPLOADS_DIR = path.join(ROOT, "backend", "data", "uploads");
 
@@ -24,8 +25,10 @@ const contentTypes = {
 function routeStatic(req, res, url) {
   if (url.pathname === "/" || url.pathname === "/user" || url.pathname === "/user/") return serveFile(res, path.join(USER_DIR, "index.html"));
   if (url.pathname === "/admin" || url.pathname === "/admin/") return serveFile(res, path.join(ADMIN_DIR, "index.html"));
+  if (url.pathname === "/station" || url.pathname === "/station/") return serveFile(res, path.join(STATION_DIR, "index.html"));
   if (url.pathname.startsWith("/user/")) return serveFile(res, path.join(USER_DIR, url.pathname.replace("/user/", "")));
   if (url.pathname.startsWith("/admin/")) return serveFile(res, path.join(ADMIN_DIR, url.pathname.replace("/admin/", "")));
+  if (url.pathname.startsWith("/station/")) return serveFile(res, path.join(STATION_DIR, url.pathname.replace("/station/", "")));
   if (url.pathname.startsWith("/assets/")) return serveFile(res, path.join(ASSETS_DIR, url.pathname.replace("/assets/", "")));
   if (url.pathname.startsWith("/uploads/")) return serveFile(res, path.join(UPLOADS_DIR, url.pathname.replace("/uploads/", "")), true);
   return false;

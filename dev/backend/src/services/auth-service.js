@@ -92,6 +92,22 @@ function adminLogin(state, input = {}) {
   return result;
 }
 
+function stationLogin(state, input = {}) {
+  const identity = String(input.username || input.accountId || "").trim();
+  const account = (state.stationAccounts || []).find((item) => item.id === identity || item.username === identity);
+  if (!account || account.status === "disabled") return { ok: false, status: 401, error: "站点账号或密码错误" };
+  const locked = assertNotLocked(state, "station", account.id);
+  if (!locked.ok) return locked;
+  if (!isValidPassword(input.password)) return recordFailedLogin(state, "station", account.id);
+  clearLoginAttempts(state, "station", account.id);
+  const result = tokenResult(state, {
+    station: { id: account.id, username: account.username, name: account.name, role: account.role, siteIds: account.siteIds },
+    tokenPayload: { type: "station", stationId: account.id }
+  });
+  saveState();
+  return result;
+}
+
 function logout(state, req) {
   const verified = verifyToken(getBearerToken(req));
   if (!verified.ok) return verified;
@@ -118,7 +134,9 @@ function refresh(state, input = {}, expectedType) {
 
   const tokenPayload = session.subjectType === "admin"
     ? { type: "admin", roleId: session.subjectId, tokenId: session.tokenId }
-    : { type: "user", userId: session.subjectId, tokenId: session.tokenId };
+    : session.subjectType === "station"
+      ? { type: "station", stationId: session.subjectId, tokenId: session.tokenId }
+      : { type: "user", userId: session.subjectId, tokenId: session.tokenId };
   const token = issueToken(tokenPayload);
   const payload = JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString("utf8"));
   const nextRefreshToken = createRefreshToken();
@@ -144,7 +162,7 @@ function tokenResult(state, input) {
   const token = issueToken(input.tokenPayload);
   const payload = JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString("utf8"));
   const subjectType = payload.type;
-  const subjectId = subjectType === "admin" ? payload.roleId : payload.userId;
+  const subjectId = subjectType === "admin" ? payload.roleId : subjectType === "station" ? payload.stationId : payload.userId;
   const issuedAt = new Date(payload.iat * 1000).toISOString();
   const expiresAt = new Date(payload.exp * 1000).toISOString();
   const refreshToken = createRefreshToken();
@@ -171,7 +189,8 @@ function tokenResult(state, input) {
     refreshExpiresAt: state.authSessions[0].refreshExpiresAt,
     sessionId: state.authSessions[0].id,
     user: input.user,
-    role: input.role
+    role: input.role,
+    station: input.station
   };
 }
 
@@ -251,6 +270,7 @@ module.exports = {
   login,
   wechatLogin,
   adminLogin,
+  stationLogin,
   refresh,
   logout,
   hashPassword

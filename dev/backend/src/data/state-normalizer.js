@@ -18,6 +18,9 @@ function normalizeState(nextState) {
   nextState.monthlyPointRewardSettlements = nextState.monthlyPointRewardSettlements || seed.monthlyPointRewardSettlements;
   nextState.authSessions = nextState.authSessions || seed.authSessions;
   nextState.authLoginAttempts = nextState.authLoginAttempts || seed.authLoginAttempts;
+  nextState.stationAccounts = Array.isArray(nextState.stationAccounts) && nextState.stationAccounts.length ? nextState.stationAccounts : seed.stationAccounts;
+  nextState.stationOrders = nextState.stationOrders || [];
+  nextState.stationOperationLogs = nextState.stationOperationLogs || [];
   nextState.users = (nextState.users || seed.users).map((user) => ({ status: "active", ...user }));
   return nextState;
 }

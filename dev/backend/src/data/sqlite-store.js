@@ -40,6 +40,7 @@ function runMigrations(database) {
   }
   ensureOperationTicketColumns(database);
   ensureAuthSessionColumns(database);
+  ensureAuthSessionTypes(database);
   ensurePaymentOrderColumns(database);
   ensureWithdrawalColumns(database);
   const userColumns = new Set(database.prepare("PRAGMA table_info(app_user)").all().map(column => column.name));
@@ -50,6 +51,12 @@ function runMigrations(database) {
     const columns = new Set(database.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name));
     if (!columns.has("snapshot_json")) database.exec(`ALTER TABLE ${table} ADD COLUMN snapshot_json TEXT NOT NULL DEFAULT '{}';`);
   }
+}
+
+function ensureAuthSessionTypes(database) {
+  const sql = String(database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'auth_session'").get()?.sql || "");
+  if (sql.includes("'station'")) return;
+  database.exec("PRAGMA foreign_keys = OFF; BEGIN; CREATE TABLE auth_session_station (id TEXT PRIMARY KEY, subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'admin', 'station')), subject_id TEXT NOT NULL, token_id TEXT NOT NULL UNIQUE, issued_at TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT, last_seen_at TEXT, refresh_token_hash TEXT, refresh_expires_at TEXT); INSERT INTO auth_session_station SELECT id, subject_type, subject_id, token_id, issued_at, expires_at, revoked_at, last_seen_at, refresh_token_hash, refresh_expires_at FROM auth_session; DROP TABLE auth_session; ALTER TABLE auth_session_station RENAME TO auth_session; COMMIT; PRAGMA foreign_keys = ON;");
 }
 
 function ensureWithdrawalColumns(database) {
@@ -194,6 +201,21 @@ function readState(database) {
     .prepare("SELECT id, team_id, name, phone, enabled FROM delivery_staff ORDER BY id")
     .all()
     .map((row) => ({ id: row.id, teamId: row.team_id, name: row.name, phone: row.phone, enabled: Boolean(row.enabled) }));
+
+  const stationAccounts = database
+    .prepare("SELECT id, username, name, role, site_ids_json, status FROM station_account ORDER BY id")
+    .all()
+    .map((row) => ({ id: row.id, username: row.username, name: row.name, role: row.role, siteIds: JSON.parse(row.site_ids_json || "[]"), status: row.status }));
+
+  const stationOrders = database
+    .prepare("SELECT record_json FROM station_order ORDER BY updated_at DESC")
+    .all()
+    .map((row) => JSON.parse(row.record_json || "{}"));
+
+  const stationOperationLogs = database
+    .prepare("SELECT record_json FROM station_operation_log ORDER BY created_at DESC")
+    .all()
+    .map((row) => JSON.parse(row.record_json || "{}"));
 
   const inviteRelations = database
     .prepare("SELECT invitee_user_id, inviter_user_id, bound_at FROM invite_relation ORDER BY bound_at DESC")
@@ -532,6 +554,9 @@ function readState(database) {
     pickupSites,
     deliveryTeams,
     deliveryStaff,
+    stationAccounts,
+    stationOrders,
+    stationOperationLogs,
     inviteRelations,
     signinSessions,
     tasks,
@@ -570,6 +595,9 @@ function deleteExistingRows(database) {
     "admin_role_permission",
     "auth_login_attempt",
     "auth_session",
+    "station_operation_log",
+    "station_order",
+    "station_account",
     "admin_approval_request",
     "admin_operation_log",
     "operation_ticket",
@@ -693,6 +721,15 @@ function insertState(database, state) {
   for (const site of state.pickupSites) {
     insertPickup.run(site.id, site.name, site.address, site.contactName || null, site.contactPhone || null, site.enabled ? 1 : 0, site.verifyMode || "pickup_code");
   }
+
+  const insertStationAccount = database.prepare("INSERT INTO station_account (id, username, name, role, site_ids_json, status) VALUES (?, ?, ?, ?, ?, ?)");
+  for (const account of state.stationAccounts || []) insertStationAccount.run(account.id, account.username, account.name, account.role || "station_worker", JSON.stringify(account.siteIds || []), account.status || "active");
+
+  const insertStationOrder = database.prepare("INSERT INTO station_order (order_id, site_id, station_status, shelf_code, record_json, updated_at) VALUES (?, ?, ?, ?, ?, ?)");
+  for (const item of state.stationOrders || []) insertStationOrder.run(item.orderId, item.siteId, item.stationStatus || "expected", item.shelfCode || null, JSON.stringify(item), item.updatedAt || new Date().toISOString());
+
+  const insertStationLog = database.prepare("INSERT INTO station_operation_log (id, site_id, order_id, operator_id, action, result, reason, idempotency_key, record_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  for (const item of state.stationOperationLogs || []) insertStationLog.run(item.id, item.siteId, item.orderId || null, item.operatorId, item.action, item.result?.ok === false || item.result === "failed" ? "failed" : "success", item.reason || null, item.idempotencyKey || null, JSON.stringify(item), item.createdAt || new Date().toISOString());
 
   const insertTeam = database.prepare("INSERT INTO delivery_team (id, name, service_area, enabled) VALUES (?, ?, ?, ?)");
   for (const team of state.deliveryTeams) {

@@ -3,7 +3,7 @@ const { createException } = require("./exception-rules");
 const orderRepository = require("../repositories/order-repository");
 const { logOrderStatus } = require("./rules");
 
-function verifyPickup(state, orderId, pickupCode) {
+function verifyPickup(state, orderId, pickupCode, actor = {}) {
   const order = orderRepository.findById(state, orderId);
   const check = assertFulfillableOrder(order, "pickup");
   if (!check.ok) return check;
@@ -27,7 +27,8 @@ function verifyPickup(state, orderId, pickupCode) {
     toStatus: order.status,
     fromFulfillmentStatus: previousFulfillmentStatus,
     toFulfillmentStatus: order.fulfillmentStatus,
-    operatorType: "admin",
+    operatorType: actor.operatorType || "admin",
+    operatorId: actor.operatorId || null,
     reason: "代理核销自提码"
   });
   saveState();

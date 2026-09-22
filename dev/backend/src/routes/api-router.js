@@ -10,6 +10,7 @@ const { handleTaskRoutes } = require("./task-routes");
 const { handleGrowthRoutes } = require("./growth-routes");
 const { handleAccountRoutes } = require("./account-routes");
 const { handleAdminRoutes } = require("./admin-routes");
+const { handleStationRoutes } = require("./station-routes");
 
 const routeHandlers = [
   handleAuthRoutes,
@@ -19,7 +20,8 @@ const routeHandlers = [
   handleTaskRoutes,
   handleGrowthRoutes,
   handleAccountRoutes,
-  handleAdminRoutes
+  handleAdminRoutes,
+  handleStationRoutes
 ];
 
 async function routeApi(req, res, url) {
@@ -68,7 +70,11 @@ function requiresUserAuth(req, url) {
   if (url.pathname === "/api/auth/refresh") return false;
   if (url.pathname === "/api/admin/auth/login") return false;
   if (url.pathname === "/api/admin/auth/refresh") return false;
+  if (url.pathname === "/api/station/auth/login") return false;
+  if (url.pathname === "/api/station/auth/logout") return false;
+  if (url.pathname === "/api/station/auth/refresh") return false;
   if (url.pathname.startsWith("/api/admin/")) return false;
+  if (url.pathname.startsWith("/api/station/")) return false;
   if (req.method === "GET" && ["/api/config", "/api/home", "/api/products", "/api/points-exchange", "/api/task-types", "/api/tasks", "/api/task-platform/status", "/api/pickup-sites", "/api/delivery/teams"].includes(url.pathname)) return false;
   if (req.method === "GET" && /^\/api\/products\/[^/]+$/.test(url.pathname)) return false;
   if (req.method === "GET" && /^\/api\/tasks\/[^/]+$/.test(url.pathname)) return false;
