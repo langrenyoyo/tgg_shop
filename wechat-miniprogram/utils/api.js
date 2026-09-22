@@ -152,6 +152,7 @@ function uploadFile(filePath) {
 }
 
 module.exports = {
+  getBaseUrl,
   saveSession,
   clearSession,
   request,

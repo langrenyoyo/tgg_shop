@@ -1,5 +1,6 @@
 const authService = require("../services/auth-service");
 const { updateProfile } = require("../services/profile-service");
+const { resolveStation } = require("../domain/auth");
 
 async function handleAuthRoutes(ctx) {
   const { req, url, state, user, send, readBody, publicUser } = ctx;
@@ -35,6 +36,18 @@ async function handleAuthRoutes(ctx) {
 
   if (req.method === "POST" && url.pathname === "/api/station/auth/login") {
     const result = authService.stationLogin(state, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/station/auth/wechat-login") {
+    const result = await authService.stationWechatLogin(state, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/station/auth/bind-wechat") {
+    const auth = resolveStation(req, state);
+    if (!auth.ok) return send(ctx.res, auth.status || 401, { error: auth.error || "请先使用站点账号密码登录" });
+    const result = await authService.bindStationWechat(state, auth.account, await readBody(req));
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
   }
 

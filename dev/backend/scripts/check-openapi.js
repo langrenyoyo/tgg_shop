@@ -48,6 +48,8 @@ const requiredPaths = [
   "/api/admin/auth/logout",
   "/api/admin/auth/refresh",
   "/api/station/auth/login",
+  "/api/station/auth/wechat-login",
+  "/api/station/auth/bind-wechat",
   "/api/station/auth/logout",
   "/api/station/auth/refresh",
   "/api/station/me",

@@ -2,7 +2,9 @@ App({
   globalData: {
     token: "",
     user: null,
-    config: null
+    config: null,
+    stationToken: "",
+    station: null
   },
 
   onLaunch(options = {}) {
@@ -13,6 +15,8 @@ App({
     this.globalData.token = token;
     this.globalData.user = user;
     this.globalData.config = config;
+    this.globalData.stationToken = wx.getStorageSync("tgg_station_token") || "";
+    this.globalData.station = wx.getStorageSync("tgg_station") || null;
   },
 
   onShow(options = {}) { this.captureInvite(options); },

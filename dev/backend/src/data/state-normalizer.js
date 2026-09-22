@@ -19,6 +19,7 @@ function normalizeState(nextState) {
   nextState.authSessions = nextState.authSessions || seed.authSessions;
   nextState.authLoginAttempts = nextState.authLoginAttempts || seed.authLoginAttempts;
   nextState.stationAccounts = Array.isArray(nextState.stationAccounts) && nextState.stationAccounts.length ? nextState.stationAccounts : seed.stationAccounts;
+  nextState.stationAccounts = nextState.stationAccounts.map((account) => ({ wechatOpenid: "", ...account }));
   nextState.stationOrders = nextState.stationOrders || [];
   nextState.stationOperationLogs = nextState.stationOperationLogs || [];
   nextState.users = (nextState.users || seed.users).map((user) => ({ status: "active", ...user }));

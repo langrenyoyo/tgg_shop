@@ -218,6 +218,44 @@ paths:
         "200": { description: Station session issued }
         "401": { description: Invalid credentials }
 
+  /api/station/auth/wechat-login:
+    post:
+      tags: [Station]
+      summary: Login station staff with a bound WeChat mini-program identity
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200": { description: Station session issued }
+        "403": { description: WeChat identity is not bound to an active station account }
+
+  /api/station/auth/bind-wechat:
+    post:
+      tags: [Station]
+      summary: Bind the current station account to the current WeChat identity
+      security:
+        - StationBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200": { description: WeChat identity bound }
+        "401": { description: Missing or invalid station session }
+        "409": { description: WeChat identity is already bound to another account }
+
   /api/station/auth/logout:
     post:
       tags: [Station]

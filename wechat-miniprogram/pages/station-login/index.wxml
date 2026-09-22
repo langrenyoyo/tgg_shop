@@ -1,0 +1,13 @@
+<view class="station-login-page">
+  <view class="hero"><view class="eyebrow">TGG SHOP · STATION</view><view class="title">站点工作人员授权</view><view class="subtitle">使用已绑定的微信进入站点工作台</view></view>
+  <view wx:if="{{error}}" class="error-card">{{error}}</view>
+  <view class="card">
+    <button class="wechat-btn" bindtap="wechatLogin" loading="{{loading}}" disabled="{{loading}}">微信授权登录</button>
+    <view class="hint">首次使用请先用站点账号绑定当前微信</view>
+    <view class="divider"><text>首次绑定</text></view>
+    <input class="input" placeholder="站点账号" value="{{username}}" bindinput="onUsername" />
+    <input class="input" password placeholder="站点密码" value="{{password}}" bindinput="onPassword" />
+    <button class="bind-btn" bindtap="bindWechat" loading="{{binding}}" disabled="{{binding}}">账号登录并绑定微信</button>
+  </view>
+  <view class="security">站点授权独立于商城用户登录。绑定后仅获得后台已配置的站点和操作权限。</view>
+</view>

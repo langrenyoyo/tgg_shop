@@ -21,6 +21,7 @@
     <view class="service-row" bindtap="goService" data-type="withdraw"><view class="service-icon warm"><image src="/assets/icons/member.png"/></view><view class="service-copy">提现<text>提交提现并查看进度</text></view><text class="chevron">›</text></view>
     <view class="service-row" bindtap="goService" data-type="customerService"><view class="service-icon"><image src="/assets/icons/orders.png"/></view><view class="service-copy">联系客服<text>订单、退款和配送问题</text></view><text class="chevron">›</text></view>
     <view class="service-row" bindtap="goService" data-type="feedback"><view class="service-icon"><image src="/assets/icons/gift.png"/></view><view class="service-copy">意见反馈<text>提交使用建议</text></view><text class="chevron">›</text></view>
+    <view class="service-row station-entry" bindtap="goStation"><view class="service-icon"><image src="/assets/icons/shop.png"/></view><view class="service-copy">站点工作人员入口<text>收货、提货核验和异常登记</text></view><text class="chevron">›</text></view>
   </view>
   <button wx:if="{{loggedIn}}" class="logout-button" bindtap="logout" loading="{{loggingOut}}" disabled="{{loggingOut}}">退出登录</button>
   <view class="profile-footer">TGG SHOP · 让日常多一点美好</view>

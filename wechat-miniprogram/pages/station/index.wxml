@@ -1,0 +1,9 @@
+<view class="station-page">
+  <view wx:if="{{error}}" class="error-card">{{error}}<button bindtap="load">重新加载</button></view>
+  <view class="station-head"><view><view class="eyebrow">站点工作台</view><view class="title">{{siteName}}</view><view class="muted">{{station.name || '站点工作人员'}}</view></view><button class="logout" bindtap="logout">退出</button></view>
+  <view class="stats"><view><text>待收货</text><strong>{{counts.pendingReceive || 0}}</strong></view><view><text>待提货</text><strong>{{counts.readyPickup || 0}}</strong></view><view><text>异常</text><strong>{{counts.exceptions || 0}}</strong></view></view>
+  <view class="tabs"><button class="{{view === 'receive' ? 'active' : ''}}" data-view="receive" bindtap="switchView">待收货</button><button class="{{view === 'pickup' ? 'active' : ''}}" data-view="pickup" bindtap="switchView">待提货</button></view>
+  <view class="card quick"><button bindtap="scan" data-target="{{view === 'receive' ? 'orderId' : 'pickupCode'}}">扫码{{view === 'receive' ? '收货' : '提货'}}</button><button class="light" bindtap="manual">手动输入</button></view>
+  <view wx:for="{{orders}}" wx:key="id" class="card order"><view class="order-top"><text>{{item.id}}</text><text class="tag">{{item.stationStatus}}</text></view><view class="items">{{item.itemsText}}</view><view class="muted">储位：{{item.shelfCode || '未登记'}}</view><button wx:if="{{view === 'receive'}}" bindtap="receive" data-id="{{item.id}}">确认收货</button><button wx:else bindtap="pickup" data-id="{{item.id}}">核验提货</button></view>
+  <view wx:if="{{!loading && !orders.length}}" class="empty">暂无订单</view>
+</view>

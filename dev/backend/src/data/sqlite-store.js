@@ -47,6 +47,9 @@ function runMigrations(database) {
   if (!userColumns.has("wechat_openid")) database.exec("ALTER TABLE app_user ADD COLUMN wechat_openid TEXT;");
   if (!userColumns.has("avatar_url")) database.exec("ALTER TABLE app_user ADD COLUMN avatar_url TEXT;");
   database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_wechat_openid ON app_user(wechat_openid);");
+  const stationAccountColumns = new Set(database.prepare("PRAGMA table_info(station_account)").all().map(column => column.name));
+  if (!stationAccountColumns.has("wechat_openid")) database.exec("ALTER TABLE station_account ADD COLUMN wechat_openid TEXT;");
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_station_account_wechat_openid ON station_account(wechat_openid);");
   for (const table of ["shop_order", "task_submission", "signin_session"]) {
     const columns = new Set(database.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name));
     if (!columns.has("snapshot_json")) database.exec(`ALTER TABLE ${table} ADD COLUMN snapshot_json TEXT NOT NULL DEFAULT '{}';`);
@@ -203,9 +206,9 @@ function readState(database) {
     .map((row) => ({ id: row.id, teamId: row.team_id, name: row.name, phone: row.phone, enabled: Boolean(row.enabled) }));
 
   const stationAccounts = database
-    .prepare("SELECT id, username, name, role, site_ids_json, status FROM station_account ORDER BY id")
+    .prepare("SELECT id, username, name, role, site_ids_json, status, wechat_openid FROM station_account ORDER BY id")
     .all()
-    .map((row) => ({ id: row.id, username: row.username, name: row.name, role: row.role, siteIds: JSON.parse(row.site_ids_json || "[]"), status: row.status }));
+    .map((row) => ({ id: row.id, username: row.username, name: row.name, role: row.role, siteIds: JSON.parse(row.site_ids_json || "[]"), status: row.status, wechatOpenid: row.wechat_openid || "" }));
 
   const stationOrders = database
     .prepare("SELECT record_json FROM station_order ORDER BY updated_at DESC")
@@ -722,8 +725,8 @@ function insertState(database, state) {
     insertPickup.run(site.id, site.name, site.address, site.contactName || null, site.contactPhone || null, site.enabled ? 1 : 0, site.verifyMode || "pickup_code");
   }
 
-  const insertStationAccount = database.prepare("INSERT INTO station_account (id, username, name, role, site_ids_json, status) VALUES (?, ?, ?, ?, ?, ?)");
-  for (const account of state.stationAccounts || []) insertStationAccount.run(account.id, account.username, account.name, account.role || "station_worker", JSON.stringify(account.siteIds || []), account.status || "active");
+  const insertStationAccount = database.prepare("INSERT INTO station_account (id, username, name, role, site_ids_json, status, wechat_openid) VALUES (?, ?, ?, ?, ?, ?, ?)");
+  for (const account of state.stationAccounts || []) insertStationAccount.run(account.id, account.username, account.name, account.role || "station_worker", JSON.stringify(account.siteIds || []), account.status || "active", account.wechatOpenid || null);
 
   const insertStationOrder = database.prepare("INSERT INTO station_order (order_id, site_id, station_status, shelf_code, record_json, updated_at) VALUES (?, ?, ?, ?, ?, ?)");
   for (const item of state.stationOrders || []) insertStationOrder.run(item.orderId, item.siteId, item.stationStatus || "expected", item.shelfCode || null, JSON.stringify(item), item.updatedAt || new Date().toISOString());

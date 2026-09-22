@@ -4,8 +4,11 @@ CREATE TABLE IF NOT EXISTS station_account (
   name TEXT NOT NULL,
   role TEXT NOT NULL,
   site_ids_json TEXT NOT NULL DEFAULT '[]',
-  status TEXT NOT NULL DEFAULT 'active'
+  status TEXT NOT NULL DEFAULT 'active',
+  wechat_openid TEXT
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_station_account_wechat_openid ON station_account(wechat_openid);
 
 CREATE TABLE IF NOT EXISTS station_order (
   order_id TEXT PRIMARY KEY,

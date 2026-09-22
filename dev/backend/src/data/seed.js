@@ -204,6 +204,7 @@ function createSeed() {
         name: "师大自提站工作人员",
         role: "station_admin",
         siteIds: ["site_001"],
+        wechatOpenid: "",
         status: "active"
       }
     ],

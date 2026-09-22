@@ -36,13 +36,9 @@ function login(state, input = {}) {
 }
 
 async function wechatLogin(state, input = {}) {
-  const code = String(input.code || "");
-  if (!code) return { ok: false, status: 400, error: "微信 code 不能为空" };
-  const appid = process.env.WECHAT_APPID;
-  const secret = process.env.WECHAT_APPSECRET;
-  if (!appid || !secret) return { ok: false, status: 503, error: "服务端未配置微信 AppID/AppSecret" };
-  const response = await fetch(`https://api.weixin.qq.com/sns/jscode2session?appid=${encodeURIComponent(appid)}&secret=${encodeURIComponent(secret)}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`);
-  const data = await response.json();
+  const session = await exchangeWechatCode(input.code);
+  if (!session.ok) return session;
+  const data = session.data;
   if (!data.openid) return { ok: false, status: 401, error: data.errmsg || "微信 code 无效" };
   let user = state.users.find((item) => item.wechatOpenid === data.openid);
   if (!user) {
@@ -69,6 +65,49 @@ async function wechatLogin(state, input = {}) {
   userRepository.setCurrentUser(state, user.id);
   const result = tokenResult(state, { user: publicUser(user), tokenPayload: { type: "user", userId: user.id } });
   await saveState(); return result;
+}
+
+async function stationWechatLogin(state, input = {}) {
+  const session = await exchangeWechatCode(input.code);
+  if (!session.ok) return session;
+  const account = (state.stationAccounts || []).find((item) => item.wechatOpenid === session.data.openid);
+  if (!account) return { ok: false, status: 403, error: "该微信尚未绑定站点账号，请先使用账号密码完成绑定" };
+  if (account.status !== "active") return { ok: false, status: 403, error: "站点账号已停用" };
+  clearLoginAttempts(state, "station", account.id);
+  const result = tokenResult(state, {
+    station: { id: account.id, username: account.username, name: account.name, role: account.role, siteIds: account.siteIds },
+    tokenPayload: { type: "station", stationId: account.id }
+  });
+  await saveState();
+  return result;
+}
+
+async function bindStationWechat(state, account, input = {}) {
+  const session = await exchangeWechatCode(input.code);
+  if (!session.ok) return session;
+  const existing = (state.stationAccounts || []).find((item) => item.wechatOpenid === session.data.openid);
+  if (existing && existing.id !== account.id) return { ok: false, status: 409, error: "该微信已绑定其他站点账号" };
+  if (account.wechatOpenid && account.wechatOpenid !== session.data.openid) return { ok: false, status: 409, error: "站点账号已绑定其他微信，请联系运营管理员解绑" };
+  account.wechatOpenid = session.data.openid;
+  await saveState();
+  return { ok: true, station: { id: account.id, username: account.username, name: account.name, role: account.role, siteIds: account.siteIds }, bound: true };
+}
+
+async function exchangeWechatCode(rawCode) {
+  const code = String(rawCode || "").trim();
+  if (!code) return { ok: false, status: 400, error: "微信 code 不能为空" };
+  const appid = process.env.WECHAT_APPID;
+  const secret = process.env.WECHAT_APPSECRET;
+  if (!appid || !secret) return { ok: false, status: 503, error: "服务端未配置微信 AppID/AppSecret" };
+  let response;
+  try {
+    response = await fetch(`https://api.weixin.qq.com/sns/jscode2session?appid=${encodeURIComponent(appid)}&secret=${encodeURIComponent(secret)}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`);
+  } catch {
+    return { ok: false, status: 503, error: "微信授权服务暂时不可用，请稍后重试" };
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!data.openid) return { ok: false, status: 401, error: data.errmsg || "微信 code 无效" };
+  return { ok: true, data };
 }
 
 function adminLogin(state, input = {}) {
@@ -271,6 +310,8 @@ module.exports = {
   wechatLogin,
   adminLogin,
   stationLogin,
+  stationWechatLogin,
+  bindStationWechat,
   refresh,
   logout,
   hashPassword
