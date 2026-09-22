@@ -389,7 +389,7 @@ function checkoutView(state, type) {
 
 function ordersView(state) {
   const orders = [...(state.orders || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  const pendingCount = orders.filter((order) => ["pending_pickup", "pending_ship", "shipping"].includes(order.fulfillmentStatus)).length;
+  const pendingCount = orders.filter((order) => ["pending_pickup", "pending_ship", "shipping"].includes(order.fulfillmentStatus) || ["expected", "in_transit", "ready", "received"].includes(order.stationStatus)).length;
   const refundCount = orders.filter((order) => ["refunding", "refunded"].includes(order.status)).length;
   return `
     <div class="order-filter"><button type="button" class="active">全部 ${orders.length}</button><button type="button">待履约 ${pendingCount}</button><button type="button">退款 ${refundCount}</button></div>
@@ -402,7 +402,7 @@ function orderDetailView(state) {
   if (!order) return `<div class="empty">暂无订单详情</div>`;
   const payment = findOrderPayment(state, order);
   return `
-    <section class="order-detail-head"><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span><h2>${order.id}</h2><p>${order.fulfillmentType === "pickup" ? "自提核销" : "TGG 自建配送"} · ${fulfillmentStatusLabel(order.fulfillmentStatus)}</p></section>
+    <section class="order-detail-head"><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span><h2>${order.id}</h2><p>${order.fulfillmentType === "pickup" ? "自提核销" : "TGG 自建配送"} · ${fulfillmentStatusLabel(order)}</p></section>
     <section class="order-summary"><span><strong>${orderAmountText(order)}</strong><em>订单金额</em></span><span><strong>${order.paymentMode === "pure_points" ? "纯积分" : "会员现金"}</strong><em>支付方式</em></span><span><strong>${order.fulfillmentType === "pickup" ? "自提" : "配送"}</strong><em>履约方式</em></span></section>
     ${orderRiskNotice(order)}
     <section class="field-card"><h3>订单进度</h3><div class="order-steps">${orderSteps(order, payment)}</div></section>
@@ -590,7 +590,7 @@ function categoryRow() {
 
 function orderCard(order, state = {}) {
   const payment = findOrderPayment(state, order);
-  return `<article class="order-card rich-order-card" data-order-open="${order.id}"><div class="order-card-head"><strong>${order.id}</strong><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span></div><p class="order-card-items">${order.items.map((item) => `${item.title || item.name || item.productId} x${item.quantity}`).join("、")}</p><div class="order-card-meta"><span>${order.fulfillmentType === "pickup" ? "自提" : "自建配送"}</span><span>${fulfillmentStatusLabel(order.fulfillmentStatus)}</span><span>${orderAmountText(order)}</span></div><p class="muted">${paymentHint(order)}</p>${payment ? `<p class="muted">支付单：${payment.payNo || payment.id} · ${payment.status}</p>` : ""}${order.pickupCode ? `<div class="order-code"><span>核销码</span><strong>${order.pickupCode}</strong></div>` : ""}</article>`;
+  return `<article class="order-card rich-order-card" data-order-open="${order.id}"><div class="order-card-head"><strong>${order.id}</strong><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span></div><p class="order-card-items">${order.items.map((item) => `${item.title || item.name || item.productId} x${item.quantity}`).join("、")}</p><div class="order-card-meta"><span>${order.fulfillmentType === "pickup" ? "自提" : "自建配送"}</span><span>${fulfillmentStatusLabel(order)}</span><span>${orderAmountText(order)}</span></div><p class="muted">${paymentHint(order)}</p>${payment ? `<p class="muted">支付单：${payment.payNo || payment.id} · ${payment.status}</p>` : ""}${order.pickupCode ? `<div class="order-code"><span>核销码</span><strong>${order.pickupCode}</strong></div>` : ""}</article>`;
 }
 
 function paymentCard(payment) {
@@ -603,9 +603,9 @@ function paymentDetail(payment) {
 
 function fulfillmentDetail(order) {
   if (order.fulfillmentType === "pickup") {
-    return `<div class="fulfillment-panel"><div class="order-code large"><span>自提核销码</span><strong>${order.pickupCode || "支付后生成"}</strong></div><p>到达自提点后由代理核销；自提点由后台统一配置。</p><p class="muted">核销失败或订单异常时进入客服工单/异常补偿队列。</p></div>`;
+    return `<div class="fulfillment-panel"><div class="order-code large"><span>自提核销码</span><strong>${order.pickupCode || "支付后生成"}</strong></div><p><strong>${fulfillmentStatusLabel(order)}</strong></p><p>到达自提点后由代理核销；自提点由后台统一配置。</p><p class="muted">核销失败或订单异常时进入客服工单/异常补偿队列。</p></div>`;
   }
-  return `<div class="fulfillment-panel"><p><strong>${fulfillmentStatusLabel(order.fulfillmentStatus)}</strong></p><p>TGG 自建配送团队送货上门，不对接第三方物流。</p>${deliveryTimeline(order)}${order.deliveryDate ? `<p class="muted">预计配送：${order.deliveryDate}</p>` : ""}</div>`;
+  return `<div class="fulfillment-panel"><p><strong>${fulfillmentStatusLabel(order)}</strong></p><p>TGG 自建配送团队送货上门，不对接第三方物流。</p>${deliveryTimeline(order)}${order.deliveryDate ? `<p class="muted">预计配送：${order.deliveryDate}</p>` : ""}</div>`;
 }
 
 function deliveryTimeline(order) {
@@ -621,7 +621,7 @@ function deliveryTimeline(order) {
 function orderSteps(order, payment) {
   const paid = order.paymentMode === "pure_points" || payment?.status === "paid" || ["paid", "completed", "refunding", "refunded"].includes(order.status);
   const fulfilled = order.status === "completed" || ["delivered", "picked_up", "completed"].includes(order.fulfillmentStatus);
-  const inFulfillment = ["pending_pickup", "pending_ship", "shipping", "delivered", "picked_up", "completed"].includes(order.fulfillmentStatus);
+  const inFulfillment = ["pending_pickup", "pending_ship", "shipping", "delivered", "picked_up", "completed"].includes(order.fulfillmentStatus) || ["expected", "in_transit", "ready", "received", "picked_up"].includes(order.stationStatus);
   const steps = [
     ["提交订单", true],
     [order.paymentMode === "pure_points" ? "扣减积分" : "完成支付", paid],
@@ -710,8 +710,13 @@ function orderStatusLabel(status) {
   return ({ pending_payment: "待支付", paid: "已支付", completed: "已完成", refunding: "退款中", refunded: "已退款", cancelled: "已取消", closed: "已关闭" })[status] || status || "-";
 }
 
-function fulfillmentStatusLabel(status) {
-  return ({ not_started: "待支付", pending_pickup: "待自提", pending_ship: "待配送", shipping: "配送中", delivered: "已送达", picked_up: "已核销", completed: "已完成" })[status] || status || "待履约";
+function fulfillmentStatusLabel(value) {
+  const order = value && typeof value === "object" ? value : null;
+  const stationStatus = order?.stationStatus;
+  if (stationStatus === "ready" || stationStatus === "received") return "已到站待提货";
+  if (stationStatus === "exception") return "站点异常";
+  const status = order?.fulfillmentStatus || value;
+  return ({ not_started: "待支付", pending_pickup: "待自提", pending_ship: "待配送", shipping: "配送中", delivered: "已送达", picked_up: "已提货", completed: "已完成" })[status] || status || "待履约";
 }
 
 function orderStatusTone(order) {

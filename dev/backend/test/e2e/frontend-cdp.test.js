@@ -195,6 +195,8 @@ test("user and admin frontends support core click flows", async (t) => {
     await adminPage.waitForText("二级审批队列");
     assert.deepEqual(adminPage.runtimeErrors(), [], "admin page should not emit runtime errors");
 
+    await require("./station-closure-flow").runStationClosure({ userPage, adminPage, CDPPage, base: BASE });
+
     const hasGarbledText = await userPage.evaluate(`/[璧鎴閫绉鍟姣浠濮鏀寰锟�]/.test(document.body.innerText)`);
     assert.equal(hasGarbledText, false, "user page should not show mojibake text");
 

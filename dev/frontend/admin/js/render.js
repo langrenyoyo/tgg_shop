@@ -73,7 +73,9 @@ const labelMaps = {
     off: "下架",
     not_started: "未开始",
     pending_pickup: "待自提",
-    picked_up: "已核销",
+    ready: "已到站待提货",
+    received: "已到站待提货",
+    picked_up: "已提货",
     pending_ship: "待配送",
     pending_delivery: "待配送",
     shipping: "配送中",
@@ -197,7 +199,7 @@ function ordersRows(orders) {
     (order.items || []).map((item) => `${escapeHtml(item.title || item.name || item.productId)} x${item.quantity}`).join("<br>"),
     zh(order.paymentMode, "paymentMode"),
     zh(order.fulfillmentType, "fulfillmentType"),
-    `${badge(order.status)} ${badge(order.fulfillmentStatus, "orange")}`,
+    `${badge(order.status)} ${badge(order.stationStatus === "ready" || order.stationStatus === "received" ? "ready" : order.fulfillmentStatus, "orange")}`,
     paymentText(order),
     orderActionButtons(order)
   ]));
