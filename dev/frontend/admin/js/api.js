@@ -1,7 +1,7 @@
 const ADMIN_TOKEN_KEY = "tggAdminToken";
 const ADMIN_REFRESH_TOKEN_KEY = "tggAdminRefreshToken";
 const ADMIN_ROLE_KEY = "tggAdminRole";
-const DEMO_PASSWORD = "123456";
+let refreshPromise;
 
 export async function api(path, options = {}) {
   const token = ["/api/admin/auth/login", "/api/admin/auth/refresh"].includes(path) ? "" : await ensureAdminToken();
@@ -31,7 +31,8 @@ export async function api(path, options = {}) {
     const refreshed = await refreshAdminToken();
     if (refreshed) return api(path, { ...options, __retried: true });
     localStorage.removeItem(ADMIN_TOKEN_KEY);
-    return api(path, { ...options, __retried: true });
+    localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);
+    throw Object.assign(new Error("登录已失效，请重新登录"), { statusCode: 401 });
   }
   const intent = options.__approvalIntent;
   if (intent && (res.ok || [400, 409].includes(res.status)) && localStorage.getItem(intent.key) === intent.value) localStorage.removeItem(intent.key);
@@ -74,15 +75,15 @@ export function getAdminRole() {
   return localStorage.getItem(ADMIN_ROLE_KEY) || "super_admin";
 }
 
-export async function loginAdmin(roleId = getAdminRole()) {
+export async function loginAdmin(username, password) {
   const res = await fetch("/api/admin/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ roleId, password: DEMO_PASSWORD })
+    body: JSON.stringify({ username, password })
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "后台登录失败");
-  localStorage.setItem(ADMIN_ROLE_KEY, roleId);
+  localStorage.setItem(ADMIN_ROLE_KEY, data.admin.id);
   storeTokens(data);
   return data;
 }
@@ -103,11 +104,15 @@ async function ensureAdminToken() {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) return token;
   if (await refreshAdminToken()) return localStorage.getItem(ADMIN_TOKEN_KEY);
-  const result = await loginAdmin();
-  return result.token;
+  throw Object.assign(new Error("请使用管理员账号登录"), { statusCode: 401 });
 }
 
-async function refreshAdminToken() {
+function refreshAdminToken() {
+  if (!refreshPromise) refreshPromise = doRefreshAdminToken().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+async function doRefreshAdminToken() {
   const refreshToken = localStorage.getItem(ADMIN_REFRESH_TOKEN_KEY);
   if (!refreshToken) return false;
   try {

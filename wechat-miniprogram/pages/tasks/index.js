@@ -29,7 +29,9 @@ Page({
         const query = "?page=" + page + "&count=20&c_id=" + encodeURIComponent(this.data.currentCid) + "&search=" + encodeURIComponent(this.data.search.trim());
         const [categories, tasks] = await Promise.all([request("/api/task-types"), request("/api/tasks" + query)]);
         if (version !== this.loadVersion) return;
-        this.setData({ categories: categories.map(item => ({ ...item, id: String(item.id) })), tasks: append ? this.data.tasks.concat(tasks) : tasks, page, hasMore: tasks.length >= 20 });
+        // The provider may cap count below 20 and does not return a total.
+        // Only an empty page confirms that all tasks have been fetched.
+        this.setData({ categories: categories.map(item => ({ ...item, id: String(item.id) })), tasks: append ? this.data.tasks.concat(tasks) : tasks, page, hasMore: tasks.length > 0 });
       }
     } catch (error) {
       if (version === this.loadVersion) this.setData({ error: error.message || "加载失败，请重试" });

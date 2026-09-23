@@ -166,9 +166,10 @@ async function handleAdminRoutes(ctx) {
 
   const userMatch = url.pathname.match(/^\/api\/admin\/users\/([^/]+)$/);
   if (req.method === "PATCH" && userMatch) {
-    const check = adminService.requirePermission(req, state, "customer:read");
+    const body = await ctx.readBody(req);
+    const check = adminService.requirePermission(req, state, Number(body.memberMonths) > 0 || body.clearMember === true ? "membership:manage" : "customer:read");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
-    const result = adminService.updateUser(state, userMatch[1], await ctx.readBody(req), check);
+    const result = adminService.updateUser(state, userMatch[1], body, check);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.user : { error: result.error });
   }
 
@@ -266,6 +267,37 @@ async function handleAdminRoutes(ctx) {
     return send(ctx.res, 200, result);
   }
   if (req.method === "GET" && url.pathname === "/api/admin/permissions") return send(ctx.res, 200, adminService.listRoles(state));
+  if (req.method === "POST" && url.pathname === "/api/admin/roles") {
+    const check = adminService.requirePermission(req, state, "role:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const result = adminService.createRole(state, await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? 201 : result.status, result.ok ? result.role : { error: result.error });
+  }
+  if (req.method === "GET" && url.pathname === "/api/admin/admin-users") {
+    const check = adminService.requirePermission(req, state, "admin:manage");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    return send(ctx.res, 200, adminService.listAdminUsers(state));
+  }
+  if (req.method === "POST" && url.pathname === "/api/admin/admin-users") {
+    const check = adminService.requirePermission(req, state, "admin:manage");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const result = adminService.createAdminUser(state, await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? 201 : result.status, result.ok ? result.admin : { error: result.error });
+  }
+  const adminUserMatch = url.pathname.match(/^\/api\/admin\/admin-users\/([^/]+)$/);
+  if (req.method === "PATCH" && adminUserMatch) {
+    const check = adminService.requirePermission(req, state, "admin:manage");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const result = adminService.updateAdminUser(state, adminUserMatch[1], await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.admin : { error: result.error });
+  }
+  const adminPasswordMatch = url.pathname.match(/^\/api\/admin\/admin-users\/([^/]+)\/reset-password$/);
+  if (req.method === "POST" && adminPasswordMatch) {
+    const check = adminService.requirePermission(req, state, "admin:manage");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const result = adminService.resetAdminPassword(state, adminPasswordMatch[1], await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
   if (req.method === "GET" && url.pathname === "/api/admin/permissions/catalog") {
     const check = adminService.requirePermission(req, state, "role:read");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error });

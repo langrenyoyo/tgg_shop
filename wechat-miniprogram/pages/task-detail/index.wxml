@@ -6,7 +6,14 @@
     <view class="muted" style="margin-top:8rpx;">{{task.category || task.type_name || ''}}</view>
     <view wx:if="{{task.rewardValid !== false}}" style="margin-top:16rpx;" class="tag">奖励 {{task.rewardPoints || 0}} 积分</view>
     <view wx:else>任务奖励待核对，暂不可提交，请稍后刷新。<button bindtap="load">刷新任务</button></view>
+    <view wx:if="{{task.isTopText || task.platformStatusText}}" class="muted">{{task.isTopText}} {{task.platformStatusText}}</view>
     <view class="muted" style="margin-top:10rpx;">{{task.tishi || '暂无提示'}}</view>
+  </view>
+
+  <view class="card" wx:if="{{task && financialRows.length}}">
+    <view class="title" style="font-size:30rpx;">平台收益明细</view>
+    <view class="muted">以下为平台原值，单位以平台说明为准；本站到账以审核后的积分明细为准。</view>
+    <view wx:for="{{financialRows}}" wx:key="key" class="list-item">{{item.label}}：{{item.value}}</view>
   </view>
 
   <view class="card" wx:if="{{task && task.content}}">

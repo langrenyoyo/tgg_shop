@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { ensureAdminUsers, effectiveRole } = require("./admin-accounts");
 
 const TOKEN_TTL_SECONDS = Number(process.env.TGG_AUTH_TOKEN_TTL_SECONDS || 60 * 60 * 8);
 const AUTH_SECRET = process.env.TGG_AUTH_SECRET || "tgg-shop-dev-auth-secret";
@@ -62,9 +63,9 @@ function resolveAdmin(req, state) {
   const session = findActiveSession(state, verified.payload);
   if (!session) return { ok: false, status: 401, error: "后台登录会话已失效" };
   session.lastSeenAt = new Date().toISOString();
-  const role = state.roles.find((item) => item.id === verified.payload.roleId);
-  if (!role) return { ok: false, status: 401, error: "后台角色不存在" };
-  return { ok: true, role, auth: verified.payload };
+  const account = ensureAdminUsers(state).find(item => item.id === (verified.payload.adminId || verified.payload.roleId));
+  if (!account || account.status !== "active") return { ok: false, status: 401, error: "管理员不存在或已禁用" };
+  return { ok: true, role: effectiveRole(state, account), adminId: account.id, auth: verified.payload };
 }
 
 function resolveStation(req, state) {
@@ -80,7 +81,7 @@ function resolveStation(req, state) {
 }
 
 function findActiveSession(state, payload) {
-  const subjectId = payload.type === "admin" ? payload.roleId : payload.type === "station" ? payload.stationId : payload.userId;
+  const subjectId = payload.type === "admin" ? (payload.adminId || payload.roleId) : payload.type === "station" ? payload.stationId : payload.userId;
   const now = Date.now();
   return (state.authSessions || []).find((session) =>
     session.tokenId === payload.tokenId
@@ -109,7 +110,7 @@ function requireAdminPermission(req, state, permission) {
       role: admin.role.id
     };
   }
-  return { ok: true, role: admin.role, auth: admin.auth };
+  return { ok: true, role: admin.role, adminId: admin.adminId, auth: admin.auth };
 }
 
 function publicRole(role) {

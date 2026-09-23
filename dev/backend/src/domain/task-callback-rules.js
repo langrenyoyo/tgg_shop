@@ -59,10 +59,13 @@ function handleTaskCallback(state, payload) {
     if (task.rewardValid === false || !Number.isSafeInteger(rewardPoints) || rewardPoints < 0) return { ok: false, status: 409, error: "任务奖励快照无效" };
     const relation = inviteRepository.findByInvitee(state, user.id);
     const commissionRate = Number(task.inviteCommissionRate ?? state.config.inviteCommissionRate ?? 0);
-    if (!Number.isFinite(commissionRate) || commissionRate < 0 || commissionRate > 1) return { ok: false, status: 409, error: "邀请提成比例无效" };
+    const hasPlatformCommission = Object.prototype.hasOwnProperty.call(task, "inviteCommissionPoints") && task.inviteCommissionPoints !== null && task.inviteCommissionPoints !== undefined;
+    const platformCommission = hasPlatformCommission ? Number(task.inviteCommissionPoints) : null;
+    if (hasPlatformCommission && (!Number.isSafeInteger(platformCommission) || platformCommission < 0)) return { ok: false, status: 409, error: "任务邀请提成快照无效" };
+    if (!hasPlatformCommission && (!Number.isFinite(commissionRate) || commissionRate < 0 || commissionRate > 1)) return { ok: false, status: 409, error: "邀请提成比例无效" };
     const inviter = relation && userRepository.findById(state, relation.inviterUserId);
     if (relation && !inviter) return { ok: false, status: 409, error: "邀请人数据缺失，请补全后重试" };
-    const commission = relation ? Math.floor(rewardPoints * commissionRate) : 0;
+    const commission = relation ? (hasPlatformCommission ? platformCommission : Math.floor(rewardPoints * commissionRate)) : 0;
     const validLedger = (entry, owner, points, type) => !entry || (entry.userId === owner?.id && entry.points === points && entry.bizNo === submission.id && entry.direction === "in" && entry.changeType === type);
     if (!validLedger(existingLedger, user, rewardPoints, "task_reward") || !validLedger(existingCommission, inviter, commission, "invite_commission")) return { ok: false, status: 409, error: "任务奖励流水与应发数据不一致，请人工核对" };
     const entries = [];

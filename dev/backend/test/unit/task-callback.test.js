@@ -120,6 +120,34 @@ test("platform task submission keeps snapshot for callback approval", async () =
   }
 });
 
+test("platform invitation allocation is used for the inviter commission", async t => {
+  const state = createSeed();
+  const user = state.users.find((item) => item.id === "u_1002");
+  user.memberUntil = new Date(Date.now() + 86400000).toISOString();
+  const inviter = state.users.find((item) => item.id === "u_1001");
+  const originalIsConfigured = taskPlatform.isConfigured;
+  const originalPost = taskPlatform.post;
+  taskPlatform.isConfigured = () => true;
+  taskPlatform.post = async endpoint => {
+    if (endpoint.endsWith("task_info")) return {
+      id: "ratio_task", title: "按任务比例结算", reward: "10.00", users_ratio: "10.00",
+      invitation_ratio: "2.00", option: ["mobile"], is_pause: 0
+    };
+    if (endpoint.endsWith("task_register")) return {};
+    throw new Error("Unexpected endpoint");
+  };
+  try {
+    const submission = (await submitTask(state, user, "ratio_task", { mobile: "13800138000" })).submission;
+    assert.equal(submission.taskSnapshot.inviteCommissionPoints, 20);
+    const before = inviter.points;
+    assert.equal(handleTaskCallback(state, { submissionId: submission.id, status: 1 }).ok, true);
+    assert.equal(inviter.points, before + 20);
+  } finally {
+    taskPlatform.isConfigured = originalIsConfigured;
+    taskPlatform.post = originalPost;
+  }
+});
+
 test("failed reward validation leaves review retryable and snapshot wins over edited task", async () => {
   const state = createSeed();
   const user = state.users[0];

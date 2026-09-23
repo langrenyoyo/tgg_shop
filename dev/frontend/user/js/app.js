@@ -174,8 +174,10 @@ async function startSignin() {
   renderPage(state);
 }
 
-async function subscribeMember() {
-  state.user = await api("/api/member/subscribe", { method: "POST", body: JSON.stringify({ months: 1 }) });
+async function subscribeMember(paymentMode = "cash") {
+  const payment = await api("/api/member/payments", { method: "POST", body: JSON.stringify({ months: 1, paymentMode, channel: "mock_pay", idempotencyKey: `web-member:${paymentMode}:${Date.now()}` }) });
+  if (payment.status === "pending" && payment.channel === "mock_pay") await api(`/api/payments/${payment.payNo}/mock-callback`, { method: "POST", body: JSON.stringify({ status: "paid" }) });
+  state.user = await api("/api/me");
   state.payments = await safeApi("/api/payments", state.payments);
   toast("月会员已开通，可以使用现金购物");
   renderPage(state);
@@ -439,7 +441,8 @@ function bindGlobalActions() {
 
     const action = event.target.closest("[data-action]")?.dataset.action;
     if (action === "signin") startSignin().catch((error) => toast(error.message));
-    if (action === "member") subscribeMember().catch((error) => toast(error.message));
+    if (action === "memberCash") subscribeMember("cash").catch((error) => toast(error.message));
+    if (action === "memberPoints") subscribeMember("pure_points").catch((error) => toast(error.message));
     if (action === "withdraw") requestWithdrawal().catch((error) => toast(error.message));
   });
 

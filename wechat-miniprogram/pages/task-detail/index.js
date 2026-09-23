@@ -2,7 +2,7 @@ const { request } = require("../../utils/api");
 
 Page({
   data: {
-    task: null, error: "", loading: false, busy: false
+    task: null, financialRows: [], error: "", loading: false, busy: false
   },
 
   onLoad(query) {
@@ -13,13 +13,22 @@ Page({
 
   async load() {
     const version = this.version = (this.version || 0) + 1;
-    this.setData({ task: null, error: "", loading: false });
+    this.setData({ task: null, financialRows: [], error: "", loading: false });
     if (!this.taskId) { this.setData({ error: "缺少任务编号，请从任务列表重新进入" }); return; }
     this.setData({ loading: true });
     try {
       const task = await request(`/api/tasks/${encodeURIComponent(this.taskId)}`);
       if (this.disposed || version !== this.version) return;
-      this.setData({ task, error: "" });
+      const labels = {
+        reward: "任务金额", users_ratio: "用户分配值", invitation_ratio: "邀请分配值",
+        agency_ratio: "代理分配值", bili: "平台分成参数",
+        bili_reward: "平台分成值", bili_sy_reward: "平台分成后剩余值",
+        commission_reward: "平台佣金值", commission_sy_reward: "平台佣金后剩余值"
+      };
+      const financialRows = Object.keys(labels)
+        .filter(key => Object.prototype.hasOwnProperty.call(task.platformFinancials || {}, key))
+        .map(key => ({ key, label: labels[key], value: task.platformFinancials[key] == null || task.platformFinancials[key] === "" ? "未提供" : String(task.platformFinancials[key]) }));
+      this.setData({ task, financialRows, error: "" });
     } catch (error) {
       if (!this.disposed && version === this.version) this.setData({ task: null, error: error.message });
     } finally { if (!this.disposed && version === this.version) this.setData({ loading: false }); }

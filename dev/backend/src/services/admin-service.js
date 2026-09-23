@@ -17,10 +17,11 @@ const inventoryRepository = require("../repositories/inventory-repository");
 const refundRepository = require("../repositories/refund-repository");
 const taskRepository = require("../repositories/task-repository");
 const userRepository = require("../repositories/user-repository");
+const { ensureAdminUsers, hashAdminPassword, publicAdmin, effectiveRole } = require("../domain/admin-accounts");
 
 function getAdminIdentity(req, state) {
   const admin = resolveAdmin(req, state);
-  return admin.ok ? publicRole(admin.role) : null;
+  return admin.ok ? { ...publicRole(admin.role), adminId: admin.adminId, admin: publicAdmin(ensureAdminUsers(state).find(item => item.id === admin.adminId)) } : null;
 }
 
 function requirePermission(req, state, permission) {
@@ -465,7 +466,7 @@ function listRoles(state) {
 
 function listPermissionCatalog() {
   const { createSeed } = require("../data/seed");
-  return [...new Set([...createSeed().roles.flatMap(role => role.permissions), "role:read", "role:write"])]
+  return [...new Set([...createSeed().roles.flatMap(role => role.permissions), "role:read", "role:write", "admin:manage", "membership:manage"])]
     .filter(permission => permission !== "*").sort();
 }
 
@@ -479,7 +480,7 @@ function updateRole(state, roleId, input, actor = {}) {
   if (role.id === "super_admin" || role.permissions.includes("*")) {
     return { ok: false, status: 400, error: "超级管理员权限为系统保留，不可修改" };
   }
-  if (role.id === actor.role.id) return { ok: false, status: 400, error: "不能修改当前登录角色的权限" };
+  if (role.id === actor.role.id || actor.role.roleIds?.includes(role.id)) return { ok: false, status: 400, error: "不能修改当前登录角色的权限" };
   const name = typeof input.name === "string" ? input.name.trim() : "";
   const reason = cleanReason(input.reason);
   const catalog = listPermissionCatalog();
@@ -498,6 +499,93 @@ function updateRole(state, roleId, input, actor = {}) {
   logOperation(state, actor, "role.update", "role", role.id, { before, after: structuredClone(role), reason });
   saveState();
   return { ok: true, role };
+}
+
+function listAdminUsers(state) {
+  return ensureAdminUsers(state).map(account => ({ ...publicAdmin(account), role: effectiveRole(state, account) }));
+}
+
+function createRole(state, input = {}, actor = {}) {
+  const permissions = actor.role?.permissions || [];
+  if (!permissions.includes("*") && !permissions.includes("role:write")) return { ok: false, status: 403, error: "缺少角色管理权限" };
+  const name = String(input.name || "").trim();
+  if (!name || name.length > 50 || !cleanReason(input.reason) || !Array.isArray(input.permissions)
+    || input.permissions.some(item => !listPermissionCatalog().includes(item))) return { ok: false, status: 400, error: "请填写名称、有效权限和原因" };
+  if (!canGrantRoles(actor, [{ permissions: input.permissions }])) return { ok: false, status: 403, error: "不能授予超出当前权限范围的权限" };
+  if (state.roles.some(role => role.name === name)) return { ok: false, status: 409, error: "角色名称已存在" };
+  const role = { id: nextId("role"), name, permissions: [...new Set(input.permissions)] };
+  state.roles.push(role);
+  logOperation(state, actor, "role.create", "role", role.id, { after: structuredClone(role), reason: input.reason });
+  saveState();
+  return { ok: true, role };
+}
+
+function canManageAdmins(actor) { return Boolean(actor.role?.permissions?.includes("*") || actor.role?.permissions?.includes("admin:manage")); }
+function canGrantRoles(actor, roles) { return actor.role?.permissions?.includes("*") || roles.every(role => role.permissions.every(permission => actor.role.permissions.includes(permission))); }
+
+function createAdminUser(state, input = {}, actor = {}) {
+  if (!canManageAdmins(actor)) return { ok: false, status: 403, error: "缺少管理员管理权限" };
+  const username = String(input.username || "").trim();
+  const name = String(input.name || username).trim();
+  const password = String(input.password || "");
+  const roleIds = [...new Set(Array.isArray(input.roleIds) ? input.roleIds.map(String) : [])];
+  const accounts = ensureAdminUsers(state);
+  if (!/^[a-zA-Z0-9_.-]{3,40}$/.test(username) || !name || name.length > 50 || password.length < 8 || password.length > 128 || !cleanReason(input.reason)) return { ok: false, status: 400, error: "请填写合法账号、姓名、8 至 128 位密码和原因" };
+  if (accounts.some(item => [item.username.toLowerCase(), item.id.toLowerCase()].includes(username.toLowerCase()))) return { ok: false, status: 409, error: "管理员账号已存在" };
+  const roles = state.roles.filter(role => roleIds.includes(role.id));
+  if (!roles.length || roles.length !== roleIds.length) return { ok: false, status: 400, error: "请选择有效角色" };
+  if (!canGrantRoles(actor, roles)) return { ok: false, status: 403, error: "不能授予超出当前操作者权限范围的角色" };
+  const now = new Date().toISOString();
+  const account = { id: nextId("admin"), username, name, passwordHash: hashAdminPassword(password), roleIds, status: "active", createdAt: now, updatedAt: now, lastLoginAt: "" };
+  accounts.push(account);
+  logOperation(state, actor, "admin.create", "admin", account.id, { after: publicAdmin(account), reason: cleanReason(input.reason) }); saveState();
+  return { ok: true, admin: { ...publicAdmin(account), role: effectiveRole(state, account) } };
+}
+
+function updateAdminUser(state, id, input = {}, actor = {}) {
+  if (!canManageAdmins(actor)) return { ok: false, status: 403, error: "缺少管理员管理权限" };
+  const account = ensureAdminUsers(state).find(item => item.id === id);
+  if (!account) return { ok: false, status: 404, error: "管理员不存在" };
+  if (!canGrantRoles(actor, [effectiveRole(state, account)])) return { ok: false, status: 403, error: "不能管理权限高于自己的管理员" };
+  if (!cleanReason(input.reason) || (input.status !== undefined && !["active", "disabled"].includes(input.status))
+    || (input.name !== undefined && (typeof input.name !== "string" || !input.name.trim() || input.name.trim().length > 50))
+    || (input.roleIds !== undefined && !Array.isArray(input.roleIds))) return { ok: false, status: 400, error: "请填写有效姓名、状态、角色和原因" };
+  const next = { ...account, roleIds: [...account.roleIds] };
+  if (input.status !== undefined) next.status = input.status;
+  if (input.name !== undefined) next.name = input.name.trim();
+  if (Array.isArray(input.roleIds)) {
+    const roleIds = [...new Set(input.roleIds.map(String))];
+    const roles = state.roles.filter(role => roleIds.includes(role.id));
+    if (!roles.length || roles.length !== roleIds.length || !canGrantRoles(actor, roles)) return { ok: false, status: 403, error: "角色无效或超出当前权限范围" };
+    next.roleIds = roleIds;
+  }
+  if (id === actor.adminId && (next.status !== "active" || JSON.stringify(next.roleIds) !== JSON.stringify(account.roleIds))) return { ok: false, status: 400, error: "不能禁用或调整当前登录账号的角色" };
+  if (account.status === "active" && effectiveRole(state, account).permissions.includes("*")
+    && (next.status !== "active" || !effectiveRole(state, next).permissions.includes("*"))
+    && !state.adminUsers.some(item => item.id !== id && item.status === "active" && effectiveRole(state, item).permissions.includes("*"))) return { ok: false, status: 400, error: "至少保留一个启用的超级管理员" };
+  const before = publicAdmin(account);
+  Object.assign(account, next);
+  account.updatedAt = new Date().toISOString();
+  if (account.status === "disabled") revokeAdminSessions(state, id);
+  logOperation(state, actor, "admin.update", "admin", id, { before, after: publicAdmin(account), reason: cleanReason(input.reason) }); saveState();
+  return { ok: true, admin: { ...publicAdmin(account), role: effectiveRole(state, account) } };
+}
+
+function resetAdminPassword(state, id, input = {}, actor = {}) {
+  if (!canManageAdmins(actor)) return { ok: false, status: 403, error: "缺少管理员管理权限" };
+  const account = ensureAdminUsers(state).find(item => item.id === id);
+  const password = String(input.password || "");
+  if (!account) return { ok: false, status: 404, error: "管理员不存在" };
+  if (!canGrantRoles(actor, [effectiveRole(state, account)])) return { ok: false, status: 403, error: "不能重置权限高于自己的管理员密码" };
+  if (password.length < 8 || password.length > 128 || !cleanReason(input.reason)) return { ok: false, status: 400, error: "请输入 8 至 128 位新密码和原因" };
+  account.passwordHash = hashAdminPassword(password); account.updatedAt = new Date().toISOString();
+  revokeAdminSessions(state, id);
+  state.authLoginAttempts = (state.authLoginAttempts || []).filter(item => item.subjectType !== "admin" || item.subjectId !== id);
+  logOperation(state, actor, "admin.reset_password", "admin", id, { reason: cleanReason(input.reason) }); saveState(); return { ok: true };
+}
+
+function revokeAdminSessions(state, id) {
+  for (const session of state.authSessions || []) if (session.subjectType === "admin" && session.subjectId === id) session.revokedAt = new Date().toISOString();
 }
 
 function listDashboardViews(state, actor = {}) {
@@ -575,6 +663,18 @@ function listInventoryLedger(state) {
 function updateUser(state, userId, input = {}, actor = {}) {
   const user = userRepository.findById(state, userId);
   if (!user) return { ok: false, status: 404, error: "operation failed" };
+  const membershipChange = input.memberMonths !== undefined || input.clearMember !== undefined;
+  const permissions = actor.role?.permissions || [];
+  if (membershipChange) {
+    if (!permissions.includes("*") && !permissions.includes("membership:manage")) return { ok: false, status: 403, error: "缺少会员管理权限" };
+    if (!cleanReason(input.reason) || typeof input.idempotencyKey !== "string" || !input.idempotencyKey.trim()) return { ok: false, status: 400, error: "会员调整需要原因和幂等标识" };
+    if ((input.memberMonths !== undefined && (!Number.isInteger(input.memberMonths) || input.memberMonths < 1 || input.memberMonths > 12))
+      || (input.clearMember !== undefined && input.clearMember !== true) || (input.memberMonths && input.clearMember)) return { ok: false, status: 400, error: "续期月数应为 1 至 12，不能同时清除会员" };
+    const previous = state.adminOperationLogs.find(item => item.action === "user.update" && item.idempotencyKey === input.idempotencyKey);
+    if (previous) return previous.targetId === userId && previous.detail.memberMonths === input.memberMonths && previous.detail.clearMember === input.clearMember
+      ? { ok: true, user, idempotent: true } : { ok: false, status: 409, error: "请求标识已被其他调整使用" };
+  }
+  if ((input.status !== undefined || input.nickname !== undefined || input.phone !== undefined) && !permissions.includes("*") && !permissions.includes("customer:read")) return { ok: false, status: 403, error: "缺少用户管理权限" };
   const before = { ...user };
 
   if (["active", "disabled"].includes(input.status)) user.status = input.status;
@@ -584,7 +684,7 @@ function updateUser(state, userId, input = {}, actor = {}) {
     const months = Math.max(0, Math.floor(Number(input.memberMonths)));
     if (months > 0) {
       const until = user.memberUntil && new Date(user.memberUntil) > new Date() ? new Date(user.memberUntil) : new Date();
-      until.setMonth(until.getMonth() + months);
+      until.setTime(until.getTime() + months * 30 * 86400000);
       user.role = "member";
       user.memberUntil = until.toISOString();
     }
@@ -595,7 +695,7 @@ function updateUser(state, userId, input = {}, actor = {}) {
   }
   user.status ||= "active";
 
-  logOperation(state, actor, "user.update", "user", user.id, { before, after: user, reason: cleanReason(input.reason) });
+  logOperation(state, actor, "user.update", "user", user.id, { before, after: { ...user }, reason: cleanReason(input.reason), idempotencyKey: input.idempotencyKey, memberMonths: input.memberMonths, clearMember: input.clearMember });
   saveState();
   return { ok: true, user };
 }
@@ -626,6 +726,8 @@ function updateConfig(state, input, actor = {}) {
   const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "splashAdEnabled"];
   const numberKeys = [
     "membershipMonthlyPrice",
+    "membershipMonthlyPoints",
+    "membershipPointCashRate",
     "deliveryFee",
     "deliveryCutoffHour",
     "rankingRefreshMinutes",
@@ -1296,6 +1398,11 @@ module.exports = {
   listRoles,
   listPermissionCatalog,
   updateRole,
+  createRole,
+  listAdminUsers,
+  createAdminUser,
+  updateAdminUser,
+  resetAdminPassword,
   listDashboardViews,
   listExceptions,
   listRefunds,

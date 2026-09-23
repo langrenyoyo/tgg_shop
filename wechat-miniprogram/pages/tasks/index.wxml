@@ -17,8 +17,8 @@
     </view>
     <view class="task-list">
       <view wx:for="{{tasks}}" wx:key="id" class="task-card" bindtap="openTask" data-id="{{item.id}}">
-        <view class="icon-column"><view class="dot">任</view></view>
-        <view class="task-main"><view class="task-title">{{item.title}}</view><view class="description">{{item.category ? item.category + ' · ' : ''}}奖励进入详情页查看</view></view>
+        <view class="icon-column"><image wx:if="{{item.image}}" src="{{item.image}}" mode="aspectFill" style="width:64rpx;height:64rpx;border-radius:12rpx;" /><view wx:else class="dot">任</view></view>
+        <view class="task-main"><view class="task-title">{{item.title}}</view><view class="description">{{item.category ? item.category + ' · ' : ''}}奖励进入详情页查看</view><view wx:if="{{item.tishi}}" class="description">{{item.tishi}}</view><view wx:if="{{item.isTopText || item.platformStatusText}}" class="description">{{item.isTopText}} {{item.platformStatusText}}</view></view>
         <view class="state {{item.paused ? 'warn' : ''}}">{{item.paused ? '暂停' : '去完成'}}</view>
       </view>
     </view>

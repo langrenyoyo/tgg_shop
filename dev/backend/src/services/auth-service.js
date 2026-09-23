@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { ensureAdminUsers, effectiveRole, publicAdmin, verifyAdminPassword } = require("../domain/admin-accounts");
 const { nextId, saveState } = require("../data/store");
 const { getBearerToken, issueToken, publicRole, verifyToken } = require("../domain/auth");
 const { publicUser } = require("../http/http-utils");
@@ -111,21 +112,22 @@ async function exchangeWechatCode(rawCode) {
 }
 
 function adminLogin(state, input = {}) {
-  const roleId = input.roleId || input.adminId;
-  const role = state.roles.find((item) => item.id === roleId);
-  if (!role) return { ok: false, status: 401, error: "账号或密码错误" };
+  const identity = String(input.username || input.adminId || input.roleId || "").trim();
+  const account = ensureAdminUsers(state).find(item => item.username.toLowerCase() === identity.toLowerCase() || item.id === identity);
+  if (!account || account.status !== "active") return { ok: false, status: 401, error: "账号或密码错误" };
 
-  const locked = assertNotLocked(state, "admin", role.id);
+  const locked = assertNotLocked(state, "admin", account.id);
   if (!locked.ok) return locked;
 
-  if (!isValidPassword(input.password)) {
-    return recordFailedLogin(state, "admin", role.id);
+  if (!verifyAdminPassword(input.password, account.passwordHash)) {
+    return recordFailedLogin(state, "admin", account.id);
   }
 
-  clearLoginAttempts(state, "admin", role.id);
+  clearLoginAttempts(state, "admin", account.id);
+  account.lastLoginAt = new Date().toISOString();
   const result = tokenResult(state, {
-    role: publicRole(role),
-    tokenPayload: { type: "admin", roleId: role.id }
+    role: effectiveRole(state, account), admin: publicAdmin(account),
+    tokenPayload: { type: "admin", adminId: account.id }
   });
   saveState();
   return result;
@@ -171,8 +173,9 @@ function refresh(state, input = {}, expectedType) {
   );
   if (!session) return { ok: false, status: 401, error: "刷新令牌无效或已过期" };
 
+  if (expectedType === "admin" && !ensureAdminUsers(state).some(item => item.id === session.subjectId && item.status === "active")) return { ok: false, status: 401, error: "管理员已禁用" };
   const tokenPayload = session.subjectType === "admin"
-    ? { type: "admin", roleId: session.subjectId, tokenId: session.tokenId }
+    ? { type: "admin", adminId: session.subjectId, tokenId: session.tokenId }
     : session.subjectType === "station"
       ? { type: "station", stationId: session.subjectId, tokenId: session.tokenId }
       : { type: "user", userId: session.subjectId, tokenId: session.tokenId };
@@ -201,7 +204,7 @@ function tokenResult(state, input) {
   const token = issueToken(input.tokenPayload);
   const payload = JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString("utf8"));
   const subjectType = payload.type;
-  const subjectId = subjectType === "admin" ? payload.roleId : subjectType === "station" ? payload.stationId : payload.userId;
+  const subjectId = subjectType === "admin" ? (payload.adminId || payload.roleId) : subjectType === "station" ? payload.stationId : payload.userId;
   const issuedAt = new Date(payload.iat * 1000).toISOString();
   const expiresAt = new Date(payload.exp * 1000).toISOString();
   const refreshToken = createRefreshToken();
@@ -229,6 +232,7 @@ function tokenResult(state, input) {
     sessionId: state.authSessions[0].id,
     user: input.user,
     role: input.role,
+    admin: input.admin,
     station: input.station
   };
 }

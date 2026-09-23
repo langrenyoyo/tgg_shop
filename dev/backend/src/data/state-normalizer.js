@@ -4,6 +4,7 @@ function normalizeState(nextState) {
   const seed = createSeed();
   nextState.config = { ...seed.config, ...(nextState.config || {}) };
   nextState.roles = mergeRoles(nextState.roles || [], seed.roles, nextState.config.rolePermissionOverrides || {});
+  require("../domain/admin-accounts").ensureAdminUsers(nextState);
   nextState.inviteRelations = nextState.inviteRelations || seed.inviteRelations;
   nextState.addresses = nextState.addresses || seed.addresses;
   nextState.signinSessions = nextState.signinSessions || seed.signinSessions;

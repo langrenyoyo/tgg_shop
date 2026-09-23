@@ -53,6 +53,8 @@ function normalizeTaskListItem(row) {
     category: row.c_name || row.type_name || row.category || "",
     categoryId: row.c_id ? String(row.c_id) : undefined,
     tishi: row.tishi || "",
+    isTopText: row.is_top_text || "",
+    platformStatusText: row.p_status_text || "",
     option: normalizeOption(row.option),
     paused: Number(row.is_pause) === 1 || Number(row.is_stop) === 1,
     source: "platform"
@@ -65,16 +67,45 @@ function normalizeTaskDetail(row) {
   const numericReward = typeof rawReward === "number" || (typeof rawReward === "string" && /^\d+(?:\.\d+)?$/.test(rawReward.trim())) ? Number(rawReward) : NaN;
   const points = Math.round(numericReward * 10);
   const rewardValid = Number.isFinite(numericReward) && numericReward >= 0 && Number.isSafeInteger(points);
+  // Preserve the provider's values and types. The PDF does not define the
+  // units of *_ratio; its example splits 17 into 3.4 + 1.7 + 11.90.
+  // These values must not silently replace our configured commission rate.
+  const platformFinancials = Object.fromEntries([
+    "reward", "users_ratio", "bili", "bili_reward", "bili_sy_reward",
+    "agency_ratio", "invitation_ratio", "commission_reward", "commission_sy_reward"
+  ].filter(key => Object.hasOwn(row, key)).map(key => [key, row[key]]));
+  const invitationAmount = parseNonNegativeNumber(row.invitation_ratio);
   return {
     ...detail,
     reward: row.reward,
     usersRatio: row.users_ratio,
+    bili: row.bili,
+    biliReward: row.bili_reward,
+    biliSyReward: row.bili_sy_reward,
+    agencyRatio: row.agency_ratio,
+    invitationRatio: row.invitation_ratio,
+    inviteCommissionPoints: invitationAmount === null ? null : toPoints(invitationAmount),
+    commissionReward: row.commission_reward,
+    commissionSyReward: row.commission_sy_reward,
+    platformFinancials,
     rewardPoints: rewardValid ? points : null,
     rewardValid,
     content: Array.isArray(row.content) ? row.content.filter(block => block && typeof block === "object").map(block => ({ ...block, img_list: normalizeStepImages(block) })) : [],
     submitFields: normalizeOption(row.option),
     paused: Number(row.is_pause) === 1 || Number(row.is_stop) === 1
   };
+}
+
+function parseNonNegativeNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
+  if (typeof value !== "string" || !/^\d+(?:\.\d+)?$/.test(value.trim())) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function toPoints(value) {
+  const points = Math.round(value * 10);
+  return Number.isSafeInteger(points) && points >= 0 ? points : null;
 }
 
 function normalizeStepImages(block) {

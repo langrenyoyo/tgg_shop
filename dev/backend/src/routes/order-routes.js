@@ -23,7 +23,7 @@ async function handleOrderRoutes(ctx) {
 
   if (req.method === "POST" && url.pathname === "/api/member/payments") {
     const body = await readBody(req);
-    const result = paymentService.createMemberPayment(state, user, { months: body.months, idempotencyKey: body.idempotencyKey, channel: "lfwin_wechat_mini" });
+    const result = paymentService.createMemberPayment(state, user, { months: body.months, paymentMode: body.paymentMode, idempotencyKey: body.idempotencyKey, channel: body.channel || "lfwin_wechat_mini" });
     if (result.ok) await saveState();
     return send(ctx.res, result.ok ? 201 : result.status, result.ok ? result.payment : { error: result.error });
   }

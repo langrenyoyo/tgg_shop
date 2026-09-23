@@ -577,7 +577,12 @@ function readState(database) {
     operationTickets,
     authSessions,
     authLoginAttempts,
-    roles
+    roles,
+    adminUsers: database.prepare("SELECT * FROM admin_user").all().map(row => ({
+      id: row.id, username: row.username, name: row.name, passwordHash: row.password_hash,
+      roleIds: JSON.parse(row.role_ids_json), status: row.status,
+      createdAt: row.created_at, updatedAt: row.updated_at, lastLoginAt: row.last_login_at || ""
+    })).reduce((items, item) => [...(items || []), item], undefined)
   };
 }
 
@@ -595,6 +600,7 @@ function writeState(database, state) {
 
 function deleteExistingRows(database) {
   for (const table of [
+    "admin_user",
     "admin_role_permission",
     "auth_login_attempt",
     "auth_session",
@@ -633,6 +639,10 @@ function deleteExistingRows(database) {
 }
 
 function insertState(database, state) {
+  const insertAdmin = database.prepare("INSERT INTO admin_user VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  for (const account of require("../domain/admin-accounts").ensureAdminUsers(state)) {
+    insertAdmin.run(account.id, account.username, account.name, account.passwordHash, JSON.stringify(account.roleIds), account.status, account.createdAt, account.updatedAt, account.lastLoginAt || null);
+  }
   const insertConfig = database.prepare("INSERT INTO app_config (config_key, config_value) VALUES (?, ?)");
   for (const [key, value] of Object.entries({ ...state.config, currentUserId: state.currentUserId })) {
     insertConfig.run(key, JSON.stringify(value));

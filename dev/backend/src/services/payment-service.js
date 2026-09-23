@@ -55,11 +55,18 @@ function createGoodsPayment(state, orderId, input = {}) {
 }
 
 function createMemberPayment(state, user, input = {}) {
-  if (process.env.NODE_ENV === "production" && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled in production" };
   const months = Number(input.months || 1);
   if (!Number.isInteger(months) || months < 1 || months > 12) return { ok: false, status: 400, error: "会员月数必须为 1 至 12" };
   const price = Number(state.config.membershipMonthlyPrice || 19.9);
-  const amount = roundMoney(price * months);
+  const pointsRequired = Math.max(0, Math.floor(Number(state.config.membershipMonthlyPoints || 0) * months));
+  const paymentMode = input.paymentMode || "cash";
+  const pointCashRate = Math.max(0, Number(state.config.membershipPointCashRate ?? 0.01));
+  if (!["cash", "pure_points", "points_plus_cash"].includes(paymentMode)) return { ok: false, status: 400, error: "不支持的会员开通方式" };
+  if (paymentMode === "pure_points" && (!pointsRequired || user.points < pointsRequired)) return { ok: false, status: 400, error: pointsRequired ? `积分不足，开通需要 ${pointsRequired} 积分` : "后台尚未配置积分开通会员" };
+  if (paymentMode === "points_plus_cash" && !pointsRequired) return { ok: false, status: 400, error: "后台尚未配置积分开通会员" };
+  const pointAmount = paymentMode === "cash" ? 0 : Math.min(user.points, pointsRequired);
+  const amount = roundMoney(Math.max(0, price * months - pointAmount * pointCashRate));
+  if (process.env.NODE_ENV === "production" && amount > 0 && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled in production" };
   const idempotencyKey = input.idempotencyKey || `payment:member:${user.id}:${months}:${Date.now()}`;
   const existing = state.paymentLedger.find((payment) => payment.idempotencyKey === idempotencyKey);
   if (existing) return existing.userId === user.id && existing.payScene === "member_open" ? { ok: true, payment: existing, idempotent: true } : { ok: false, status: 409, error: "支付请求标识已被使用" };
@@ -67,7 +74,7 @@ function createMemberPayment(state, user, input = {}) {
   // Recover the same unpaid subscription across page reloads and devices.
   const pending = state.paymentLedger.find(payment => payment.userId === user.id && payment.payScene === "member_open" && payment.status === "pending" && payment.direction === "in");
   if (pending) {
-    if (Number(pending.metadata?.months) !== months) return { ok: false, status: 409, error: "已有待支付会员订单，请先处理原订单" };
+    if (Number(pending.metadata?.months) !== months || (input.paymentMode && pending.metadata?.paymentMode !== input.paymentMode)) return { ok: false, status: 409, error: "已有待支付会员订单，请先处理原订单" };
     return { ok: true, payment: pending, idempotent: true };
   }
 
@@ -81,14 +88,19 @@ function createMemberPayment(state, user, input = {}) {
     direction: "in",
     amount,
     pointAmount: 0,
-    channel: input.channel || "mock_pay",
-    status: "pending",
+    channel: paymentMode === "pure_points" ? "points" : (input.channel || "mock_pay"),
+    status: paymentMode === "pure_points" || amount === 0 ? "paid" : "pending",
     idempotencyKey,
-    metadata: { months, membershipMonthlyPrice: price },
+    metadata: { months, membershipMonthlyPrice: price, paymentMode, pointsRequired, pointAmount, membershipPointCashRate: pointCashRate },
     createdAt: now,
     updatedAt: now
   };
   ledgerRepository.addPaymentEntry(state, payment);
+  if (payment.status === "paid") {
+    const result = applyPaidPayment(state, payment);
+    if (!result.ok) return result;
+    payment.callbackTime = now;
+  }
   saveState();
   return { ok: true, payment };
 }
@@ -356,8 +368,17 @@ function applyPaidPayment(state, payment) {
     const user = userRepository.findById(state, payment.userId);
     if (!user) return { ok: false, status: 400, error: "会员支付用户不存在" };
     const months = Math.max(1, Number(payment.metadata?.months || 1));
+    const pointAmount = Math.max(0, Number(payment.metadata?.pointAmount || 0));
+    if (pointAmount) {
+      const pointKey = `member:${payment.id}:points`;
+      if (!state.pointLedger.some(entry => entry.idempotencyKey === pointKey)) {
+        if (user.points < pointAmount) return { ok: false, status: 409, error: "会员积分不足，无法完成结算" };
+        user.points -= pointAmount;
+        ledgerRepository.addPointEntry(state, { id: nextId("pt"), userId: user.id, changeType: "member_open", direction: "out", points: pointAmount, balanceAfter: user.points, bizNo: payment.payNo, idempotencyKey: pointKey, createdAt: new Date().toISOString() });
+      }
+    }
     const until = user.memberUntil && new Date(user.memberUntil) > new Date() ? new Date(user.memberUntil) : new Date();
-    until.setMonth(until.getMonth() + months);
+    until.setDate(until.getDate() + months * 30);
     user.role = "member";
     user.memberUntil = until.toISOString();
     return { ok: true, user: publicUser(user) };

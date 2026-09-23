@@ -10,6 +10,8 @@ function createSeed() {
   return {
     config: {
       membershipMonthlyPrice: 19.9,
+      membershipMonthlyPoints: 0,
+      membershipPointCashRate: 0.01,
       pickupEnabled: true,
       deliveryEnabled: true,
       deliveryFeeEnabled: true,
@@ -311,7 +313,7 @@ function createSeed() {
     authLoginAttempts: [],
     roles: [
       { id: "super_admin", name: "超级管理员", permissions: ["*"] },
-      { id: "operation_admin", name: "运营管理员", permissions: ["config:read", "config:write", "product:read", "ranking:read", "signin:config"] },
+      { id: "operation_admin", name: "运营管理员", permissions: ["config:read", "config:write", "product:read", "ranking:read", "signin:config", "customer:read", "membership:manage"] },
       { id: "product_admin", name: "商品管理员", permissions: ["product:read", "product:write", "points_product:write", "stock:write"] },
       { id: "order_admin", name: "订单管理员", permissions: ["order:read", "order:fulfillment"] },
       { id: "delivery_dispatcher", name: "配送调度", permissions: ["order:read", "order:fulfillment", "delivery:dispatch"] },

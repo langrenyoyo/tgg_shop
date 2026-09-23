@@ -88,6 +88,22 @@ test("documented step img fields become usable image lists without losing instru
   ]);
 });
 
+test("provider invitation allocation is preserved on task detail and converted to points", () => {
+  const detail = client.normalizeTaskDetail({
+    id: "task",
+    users_ratio: "11.90",
+    invitation_ratio: "1.70",
+    agency_ratio: "3.40",
+    commission_reward: "0.00",
+    commission_sy_reward: "17.00",
+    option: []
+  });
+  assert.equal(detail.invitationRatio, "1.70");
+  assert.equal(detail.inviteCommissionPoints, 17);
+  assert.equal(detail.agencyRatio, "3.40");
+  assert.equal(detail.commissionSyReward, "17.00");
+});
+
 test("runtime refuses missing production platform credentials or partially configured development connections", () => {
   const empty = validateRuntimeConfig({}, true);
   assert.ok(empty.errors.some(error => error.includes("TGG_TASK_PLATFORM_KEY is required")));

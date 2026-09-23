@@ -1,6 +1,7 @@
 import { pendingApprovalIntents } from "./api.js";
 import { renderDashboard } from "./dashboard.js";
 import { productEditor } from "./product-editor.js";
+import { adminAccountsView } from "./admin-accounts.js";
 let currentAdminState = {};
 
 const viewPermissions = {
@@ -133,6 +134,8 @@ const labelMaps = {
 
 export function renderAdminPage(state) {
   currentAdminState = state || {};
+  document.querySelector("#adminIdentity").textContent = state.identity?.admin?.name || "未登录";
+  document.querySelector("#adminLogout").hidden = !state.identity;
   const [title, subtitle] = titles[state.view] || titles.dashboard;
   document.querySelector("#adminTitle").textContent = title;
   document.querySelector("#adminSubtitle").textContent = subtitle;
@@ -145,6 +148,10 @@ export function renderAdminPage(state) {
 
   if (state.loading) {
     document.querySelector("#adminScreen").innerHTML = '<section class="panel" role="status">正在加载后台数据…</section>';
+    return;
+  }
+  if (!state.identity) {
+    document.querySelector("#adminScreen").innerHTML = `<section class="panel"><h2>管理员登录</h2><p role="alert">${escapeHtml(state.loginError || "请输入管理员账号和密码")}</p><form class="admin-form" data-admin-login><label>账号<input name="username" autocomplete="username" required></label><label>密码<input name="password" type="password" autocomplete="current-password" required></label><button class="action" type="submit">登录</button></form></section>`;
     return;
   }
 
@@ -307,7 +314,7 @@ export function promotionEditor(item = {}) {
 }
 
 function users(state) {
-  return `<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "状态", "操作"], (state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberExpireAt ? `月会员<br>${formatDateTime(item.memberExpireAt)}` : "-", badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">月会员支持后台续期与权益状态巡检。</section>`;
+  return `<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "状态", "操作"], (state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberUntil ? `月会员<br>${formatDateTime(item.memberUntil)}` : "-", badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">月会员支持后台续期与权益状态巡检。</section>`;
 }
 
 function addressBook(state) {
@@ -437,8 +444,8 @@ function monthlyReward(state) {
 
 function permissions(state) {
   const roles = state.roles || [];
-  const editing = roles.find(role => role.id === state.editingRoleId);
-  return `<section class="table-panel">${state.roleMessage ? `<p role="status">${escapeHtml(state.roleMessage)}</p>` : ""}${simpleTable("角色权限矩阵", ["角色", "权限", "操作"], roles.map(role => [
+  const editing = state.editingRoleId === "new" ? { id: "new", name: "", permissions: [] } : roles.find(role => role.id === state.editingRoleId);
+  return `${adminAccountsView(state)}<section class="table-panel">${state.roleMessage ? `<p role="status">${escapeHtml(state.roleMessage)}</p>` : ""}${gatedAction("role:write", '<button class="action" data-role-edit="new">新增角色</button>')}${simpleTable("角色权限矩阵", ["角色", "权限", "操作"], roles.map(role => [
     `${escapeHtml(role.name || role.id)}<br><span class="muted-text">${escapeHtml(role.id)}</span>`,
     `<div class="permission-list">${role.permissions.includes("*") ? "全部权限" : role.permissions.map(permission => escapeHtml(permission)).join(" / ") || "未分配权限"}</div>`,
     role.permissions.includes("*") ? "系统保留" : role.id === state.identity?.id ? "当前角色" : gatedAction("role:write", `<button class="action" data-role-edit="${escapeAttr(role.id)}">编辑权限</button>`)
@@ -474,7 +481,10 @@ function settings(state) {
     <section class="panel">
       <div class="panel-head"><h2>会员与支付设置</h2><span>纯积分兑换不允许现金补差</span></div>
       <form class="config-form" data-config-form="points">
-        <label class="check"><input name="monthlyPointRewardEnabled" type="checkbox" ${config.monthlyPointRewardEnabled !== false ? "checked" : ""}> 启用月度阶梯奖励</label>
+        <label>会员月价<input name="membershipMonthlyPrice" type="number" min="0" step="0.01" value="${config.membershipMonthlyPrice ?? 19.9}"></label>
+        <label>30 天所需积分（0 表示关闭）<input name="membershipMonthlyPoints" type="number" min="0" value="${config.membershipMonthlyPoints ?? 0}"></label>
+        <label>积分抵扣现金（元/积分）<input name="membershipPointCashRate" type="number" min="0" step="0.001" value="${config.membershipPointCashRate ?? 0.01}"></label>
+        <label class="check"><input name="monthlyPointRewardEnabled" type="checkbox" ${config.monthlyPointRewardEnabled !== false ? "checked" : "checked"}> 启用月度阶梯奖励</label>
         <label>月结小时<input name="monthlyPointRewardSettlementHour" type="number" min="0" max="23" value="${config.monthlyPointRewardSettlementHour ?? 0}"></label>
         <label>月结分钟<input name="monthlyPointRewardSettlementMinute" type="number" min="0" max="59" value="${config.monthlyPointRewardSettlementMinute ?? 10}"></label>
         <label>邀请奖励<input name="inviteRewardPoints" type="number" value="${config.inviteRewardPoints ?? 0}"></label>
@@ -593,7 +603,7 @@ function orderActionButtons(order) {
 function userActionButtons(item) {
   return `<div class="table-actions">
     ${gatedAction("approval:request", `<button class="action" data-user-points-adjust="${item.id}" data-user-points="${item.points || 0}">调积分</button>`, "无审批权限")}
-    ${gatedAction("customer:read", `<button class="action" data-user-action="${item.id}" data-action-type="extend">续 1 月</button>`, "无用户权限")}
+    ${gatedAction("membership:manage", `<button class="action" data-user-action="${item.id}" data-action-type="extend">续 30 天</button>`, "无会员权限")}
     ${gatedAction("customer:read", `<button class="action" data-user-action="${item.id}" data-action-type="${item.status === "disabled" ? "enable" : "disable"}">${item.status === "disabled" ? "启用" : "禁用"}</button>`, "无用户权限")}
   </div>`;
 }

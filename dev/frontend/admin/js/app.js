@@ -1,4 +1,4 @@
-import { api, getAdminRole, safeApi, retryApprovalIntent } from "./api.js";
+import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin } from "./api.js";
 import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 
@@ -11,6 +11,7 @@ const state = {
   inventoryLedger: [],
   ledger: { pointLedger: [], paymentLedger: [] },
   roles: [],
+  adminUsers: [],
   refunds: [],
   exceptions: [],
   config: {},
@@ -64,7 +65,7 @@ const state = {
 async function loadDashboard() {
   const summaryPath = buildSummaryPath();
   const monthlyRewardPath = buildMonthlyRewardPath();
-  const [identity, summary, orders, products, inventoryLedger, ledger, roles, refunds, exceptions, config, monthlyPointRewardOverview, pickupSites, deliveryTeams, withdrawals, users, addresses, invites, tickets, ranking, approvalRequests, orderStatusLogs, operationLogs, taskSubmissions, dashboardViews, permissionCatalog] = await Promise.all([
+  const [identity, summary, orders, products, inventoryLedger, ledger, roles, adminUsers, refunds, exceptions, config, monthlyPointRewardOverview, pickupSites, deliveryTeams, withdrawals, users, addresses, invites, tickets, ranking, approvalRequests, orderStatusLogs, operationLogs, taskSubmissions, dashboardViews, permissionCatalog] = await Promise.all([
     safeApi("/api/admin/auth/me", null),
     safeApi(summaryPath, {}),
     safeApi("/api/admin/orders", []),
@@ -72,6 +73,7 @@ async function loadDashboard() {
     safeApi("/api/admin/inventory-ledger", []),
     safeApi(paymentLedgerPath(), { pointLedger: [], paymentLedger: [] }),
     safeApi("/api/admin/permissions", []),
+    safeApi("/api/admin/admin-users", []),
     safeApi("/api/admin/refunds", []),
     safeApi("/api/admin/exceptions", []),
     safeApi("/api/admin/config", {}),
@@ -93,6 +95,11 @@ async function loadDashboard() {
   ]);
 
   state.identity = identity.ok ? identity.data : null;
+  if (!state.identity) {
+    state.loading = false;
+    renderAdminPage(state);
+    return;
+  }
   state.summary = summary.ok ? summary.data : { role: state.role };
   state.summaryError = summary.ok ? "" : summary.error?.message || "统计数据加载失败，请刷新重试";
   state.orders = orders.ok ? orders.data : [];
@@ -102,6 +109,7 @@ async function loadDashboard() {
   state.refundReturns = refundReturns.ok ? refundReturns.data : [];
   state.ledger = ledger.ok ? ledger.data : { pointLedger: [], paymentLedger: [] };
   state.roles = roles.ok ? roles.data : [];
+  state.adminUsers = adminUsers.ok ? adminUsers.data : [];
   state.permissionCatalog = permissionCatalog.ok ? permissionCatalog.data : [];
   state.refunds = refunds.ok ? refunds.data : [];
   state.exceptions = exceptions.ok ? exceptions.data : [];
@@ -348,6 +356,21 @@ document.querySelector("#refresh").addEventListener("click", () => {
 
 document.body.addEventListener("click", (event) => {
   if (event.target.closest("button:disabled")) return;
+  const adminToggle = event.target.closest("[data-admin-toggle]");
+  if (adminToggle) {
+    const reason = window.prompt("请输入启用 / 禁用管理员的原因，禁用会使已登录会话失效：");
+    if (!reason?.trim()) return;
+    adminToggle.disabled = true;
+    api(`/api/admin/admin-users/${encodeURIComponent(adminToggle.dataset.adminToggle)}`, { method: "PATCH", body: JSON.stringify({ status: adminToggle.dataset.adminStatus, reason }) }).then(loadDashboard).catch(error => window.alert(error.message)).finally(() => { adminToggle.disabled = false; });
+    return;
+  }
+  const adminEdit = event.target.closest("[data-admin-edit], [data-admin-reset], [data-admin-cancel]");
+  if (adminEdit) {
+    state.editingAdminId = adminEdit.dataset.adminEdit || null;
+    state.resetAdminId = adminEdit.dataset.adminReset || null;
+    renderAdminPage(state);
+    return;
+  }
   if (event.target.closest("[data-product-preview-close]")) {
     document.querySelector("[data-product-preview-dialog]")?.remove();
     return;
@@ -754,9 +777,16 @@ document.body.addEventListener("click", (event) => {
     if (userAction.dataset.actionType === "disable") body.status = "disabled";
     if (userAction.dataset.actionType === "enable") body.status = "active";
     if (userAction.dataset.actionType === "clearMember") body.clearMember = true;
+    if (body.memberMonths || body.clearMember) {
+      const reason = window.prompt("确认调整会员权益？请输入操作原因：");
+      if (!reason?.trim()) return;
+      body.reason = reason;
+      body.idempotencyKey = userAction.dataset.intentKey ||= crypto.randomUUID();
+    }
+    userAction.disabled = true;
     api(`/api/admin/users/${userAction.dataset.userAction}`, { method: "PATCH", body: JSON.stringify(body) })
       .then(loadDashboard)
-      .catch(() => renderAdminPage(state));
+      .catch(error => window.alert(error.message)).finally(() => { userAction.disabled = false; });
     return;
   }
 
@@ -869,6 +899,35 @@ document.body.addEventListener("change", (event) => {
 });
 
 document.body.addEventListener("submit", (event) => {
+  const loginForm = event.target.closest("[data-admin-login]");
+  if (loginForm) {
+    event.preventDefault();
+    const button = loginForm.querySelector('[type="submit"]');
+    if (button.disabled) return;
+    button.disabled = true;
+    const fields = new FormData(loginForm);
+    loginAdmin(fields.get("username"), fields.get("password")).then(() => { state.loginError = ""; return loadDashboard(); })
+      .catch(error => { state.loginError = error.message; renderAdminPage(state); }).finally(() => { button.disabled = false; });
+    return;
+  }
+  const adminForm = event.target.closest("[data-admin-form], [data-admin-password]");
+  if (adminForm) {
+    event.preventDefault();
+    const button = adminForm.querySelector('[type="submit"]');
+    if (button.disabled) return;
+    const fields = new FormData(adminForm);
+    const reset = adminForm.dataset.adminPassword;
+    const id = adminForm.dataset.adminForm;
+    const body = reset ? { password: fields.get("password"), reason: fields.get("reason") } : { username: fields.get("username"), name: fields.get("name"), password: fields.get("password"), roleIds: fields.getAll("roleIds"), reason: fields.get("reason") };
+    if (!reset && !body.roleIds.length) return window.alert("请至少选择一个角色");
+    if (!window.confirm(reset ? "确认重置密码并退出该账号所有会话？" : "确认保存管理员及授权角色？")) return;
+    button.disabled = true;
+    const path = reset ? `/api/admin/admin-users/${encodeURIComponent(reset)}/reset-password` : id === "new" ? "/api/admin/admin-users" : `/api/admin/admin-users/${encodeURIComponent(id)}`;
+    api(path, { method: reset || id === "new" ? "POST" : "PATCH", body: JSON.stringify(body) }).then(() => {
+      state.editingAdminId = state.resetAdminId = null; state.roleMessage = "管理员操作已保存"; return loadDashboard();
+    }).catch(error => window.alert(error.message)).finally(() => { button.disabled = false; });
+    return;
+  }
   const productFilter = event.target.closest("[data-product-filter-form]");
   if (productFilter) {
     event.preventDefault();
@@ -886,8 +945,8 @@ document.body.addEventListener("submit", (event) => {
     const formData = new FormData(roleForm);
     if (!window.confirm("确认保存该角色权限？此角色已登录的会话也将立即使用新权限。")) return;
     button.disabled = true;
-    api(`/api/admin/permissions/${encodeURIComponent(roleForm.dataset.roleForm)}`, {
-      method: "PATCH",
+    api(roleForm.dataset.roleForm === "new" ? "/api/admin/roles" : `/api/admin/permissions/${encodeURIComponent(roleForm.dataset.roleForm)}`, {
+      method: roleForm.dataset.roleForm === "new" ? "POST" : "PATCH",
       body: JSON.stringify({ name: formData.get("name"), permissions: formData.getAll("permissions"), reason: formData.get("reason") })
     }).then(() => {
       state.editingRoleId = null;
@@ -1079,6 +1138,8 @@ function buildConfigPayload(group, formData) {
   const payloads = {
     member: () => ({
       membershipMonthlyPrice: Number(formData.get("membershipMonthlyPrice")),
+      membershipMonthlyPoints: Number(formData.get("membershipMonthlyPoints")),
+      membershipPointCashRate: Number(formData.get("membershipPointCashRate")),
       paymentTimeoutMinutes: Number(formData.get("paymentTimeoutMinutes")),
       purePointsNoCashTopup: true
     }),
@@ -1092,6 +1153,8 @@ function buildConfigPayload(group, formData) {
       purePointsNoCashTopup: true
     }),
     points: () => ({
+      membershipMonthlyPrice: Number(formData.get("membershipMonthlyPrice")),
+      membershipMonthlyPoints: Number(formData.get("membershipMonthlyPoints")),
       inviteRewardPoints: Number(formData.get("inviteRewardPoints")),
       inviteCommissionRate: Number(formData.get("inviteCommissionRatePercent")) / 100,
       monthlyPointRewardEnabled: formData.get("monthlyPointRewardEnabled") === "on",
@@ -1232,9 +1295,13 @@ function exportDashboardCsv() {
 }
 
 renderAdminPage(state);
+document.querySelector("#adminLogout").addEventListener("click", async () => {
+  await logoutAdmin();
+  window.location.reload();
+});
 loadDashboard().catch(() => renderAdminPage(state));
 window.setInterval(() => {
-  if (document.visibilityState === "visible" && !["homeOps", "products", "pointsExchange"].includes(state.view) && !state.editingRoleId) {
+  if (state.identity && document.visibilityState === "visible" && !["homeOps", "products", "pointsExchange"].includes(state.view) && !state.editingRoleId && !state.editingAdminId && !state.resetAdminId) {
     loadDashboard().catch(() => renderAdminPage(state));
   }
 }, 60000);
