@@ -441,7 +441,7 @@ function bindGlobalActions() {
 
     const action = event.target.closest("[data-action]")?.dataset.action;
     if (action === "signin") startSignin().catch((error) => toast(error.message));
-    if (action === "memberCash") subscribeMember("cash").catch((error) => toast(error.message));
+    if (action === "member" || action === "memberCash") subscribeMember("cash").catch((error) => toast(error.message));
     if (action === "memberPoints") subscribeMember("pure_points").catch((error) => toast(error.message));
     if (action === "withdraw") requestWithdrawal().catch((error) => toast(error.message));
   });

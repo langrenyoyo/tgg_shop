@@ -603,7 +603,7 @@ function orderActionButtons(order) {
 function userActionButtons(item) {
   return `<div class="table-actions">
     ${gatedAction("approval:request", `<button class="action" data-user-points-adjust="${item.id}" data-user-points="${item.points || 0}">调积分</button>`, "无审批权限")}
-    ${gatedAction("membership:manage", `<button class="action" data-user-action="${item.id}" data-action-type="extend">续 30 天</button>`, "无会员权限")}
+    ${gatedAction("membership:manage", `<button class="action" data-user-action="${item.id}" data-action-type="extend">续 1 月（30天）</button>`, "无会员权限")}
     ${gatedAction("customer:read", `<button class="action" data-user-action="${item.id}" data-action-type="${item.status === "disabled" ? "enable" : "disable"}">${item.status === "disabled" ? "启用" : "禁用"}</button>`, "无用户权限")}
   </div>`;
 }

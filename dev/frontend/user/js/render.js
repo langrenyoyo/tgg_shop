@@ -469,7 +469,7 @@ function membershipView(state) {
     <section class="soft-card" style="padding:22px;background:#e8fbf1"><h2 style="margin:0;color:var(--green-dark)">月会员</h2><p class="muted">普通用户升级为会员需开通月会员；会员可现金购物，也可在积分不足时现金补差。</p></section>
     <section class="field-card"><h3>当前状态</h3><p>${memberActive ? `会员剩余 ${memberDaysLeft} 天，有效期至 ${formatDate(user.memberUntil)}` : "当前为普通用户，可使用纯积分兑换，不可现金购物。"}</p></section>
     <section class="field-card"><h3>会员权益</h3><p>现金购物、积分不足现金补差、会员价商品。纯积分兑换无需会员。</p></section>
-    <button type="button" class="primary" style="width:100%;margin-top:18px" data-action="memberCash">${memberActive ? "微信开通 / 续费 30 天" : "微信开通 30 天"}</button>
+    <button type="button" class="primary" style="width:100%;margin-top:18px" data-action="member">${memberActive ? "续费 1 个月会员（30天）" : "开通 1 个月会员（30天）"}</button>
     ${Number(state.config?.membershipMonthlyPoints || 0) > 0 ? `<button type="button" class="secondary" style="width:100%;margin-top:10px" data-action="memberPoints">使用 ${Number(state.config.membershipMonthlyPoints)} 积分开通 30 天</button>` : ""}
   `;
 }
