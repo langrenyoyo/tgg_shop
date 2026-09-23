@@ -21,7 +21,15 @@ function verifyAdminPassword(password, hash) {
 }
 
 function ensureAdminUsers(state) {
-  if (Array.isArray(state.adminUsers)) return state.adminUsers;
+  if (Array.isArray(state.adminUsers) && state.adminUsers.length) {
+    state.adminUsers = state.adminUsers.map(item => ({
+      status: "active",
+      roleIds: [],
+      ...item,
+      roleIds: Array.isArray(item.roleIds) ? item.roleIds : [item.roleId || item.id].filter(Boolean)
+    }));
+    return state.adminUsers;
+  }
   const { createSeed } = require("../data/seed");
   const passwordHash = process.env.TGG_DEMO_PASSWORD_HASH || hashAdminPassword(process.env.TGG_DEMO_PASSWORD || "123456");
   state.adminUsers = createSeed().roles.map(role => ({

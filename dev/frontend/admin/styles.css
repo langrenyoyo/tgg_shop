@@ -1151,6 +1151,108 @@ td img {
   width: 16px;
 }
 
+.admin-accounts-panel {
+  margin-bottom: 24px;
+}
+
+.panel-caption {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-account-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.admin-account-table {
+  min-width: 920px;
+}
+
+.admin-account-table th,
+.admin-account-table td {
+  padding: 12px 14px;
+}
+
+.admin-account-table td:nth-child(1) {
+  min-width: 170px;
+  font-weight: 700;
+}
+
+.admin-account-table td:nth-child(2) {
+  min-width: 180px;
+}
+
+.admin-account-table td:nth-child(5) {
+  min-width: 300px;
+}
+
+.admin-account-table .action {
+  min-height: 30px;
+  padding: 0 10px;
+  margin: 2px;
+  white-space: nowrap;
+}
+
+.admin-account-form {
+  max-width: 760px;
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.admin-account-form h3 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.admin-role-checks {
+  margin: 2px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.admin-role-checks legend {
+  padding: 0 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-role-checks > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 8px 14px;
+}
+
+.admin-role-checks label {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-role-checks input {
+  min-height: 16px;
+  width: 16px;
+}
+
+.admin-account-form-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 2px;
+}
+
 .dashboard-toolbar,
 .role-editor {
   margin-bottom: 24px;
@@ -1275,6 +1377,12 @@ td img {
 
 @media (max-width: 900px) {
   .product-filter { grid-template-columns: 1fr; }
+  .admin-account-table {
+    min-width: 760px;
+  }
+  .admin-role-checks > div {
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
+  }
 }
 
 .settings-form {

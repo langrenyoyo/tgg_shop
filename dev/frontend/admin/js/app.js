@@ -364,6 +364,14 @@ document.body.addEventListener("click", (event) => {
     api(`/api/admin/admin-users/${encodeURIComponent(adminToggle.dataset.adminToggle)}`, { method: "PATCH", body: JSON.stringify({ status: adminToggle.dataset.adminStatus, reason }) }).then(loadDashboard).catch(error => window.alert(error.message)).finally(() => { adminToggle.disabled = false; });
     return;
   }
+  const adminDelete = event.target.closest("[data-admin-delete]");
+  if (adminDelete) {
+    const reason = window.prompt("删除管理员后账号将无法登录，请输入删除原因：");
+    if (!reason?.trim() || !window.confirm("确认永久删除这个管理员账号？")) return;
+    adminDelete.disabled = true;
+    api(`/api/admin/admin-users/${encodeURIComponent(adminDelete.dataset.adminDelete)}`, { method: "DELETE", body: JSON.stringify({ reason }) }).then(loadDashboard).catch(error => window.alert(error.message)).finally(() => { adminDelete.disabled = false; });
+    return;
+  }
   const adminEdit = event.target.closest("[data-admin-edit], [data-admin-reset], [data-admin-cancel]");
   if (adminEdit) {
     state.editingAdminId = adminEdit.dataset.adminEdit || null;

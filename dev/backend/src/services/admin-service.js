@@ -584,6 +584,27 @@ function resetAdminPassword(state, id, input = {}, actor = {}) {
   logOperation(state, actor, "admin.reset_password", "admin", id, { reason: cleanReason(input.reason) }); saveState(); return { ok: true };
 }
 
+function deleteAdminUser(state, id, input = {}, actor = {}) {
+  if (!canManageAdmins(actor)) return { ok: false, status: 403, error: "缺少管理员管理权限" };
+  const accounts = ensureAdminUsers(state);
+  const index = accounts.findIndex(item => item.id === id);
+  if (index < 0) return { ok: false, status: 404, error: "管理员不存在" };
+  const account = accounts[index];
+  if (id === actor.adminId) return { ok: false, status: 400, error: "不能删除当前登录管理员" };
+  if (!cleanReason(input.reason)) return { ok: false, status: 400, error: "删除管理员需要填写原因" };
+  if (!canGrantRoles(actor, [effectiveRole(state, account)])) return { ok: false, status: 403, error: "不能删除权限高于自己的管理员" };
+  const isSuper = effectiveRole(state, account).permissions.includes("*");
+  const activeSuperCount = accounts.filter(item => item.status === "active" && effectiveRole(state, item).permissions.includes("*")).length;
+  if (isSuper && activeSuperCount <= 1) return { ok: false, status: 400, error: "不能删除最后一个启用的超级管理员" };
+  const before = publicAdmin(account);
+  accounts.splice(index, 1);
+  revokeAdminSessions(state, id);
+  state.authLoginAttempts = (state.authLoginAttempts || []).filter(item => item.subjectType !== "admin" || item.subjectId !== id);
+  logOperation(state, actor, "admin.delete", "admin", id, { before, reason: cleanReason(input.reason) });
+  saveState();
+  return { ok: true, deletedId: id };
+}
+
 function revokeAdminSessions(state, id) {
   for (const session of state.authSessions || []) if (session.subjectType === "admin" && session.subjectId === id) session.revokedAt = new Date().toISOString();
 }
@@ -1403,6 +1424,7 @@ module.exports = {
   createAdminUser,
   updateAdminUser,
   resetAdminPassword,
+  deleteAdminUser,
   listDashboardViews,
   listExceptions,
   listRefunds,

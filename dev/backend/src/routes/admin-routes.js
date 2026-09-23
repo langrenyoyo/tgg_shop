@@ -285,6 +285,12 @@ async function handleAdminRoutes(ctx) {
     return send(ctx.res, result.ok ? 201 : result.status, result.ok ? result.admin : { error: result.error });
   }
   const adminUserMatch = url.pathname.match(/^\/api\/admin\/admin-users\/([^/]+)$/);
+  if (req.method === "DELETE" && adminUserMatch) {
+    const check = adminService.requirePermission(req, state, "admin:manage");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const result = adminService.deleteAdminUser(state, adminUserMatch[1], await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
   if (req.method === "PATCH" && adminUserMatch) {
     const check = adminService.requirePermission(req, state, "admin:manage");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
