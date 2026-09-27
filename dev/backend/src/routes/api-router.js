@@ -11,6 +11,7 @@ const { handleGrowthRoutes } = require("./growth-routes");
 const { handleAccountRoutes } = require("./account-routes");
 const { handleAdminRoutes } = require("./admin-routes");
 const { handleStationRoutes } = require("./station-routes");
+const { handlePospalRoutes } = require("./pospal-routes");
 
 const routeHandlers = [
   handleAuthRoutes,
@@ -20,6 +21,7 @@ const routeHandlers = [
   handleTaskRoutes,
   handleGrowthRoutes,
   handleAccountRoutes,
+  handlePospalRoutes,
   handleAdminRoutes,
   handleStationRoutes
 ];
@@ -81,6 +83,7 @@ function requiresUserAuth(req, url) {
   if (req.method === "POST" && url.pathname === "/api/payment-providers/lfwin/notify") return false;
   if (req.method === "POST" && url.pathname === "/api/task/callback") return false;
   if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") return false;
+  if (req.method === "POST" && url.pathname === "/api/pospal/callback") return false;
   return true;
 }
 

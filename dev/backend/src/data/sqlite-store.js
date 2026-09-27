@@ -707,7 +707,7 @@ function insertState(database, state) {
       product.purePointsOnly ? 1 : 0,
       product.status || "on"
     );
-    insertProductContent.run(product.id, JSON.stringify({ description: product.description || "", unit: product.unit || "", revision: product.revision || 0, createdAt: product.createdAt || "", updatedAt: product.updatedAt || "", publishedAt: product.publishedAt || "" }));
+    insertProductContent.run(product.id, JSON.stringify({ description: product.description || "", unit: product.unit || "", barcode: product.barcode || "", locationCode: product.locationCode || "", backupLocation: product.backupLocation || "", storageType: product.storageType || "ambient", pickSequence: Number(product.pickSequence || 0), revision: product.revision || 0, createdAt: product.createdAt || "", updatedAt: product.updatedAt || "", publishedAt: product.publishedAt || "" }));
   }
 
   const insertInventory = database.prepare(

@@ -26,6 +26,7 @@ const state = {
   selectedProduct: null,
   selectedTask: null,
   selectedOrderId: null,
+  selectedDeliverySlot: "",
   editingAddressId: null,
   categoryName: "全部",
   categoryMode: "all",
@@ -65,6 +66,8 @@ async function loadInitialData() {
 
   state.home = home;
   state.config = config;
+  const configuredSlots = Array.isArray(config.deliveryTimeSlots) ? config.deliveryTimeSlots : [];
+  state.selectedDeliverySlot = configuredSlots[0] || "";
   state.user = home.user || (await safeApi("/api/me", null));
   state.products = catalogProducts;
   state.exchangeProducts = exchangeProducts;
@@ -137,7 +140,9 @@ async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
     fulfillmentType,
     pickupSiteId: fulfillmentType === "pickup" ? state.pickupSites[0]?.id || "site_001" : undefined,
     deliveryAddress: fulfillmentType === "delivery" ? getDeliveryAddressText() : undefined,
-    deliveryTimeSlot: fulfillmentType === "delivery" ? state.config?.deliveryTimeSlots?.[0] : undefined,
+    deliveryTimeSlot: fulfillmentType === "delivery"
+      ? (state.selectedDeliverySlot || state.config?.deliveryTimeSlots?.[0])
+      : undefined,
     items: cartItemsForOrder(items)
   };
   const order = await api("/api/orders", { method: "POST", body: JSON.stringify(payload) });
@@ -444,6 +449,13 @@ function bindGlobalActions() {
     if (action === "member" || action === "memberCash") subscribeMember("cash").catch((error) => toast(error.message));
     if (action === "memberPoints") subscribeMember("pure_points").catch((error) => toast(error.message));
     if (action === "withdraw") requestWithdrawal().catch((error) => toast(error.message));
+  });
+
+  document.body.addEventListener("change", (event) => {
+    const slot = event.target.closest("[data-delivery-slot]");
+    if (!slot) return;
+    state.selectedDeliverySlot = slot.value || "";
+    renderPage(state);
   });
 
   document.body.addEventListener("submit", (event) => {

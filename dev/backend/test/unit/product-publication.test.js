@@ -76,3 +76,19 @@ test("pure points publishing and product details survive SQLite reload", () => {
   const order = createOrder(restored, "u_1002", { paymentMode: "pure_points", fulfillmentType: "pickup", items: [{ productId: product.id, quantity: 1 }] });
   assert.equal(order.ok, true);
 });
+
+test("product picking metadata is validated and survives SQLite reload", () => {
+  const state = createSeed();
+  const staff = actor(state);
+  const result = admin.createProduct(state, { ...valid, barcode: "690000000099", locationCode: "B-01-02", backupLocation: "B-01-03", storageType: "chilled", pickSequence: 12, reason: "配置拣货信息" }, staff);
+  assert.equal(result.ok, true);
+  assert.equal(result.product.locationCode, "B-01-02");
+  assert.equal(result.product.pickSequence, 12);
+  assert.equal(admin.updateProduct(state, result.product.id, { storageType: "invalid", reason: "非法储存类型" }, staff).status, 400);
+  saveSQLiteState(state, ":memory:");
+  const restored = loadSQLiteState(":memory:");
+  const product = restored.products.find((item) => item.id === result.product.id);
+  assert.equal(product.barcode, "690000000099");
+  assert.equal(product.locationCode, "B-01-02");
+  assert.equal(product.storageType, "chilled");
+});

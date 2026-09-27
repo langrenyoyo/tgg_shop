@@ -35,16 +35,19 @@ test("uncertain checkout reopens with exact original payload and ignores changed
       Page: value => { page = value; }, wx,
       require: name => name.endsWith("cart") ? cart : { request: async (url, options) => {
         if (options) { attempts.push(structuredClone(options.data)); if (!succeed) throw new Error("response lost"); return { id: "order1" }; }
-        return { "/api/me": { id: "alice", points: 100 }, "/api/config": { deliveryEnabled: true }, "/api/pickup-sites": [], "/api/products": [{ id: "apple", supportsPoints: true, pointsPrice: 10 }] }[url];
+        return { "/api/me": { id: "alice", points: 100 }, "/api/config": { deliveryEnabled: true, deliveryTimeSlots: ["09:00-11:00", "14:00-16:00"] }, "/api/pickup-sites": [], "/api/products": [{ id: "apple", supportsPoints: true, pointsPrice: 10 }] }[url];
       } }
     });
     page.setData = (value, callback) => { Object.assign(page.data, value); callback?.(); };
     page.onLoad(); return page;
   }
   const first = open(); await new Promise(setImmediate);
+  first.deliverySlot({ detail: { value: "1" } });
   first.address({ detail: { value: "地址 A" } }); await first.submit();
+  assert.equal(cart.readCheckoutAttempt().deliveryTimeSlot, "14:00-16:00");
   assert.equal(cart.readCheckoutAttempt().deliveryAddress, "地址 A");
   const second = open(); await new Promise(setImmediate);
+  second.deliverySlot({ detail: { value: "0" } });
   second.address({ detail: { value: "地址 B" } });
   succeed = true; await second.submit();
   assert.equal(JSON.stringify(attempts[1]), JSON.stringify(attempts[0]));

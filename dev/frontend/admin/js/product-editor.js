@@ -15,6 +15,11 @@ export function productEditor(product, { escapeHtml: e, can }) {
         ${field("积分价", "pointsPrice", product.pointsPrice || 0, "number", 'min="0" max="100000000" step="1"')}
         ${existing ? `<label>可售库存<strong>${product.stock ?? 0}</strong><span>请使用列表中的“调整库存”</span></label>` : field("初始可售库存", "stock", product.stock || 0, "number", `min="0" max="100000000" step="1" ${can("stock:write") ? "" : "disabled"}`)}
         ${field("展示标签", "tag", product.tag, "text", 'maxlength="80"')}
+        ${field("商品条码", "barcode", product.barcode || product.pospalBarcode || "", "text", 'maxlength="80" placeholder="扫码枪或手动录入条码"')}
+        ${field("主库位", "locationCode", product.locationCode || "", "text", 'maxlength="40" placeholder="例如 A-03-02"')}
+        ${field("备用库位", "backupLocation", product.backupLocation || "", "text", 'maxlength="40" placeholder="缺货时使用的备用位置"')}
+        <label>储存类型<select name="storageType"><option value="ambient" ${product.storageType === "ambient" ? "selected" : ""}>常温</option><option value="chilled" ${product.storageType === "chilled" ? "selected" : ""}>冷藏</option><option value="frozen" ${product.storageType === "frozen" ? "selected" : ""}>冷冻</option><option value="fresh" ${product.storageType === "fresh" ? "selected" : ""}>生鲜</option></select></label>
+        ${field("拣货顺序", "pickSequence", product.pickSequence || 0, "number", 'min="0" max="100000" step="1"')}
       </div>
       <label>商品主图地址<input name="image" value="${e(product.image || "")}" placeholder="上传图片或填写 https 图片地址 / 本地图片路径"></label>
       <div class="product-upload"><label>上传商品图片<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-product-image-upload></label><span data-product-upload-message role="status">支持 PNG / JPEG / GIF / WebP，最大 10 MB</span></div>

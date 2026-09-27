@@ -3,7 +3,36 @@ process.env.TGG_STORE_MODE = "memory";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
-const { createOrder, payOrder } = require("../../src/domain/rules");
+const { calcDeliveryDate, createOrder, payOrder } = require("../../src/domain/rules");
+
+test("delivery cutoff uses Asia/Shanghai and rolls over at the configured hour", () => {
+  const config = { deliveryTimeZone: "Asia/Shanghai", deliveryCutoffHour: 5 };
+  assert.equal(calcDeliveryDate(config, "2026-09-11T02:59:00+08:00"), "2026-09-11");
+  assert.equal(calcDeliveryDate(config, "2026-09-11T05:00:00+08:00"), "2026-09-12");
+  assert.equal(calcDeliveryDate(config, "2026-09-11T04:59:59+08:00"), "2026-09-11");
+});
+
+test("delivery time slot must be one of the configured slots", () => {
+  const invalid = createOrder(createSeed(), "u_1002", {
+    paymentMode: "pure_points",
+    fulfillmentType: "delivery",
+    deliveryAddress: "师大东门宿舍 3 栋",
+    deliveryTimeSlot: "22:00-23:00",
+    items: [{ productId: "p_bokchoy", quantity: 1 }]
+  });
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.error, /配送时间段无效/);
+
+  const valid = createOrder(createSeed(), "u_1002", {
+    paymentMode: "pure_points",
+    fulfillmentType: "delivery",
+    deliveryAddress: "师大东门宿舍 3 栋",
+    deliveryTimeSlot: "14:00-18:00",
+    items: [{ productId: "p_bokchoy", quantity: 1 }]
+  });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.order.deliveryTimeSlot, "14:00-18:00");
+});
 
 test("normal user cannot create cash order", () => {
   const state = createSeed();

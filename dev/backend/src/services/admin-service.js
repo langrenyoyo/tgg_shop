@@ -689,8 +689,8 @@ function updateUser(state, userId, input = {}, actor = {}) {
   if (membershipChange) {
     if (!permissions.includes("*") && !permissions.includes("membership:manage")) return { ok: false, status: 403, error: "缺少会员管理权限" };
     if (!cleanReason(input.reason) || typeof input.idempotencyKey !== "string" || !input.idempotencyKey.trim()) return { ok: false, status: 400, error: "会员调整需要原因和幂等标识" };
-    if ((input.memberMonths !== undefined && (!Number.isInteger(input.memberMonths) || input.memberMonths < 1 || input.memberMonths > 12))
-      || (input.clearMember !== undefined && input.clearMember !== true) || (input.memberMonths && input.clearMember)) return { ok: false, status: 400, error: "续期月数应为 1 至 12，不能同时清除会员" };
+    if ((input.memberMonths !== undefined && (!Number.isInteger(input.memberMonths) || input.memberMonths === 0 || input.memberMonths < -12 || input.memberMonths > 12))
+      || (input.clearMember !== undefined && input.clearMember !== true) || (input.memberMonths && input.clearMember)) return { ok: false, status: 400, error: "会员调整月数应为 -12 至 12 且不能为 0，不能同时清除会员" };
     const previous = state.adminOperationLogs.find(item => item.action === "user.update" && item.idempotencyKey === input.idempotencyKey);
     if (previous) return previous.targetId === userId && previous.detail.memberMonths === input.memberMonths && previous.detail.clearMember === input.clearMember
       ? { ok: true, user, idempotent: true } : { ok: false, status: 409, error: "请求标识已被其他调整使用" };
@@ -701,13 +701,26 @@ function updateUser(state, userId, input = {}, actor = {}) {
   if (["active", "disabled"].includes(input.status)) user.status = input.status;
   if (typeof input.nickname === "string" && input.nickname.trim()) user.nickname = input.nickname.trim();
   if (typeof input.phone === "string") user.phone = input.phone.trim();
-  if (Number.isFinite(Number(input.memberMonths))) {
-    const months = Math.max(0, Math.floor(Number(input.memberMonths)));
+  if (Number.isFinite(Number(input.memberMonths)) && Number(input.memberMonths) !== 0) {
+    const months = Math.trunc(Number(input.memberMonths));
+    const now = new Date();
+    const currentUntil = user.memberUntil ? new Date(user.memberUntil) : null;
     if (months > 0) {
-      const until = user.memberUntil && new Date(user.memberUntil) > new Date() ? new Date(user.memberUntil) : new Date();
+      const until = currentUntil && currentUntil > now ? currentUntil : now;
       until.setTime(until.getTime() + months * 30 * 86400000);
       user.role = "member";
       user.memberUntil = until.toISOString();
+    } else if (currentUntil && currentUntil > now) {
+      const reducedUntil = new Date(Math.max(now.getTime(), currentUntil.getTime() + months * 30 * 86400000));
+      if (reducedUntil.getTime() <= now.getTime()) {
+        user.role = "normal";
+        user.memberUntil = null;
+      } else {
+        user.role = "member";
+        user.memberUntil = reducedUntil.toISOString();
+      }
+    } else {
+      return { ok: false, status: 400, error: "当前用户没有可扣减的有效会员期限" };
     }
   }
   if (input.clearMember === true) {
@@ -732,6 +745,10 @@ function updateTicket(state, ticketId, input = {}, actor = {}) {
   const ticket = (state.operationTickets || []).find((item) => item.id === ticketId);
   if (!ticket) return { ok: false, status: 404, error: "operation failed" };
   if (ticket.linkedType === "refund_return" && input.status && input.status !== ticket.status) return { ok: false, status: 409, error: "退货库存工单请在商品库存页验收处理，不能通过普通工单关闭或重开" };
+  if (ticket.linkedType === "station_exception" && ["resolved", "closed"].includes(input.status)) {
+    const order = state.orders.find(item => item.id === ticket.linkedId);
+    if (order?.status === "paid" && ["exception", "picking"].includes(order.stationStatus)) return { ok: false, status: 409, error: "请由站点重新核对收货或完成退款后关闭异常工单" };
+  }
   const before = { ...ticket };
   if (["open", "processing", "resolved", "closed"].includes(input.status)) ticket.status = input.status;
   if (typeof input.adminReply === "string") ticket.adminReply = input.adminReply.trim();
@@ -743,8 +760,14 @@ function updateTicket(state, ticketId, input = {}, actor = {}) {
 }
 
 function updateConfig(state, input, actor = {}) {
+  if (Object.prototype.hasOwnProperty.call(input, "deliveryTimeSlots")) {
+    const slots = input.deliveryTimeSlots;
+    if (!Array.isArray(slots) || !slots.length || slots.length > 12 || slots.some(slot => typeof slot !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/.test(slot.trim()) || slot.trim().slice(0, 5) >= slot.trim().slice(6))) {
+      return { ok: false, status: 400, error: "请填写 1 至 12 个有效配送时段（HH:mm-HH:mm，结束晚于开始）" };
+    }
+  }
   const before = { ...state.config };
-  const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "splashAdEnabled"];
+  const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "splashAdEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
   const numberKeys = [
     "membershipMonthlyPrice",
     "membershipMonthlyPoints",
@@ -762,20 +785,34 @@ function updateConfig(state, input, actor = {}) {
     "lotteryDailyLimit",
     "withdrawMinAmount",
     "withdrawFeeRate",
-    "paymentTimeoutMinutes"
+    "paymentTimeoutMinutes",
+    "stationPickupHoldHours"
   ];
-  const textKeys = ["signinStreakRewardText", "homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId"];
+  const textKeys = ["signinStreakRewardText", "homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "stationSortMode", "stationShelfPrefix"];
 
   for (const key of booleanKeys) {
     if (Object.prototype.hasOwnProperty.call(input, key)) state.config[key] = Boolean(input[key]);
   }
   for (const key of numberKeys) {
     if (Object.prototype.hasOwnProperty.call(input, key) && Number.isFinite(Number(input[key]))) {
-      state.config[key] = Number(input[key]);
+      const value = Number(input[key]);
+      state.config[key] = key === "deliveryCutoffHour"
+        ? Math.min(23, Math.max(0, Math.trunc(value)))
+        : key === "deliveryFee"
+          ? Math.max(0, value)
+          : key === "stationPickupHoldHours"
+            ? Math.min(720, Math.max(1, Math.trunc(value)))
+          : value;
     }
   }
   for (const key of textKeys) {
     if (typeof input[key] === "string") state.config[key] = input[key].trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "stationSortMode") && !["location", "createdAt"].includes(String(input.stationSortMode))) {
+    state.config.stationSortMode = "location";
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "stationShelfPrefix")) {
+    state.config.stationShelfPrefix = String(input.stationShelfPrefix || "S-").trim().slice(0, 12) || "S-";
   }
   if (typeof input.homeBannerImage === "string") {
     const image = input.homeBannerImage.trim();
@@ -785,7 +822,11 @@ function updateConfig(state, input, actor = {}) {
     }
   }
   if (Array.isArray(input.deliveryTimeSlots)) {
-    state.config.deliveryTimeSlots = input.deliveryTimeSlots.map(String).filter(Boolean);
+    state.config.deliveryTimeSlots = input.deliveryTimeSlots
+      .map(String)
+      .map(item => item.trim())
+      .filter(item => /^(?:[01]\d|2[0-3]):[0-5]\d\s*-\s*(?:[01]\d|2[0-3]):[0-5]\d$/.test(item))
+      .slice(0, 12);
   }
   if (Array.isArray(input.homeServiceBadges)) {
     state.config.homeServiceBadges = input.homeServiceBadges.map(String).map((item) => item.trim()).filter(Boolean);
@@ -1146,7 +1187,7 @@ function rejectApprovalRequest(state, approvalId, actor = {}, reason = "") {
 }
 
 function verifyPickupOrder(state, orderId, pickupCode, actor = {}, reason = "") {
-  const result = verifyPickup(state, orderId, pickupCode);
+  const result = verifyPickup(state, orderId, pickupCode, { operatorType: "admin", operatorId: actor.id || actor.role?.id });
   if (result.ok) {
     logOperation(state, actor, "order.pickup_verify", "order", orderId, {
       pickupCodeVerified: true,

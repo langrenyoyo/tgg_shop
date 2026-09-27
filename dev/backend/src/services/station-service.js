@@ -1,5 +1,6 @@
 const { nextId, saveState } = require("../data/store");
 const { verifyPickup } = require("../domain/fulfillment-rules");
+const tickets = require("../repositories/ticket-repository");
 
 const RECEIVABLE = new Set(["paid"]);
 const BLOCKED = new Set(["cancelled", "refunding", "refunded", "closed"]);
@@ -28,13 +29,27 @@ function siteOrderAllowed(account, order) {
   return Boolean(order && order.fulfillmentType === "pickup" && allowedSite(account, orderSiteId(order)));
 }
 
-function safeOrder(order, station = {}) {
+function safeOrder(order, station = {}, state = {}) {
   if (!order) return null;
+  const pickingItems = (order.items || []).map((item) => {
+    const product = (state.products || []).find((row) => row.id === item.productId) || {};
+    return {
+      productId: item.productId,
+      title: item.title || item.name || product.name || item.productId,
+      quantity: item.quantity,
+      barcode: product.barcode || product.pospalBarcode || "",
+      locationCode: product.locationCode || "未配置库位",
+      backupLocation: product.backupLocation || "",
+      storageType: product.storageType || "ambient",
+      pickSequence: Number.isSafeInteger(product.pickSequence) ? product.pickSequence : 0
+    };
+  }).sort((a, b) => a.pickSequence - b.pickSequence || String(a.locationCode).localeCompare(String(b.locationCode), "zh-CN", { numeric: true }));
   return {
     id: order.id,
     userId: order.userId,
     userPhone: order.userPhone ? maskPhone(order.userPhone) : "",
     items: order.items || [],
+    pickingItems,
     cashAmount: order.cashAmount || 0,
     pointAmount: order.pointAmount || 0,
     paymentMode: order.paymentMode,
@@ -44,9 +59,12 @@ function safeOrder(order, station = {}) {
     pickupCode: station.includePickupCode ? order.pickupCode : undefined,
     fulfillmentStatus: order.fulfillmentStatus,
     createdAt: order.createdAt,
-    stationStatus: station.stationStatus || deriveStatus(order),
+    stationStatus: effectiveStatus(order, station),
     shelfCode: station.shelfCode || "",
     receivedAt: station.receivedAt || "",
+    holdUntil: station.holdUntil || "",
+    overdue: order.status === "paid" && Boolean(station.holdUntil && new Date(station.holdUntil).getTime() <= Date.now()),
+    pickerId: station.pickerId || "",
     pickedUpAt: station.pickedUpAt || "",
     exceptionType: station.exceptionType || "",
     exceptionRemark: station.exceptionRemark || ""
@@ -62,7 +80,7 @@ function idempotentResult(state, key, account, orderId, action) {
   return existing.response || (existing.result && typeof existing.result === "object" ? existing.result : null) || { ok: existing.result === "success", error: existing.reason };
 }
 
-function validateReceivedItems(order, receivedItems) {
+function validateReceivedItems(state, order, receivedItems) {
   if (receivedItems === undefined) return { ok: true, items: order.items || [] };
   if (!Array.isArray(receivedItems) || receivedItems.length !== (order.items || []).length) return { ok: false, error: "实收商品明细与订单不一致" };
   const expected = new Map((order.items || []).map((item) => [String(item.productId), Number(item.quantity)]));
@@ -70,6 +88,12 @@ function validateReceivedItems(order, receivedItems) {
     const productId = String(item?.productId || "");
     const quantity = Number(item?.quantity);
     if (!expected.has(productId) || !Number.isInteger(quantity) || quantity < 0 || quantity !== expected.get(productId)) return { ok: false, error: "实收商品数量与订单不一致" };
+    expected.delete(productId);
+    if (state.config?.stationScanRequired === true) {
+      const product = (state.products || []).find((row) => row.id === productId) || {};
+      const expectedBarcode = String(product.barcode || product.pospalBarcode || "").trim();
+      if (!expectedBarcode || String(item?.barcode || "").trim() !== expectedBarcode) return { ok: false, error: "商品条码核对失败，请重新扫码" };
+    }
   }
   return { ok: true, items: receivedItems };
 }
@@ -77,6 +101,12 @@ function validateReceivedItems(order, receivedItems) {
 function maskPhone(value) {
   const text = String(value || "");
   return text.length >= 7 ? `${text.slice(0, 3)}****${text.slice(-4)}` : text;
+}
+
+function effectiveStatus(order, record = {}) {
+  if (BLOCKED.has(order.status)) return order.status;
+  if (order.fulfillmentStatus === "picked_up") return "picked_up";
+  return record.stationStatus || deriveStatus(order);
 }
 
 function deriveStatus(order) {
@@ -91,11 +121,23 @@ function listOrders(state, account, query = {}) {
   const status = String(query.status || "");
   return (state.orders || []).filter((order) => siteOrderAllowed(account, order)).filter((order) => {
     const record = stationOrder(state, order);
-    const stationStatus = record?.stationStatus || deriveStatus(order);
+    const stationStatus = effectiveStatus(order, record);
     if (status && status !== "all" && status !== stationStatus && status !== order.fulfillmentStatus) return false;
     if (!keyword) return true;
-    return [order.id, order.userId, order.pickupSiteId, record?.shelfCode, ...(order.items || []).map((item) => item.title || item.name || item.productId)].some((value) => String(value || "").toLowerCase().includes(keyword));
-  }).map((order) => safeOrder(order, stationOrder(state, order))).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    const productValues = (order.items || []).flatMap((item) => {
+      const product = (state.products || []).find((row) => row.id === item.productId) || {};
+      return [item.title || item.name || item.productId, product.locationCode, product.backupLocation, product.barcode || product.pospalBarcode];
+    });
+    return [order.id, order.userId, order.pickupSiteId, record?.shelfCode, ...productValues].some((value) => String(value || "").toLowerCase().includes(keyword));
+  }).map((order) => safeOrder(order, stationOrder(state, order), state)).sort((a, b) => {
+    if (state.config?.stationBatchPickingEnabled !== false && state.config?.stationSortMode === "location") {
+      const aLocation = a.pickingItems?.[0]?.locationCode || "";
+      const bLocation = b.pickingItems?.[0]?.locationCode || "";
+      const locationResult = aLocation.localeCompare(bLocation, "zh-CN", { numeric: true });
+      if (locationResult) return locationResult;
+    }
+    return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+  });
 }
 
 function findAccessibleOrder(state, account, orderId) {
@@ -108,11 +150,19 @@ function dashboard(state, account) {
   const today = new Date().toISOString().slice(0, 10);
   return {
     station: sitesFor(state, account),
+    pickingConfig: {
+      enabled: state.config?.stationPickingEnabled !== false,
+      batchEnabled: state.config?.stationBatchPickingEnabled !== false,
+      scanRequired: state.config?.stationScanRequired === true,
+      sortMode: state.config?.stationSortMode || "location",
+      shelfPrefix: state.config?.stationShelfPrefix || "S-",
+      pickupHoldHours: state.config?.stationPickupHoldHours || 48
+    },
     counts: {
-      pendingReceive: orders.filter((item) => ["expected", "in_transit"].includes(item.stationStatus) && !BLOCKED.has(item.status)).length,
+      pendingReceive: orders.filter((item) => ["expected", "in_transit", "picking"].includes(item.stationStatus) && item.status === "paid").length,
       readyPickup: orders.filter((item) => ["received", "ready"].includes(item.stationStatus)).length,
       todayPickedUp: orders.filter((item) => item.stationStatus === "picked_up" && String(item.pickedUpAt || "").startsWith(today)).length,
-      exceptions: orders.filter((item) => item.stationStatus === "exception" || item.exceptionType).length
+      exceptions: orders.filter((item) => item.status === "paid" && (item.stationStatus === "exception" || item.overdue)).length
     }
   };
 }
@@ -132,20 +182,34 @@ function receive(state, account, orderId, input = {}) {
   const key = String(input.idempotencyKey || `receive:${account.id}:${orderId}`);
   const replay = idempotentResult(state, key, account, order.id, "receive");
   if (replay) return replay;
+  if (state.config?.stationPickingEnabled === false) return { ok: false, status: 409, error: "站点拣货功能暂未开启" };
   if (!RECEIVABLE.has(order.status) || BLOCKED.has(order.status)) return failure(state, account, order, "receive", key, "订单未支付或当前状态不允许收货");
   if (order.fulfillmentStatus !== "pending_pickup") return failure(state, account, order, "receive", key, "订单不是待自提状态或已经收货");
   const requestedSite = input.siteId === undefined ? orderSiteId(order) : String(input.siteId);
   if (requestedSite !== orderSiteId(order) || !allowedSite(account, requestedSite)) return failure(state, account, order, "receive", key, "订单不属于当前作业站点");
   const condition = String(input.condition || "normal");
+  if (!["normal", "shortage", "damaged", "quantity_mismatch"].includes(condition)) return { ok: false, status: 400, error: "货物状态无效" };
   const record = stationOrder(state, order) || { orderId: order.id, siteId: orderSiteId(order) };
   if (["received", "ready", "picked_up", "completed"].includes(record.stationStatus)) return failure(state, account, order, "receive", key, "订单已经完成收货，不能重复收货");
-  const quantities = validateReceivedItems(order, input.receivedItems);
+  if (condition !== "normal") return createException(state, account, orderId, { ...input, idempotencyKey: `${key}:exception`, type: condition });
+  if (state.config?.stationScanRequired === true && input.receivedItems === undefined) return failure(state, account, order, "receive", key, "当前配置要求扫码核对全部商品");
+  const quantities = validateReceivedItems(state, order, input.receivedItems);
   if (!quantities.ok) return failure(state, account, order, "receive", key, quantities.error);
+  if (record.pickerId && record.pickerId !== account.id) return { ok: false, status: 409, error: "订单由其他工作人员拣货，请联系其释放任务" };
+  const occupied = new Set((state.stationOrders || []).filter(row => row.siteId === orderSiteId(order) && row.orderId !== order.id && !["picked_up", "returned"].includes(row.stationStatus)).map(row => row.shelfCode).filter(Boolean));
+  let shelfCode = String(input.shelfCode || "").trim();
+  if (shelfCode.length > 40) return { ok: false, status: 400, error: "提货位不能超过 40 个字符" };
+  if (shelfCode && occupied.has(shelfCode)) return { ok: false, status: 409, error: "提货位已被占用，请更换" };
+  if (!shelfCode) { let n = 1; do { shelfCode = `${state.config.stationShelfPrefix || "S-"}${String(n++).padStart(4, "0")}`; } while (occupied.has(shelfCode)); }
+  input = { ...input, shelfCode };
   Object.assign(record, { siteId: orderSiteId(order), stationStatus: condition === "normal" ? "ready" : "exception", shelfCode: String(input.shelfCode || ""), receivedItems: quantities.items, receivedAt: new Date().toISOString(), receivedBy: account.id, exceptionType: condition === "normal" ? "" : condition, exceptionRemark: String(input.remark || "") });
   order.stationStatus = record.stationStatus;
+  order.stationReceivedAt = record.receivedAt;
+  record.holdUntil ||= new Date(Date.now() + Number(state.config.stationPickupHoldHours || 48) * 3600000).toISOString();
   state.stationOrders ||= [];
   if (!state.stationOrders.includes(record)) state.stationOrders.unshift(record);
-  const result = { ok: true, order: safeOrder(order, record), logId: null };
+  tickets.resolveLinked(state, "station_exception", order.id, "商品已重新核对并完成上架", account.id);
+  const result = { ok: true, order: safeOrder(order, record, state), logId: null };
   const log = appendLog(state, { siteId: record.siteId, orderId: order.id, operatorId: account.id, action: "receive", result: "success", reason: input.remark || "", idempotencyKey: key, response: result });
   result.logId = log.id;
   log.response = result;
@@ -170,7 +234,7 @@ function pickup(state, account, orderId, input = {}) {
   record.pickedUpAt = new Date().toISOString();
   record.pickedUpBy = account.id;
   order.stationStatus = "picked_up";
-  const result = { ok: true, order: safeOrder(order, record), logId: null };
+  const result = { ok: true, order: safeOrder(order, record, state), logId: null };
   const log = appendLog(state, { siteId: record.siteId, orderId: order.id, operatorId: account.id, action: "pickup_verify", result: "success", reason: "", idempotencyKey: key, response: result });
   result.logId = log.id;
   log.response = result;
@@ -195,12 +259,15 @@ function createException(state, account, orderId, input = {}) {
   if (replay) return replay;
   const record = stationOrder(state, order) || { orderId: order.id, siteId: orderSiteId(order) };
   if (input.siteId !== undefined && String(input.siteId) !== orderSiteId(order)) return failure(state, account, order, "exception", key, "订单不属于当前作业站点");
-  if (BLOCKED.has(order.status) || order.status === "completed" || record.stationStatus === "picked_up") return failure(state, account, order, "exception", key, "订单当前状态不能登记异常");
-  Object.assign(record, { stationStatus: "exception", exceptionType: type, exceptionRemark: String(input.remark || "") });
+  if (order.status !== "paid" || record.stationStatus === "picked_up") return failure(state, account, order, "exception", key, "订单当前状态不能登记异常");
+  if (record.pickerId && record.pickerId !== account.id && ["picking", "exception"].includes(record.stationStatus)) return { ok: false, status: 409, error: "请由当前拣货人员处理异常或释放任务" };
+  Object.assign(record, { stationStatus: "exception", pickerId: "", exceptionType: type, exceptionRemark: String(input.remark || "") });
   order.stationStatus = "exception";
   state.stationOrders ||= [];
   if (!state.stationOrders.includes(record)) state.stationOrders.unshift(record);
-  const result = { ok: true, order: safeOrder(order, record), logId: null };
+  const ticket = tickets.createLinked(state, { userId: order.userId, linkedType: "station_exception", linkedId: order.id, subject: `站点异常 ${order.id}`, content: `${type}：${record.exceptionRemark}`, priority: "high" });
+  Object.assign(ticket, { status: "open", content: `${type}：${record.exceptionRemark}`, updatedAt: new Date().toISOString() });
+  const result = { ok: true, order: safeOrder(order, record, state), logId: null };
   const log = appendLog(state, { siteId: record.siteId, orderId, operatorId: account.id, action: "exception", result: "success", reason: record.exceptionRemark, idempotencyKey: key, response: result });
   result.logId = log.id;
   log.response = result;
@@ -208,8 +275,24 @@ function createException(state, account, orderId, input = {}) {
   return result;
 }
 
+function claim(state, account, orderId, input = {}) {
+  const order = findAccessibleOrder(state, account, orderId);
+  if (!order) return { ok: false, status: 404, error: "订单不存在或不属于当前站点" };
+  const record = stationOrder(state, order) || { orderId, siteId: orderSiteId(order) };
+  if ((!input.release && state.config.stationPickingEnabled === false) || order.status !== "paid" || !["expected", "in_transit", "picking", "exception"].includes(effectiveStatus(order, record))) return { ok: false, status: 409, error: "当前订单不可拣货" };
+  if (record.pickerId && record.pickerId !== account.id) return { ok: false, status: 409, error: "其他工作人员已领取此订单" };
+  if (input.release) { record.pickerId = ""; record.stationStatus = record.exceptionType ? "exception" : "expected"; }
+  else { record.pickerId = account.id; record.stationStatus = "picking"; }
+  order.stationStatus = record.stationStatus;
+  state.stationOrders ||= [];
+  if (!state.stationOrders.includes(record)) state.stationOrders.push(record);
+  appendLog(state, { siteId: record.siteId, orderId, operatorId: account.id, action: input.release ? "picking.release" : "picking.claim", result: "success" });
+  saveState();
+  return { ok: true, order: safeOrder(order, record, state) };
+}
+
 function logs(state, account, query = {}) {
   return (state.stationOperationLogs || []).filter((item) => siteIds(account).includes(item.siteId)).filter((item) => !query.orderId || item.orderId === query.orderId).slice(0, 200);
 }
 
-module.exports = { publicStation, dashboard, listOrders, findAccessibleOrder, receive, pickup, createException, logs, safeOrder };
+module.exports = { publicStation, dashboard, listOrders, findAccessibleOrder, receive, pickup, createException, logs, safeOrder, claim };

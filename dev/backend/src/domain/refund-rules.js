@@ -91,11 +91,16 @@ function approveRefund(state, refundId) {
 
   const now = new Date().toISOString();
   refundOrder.status = "refunded";
+  const station = (state.stationOrders || []).find(item => item.orderId === order.id);
+  if (station?.receivedAt) order.stationReceivedAt = station.receivedAt;
   refundOrder.updatedAt = now;
   const previousStatus = order.status;
   order.status = "refunded";
+  if (station) station.stationStatus = "refunded";
+  if (order.fulfillmentType === "pickup") order.stationStatus = "refunded";
+  ticketRepository.resolveLinked(state, "station_exception", order.id, "已退款；实物按退货验收工单处理", "system");
   restoreRefundableStock(state, order, refundOrder, now);
-  if (["shipping", "delivered", "picked_up"].includes(order.fulfillmentStatus)) {
+  if (!shouldRestoreStock(order)) {
     ticketRepository.createLinked(state, {
       userId: user.id, type: "customer_service", linkedType: "refund_return", linkedId: refundOrder.id,
       subject: `退款商品去向核对 ${order.id}`,
@@ -187,7 +192,7 @@ function restoreRefundableStock(state, order, refundOrder, now) {
 }
 
 function shouldRestoreStock(order) {
-  return ["not_started", "pending_pickup", "pending_ship"].includes(order.fulfillmentStatus);
+  return !order.stationReceivedAt && ["not_started", "pending_pickup", "pending_ship"].includes(order.fulfillmentStatus);
 }
 
 module.exports = {

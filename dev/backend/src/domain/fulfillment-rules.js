@@ -16,12 +16,17 @@ function verifyPickup(state, orderId, pickupCode, actor = {}) {
   if (order.fulfillmentStatus !== "pending_pickup") {
     return { ok: false, status: 400, error: "当前自提状态不允许核销" };
   }
+  const stationRecord = (state.stationOrders || []).find(item => item.orderId === order.id);
+  if (stationRecord && !["ready", "received"].includes(stationRecord.stationStatus)) return { ok: false, status: 409, error: "站点订单尚未收齐或存在异常，请先核对收货" };
 
   const previousStatus = order.status;
   const previousFulfillmentStatus = order.fulfillmentStatus;
   order.fulfillmentStatus = "picked_up";
   order.status = "completed";
   order.completedAt = new Date().toISOString();
+  order.stationStatus = "picked_up";
+  const station = (state.stationOrders || []).find(item => item.orderId === order.id);
+  if (station) Object.assign(station, { stationStatus: "picked_up", pickedUpAt: order.completedAt, pickedUpBy: actor.operatorId || "admin" });
   logOrderStatus(state, order, {
     fromStatus: previousStatus,
     toStatus: order.status,

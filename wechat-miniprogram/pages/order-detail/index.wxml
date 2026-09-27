@@ -10,7 +10,7 @@
 <button wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'shipping'}}" data-action="receive" bindtap="action" disabled="{{busy}}">确认收货</button>
 <view wx:for="{{order.refunds}}" wx:key="id" class="card"><view>退款单 {{item.id}}</view><view>{{item.statusText}}</view><view>{{item.refundPointAmount}} 积分 + ¥{{item.refundCashAmount}}</view><view>{{item.reason}}</view></view>
 <view wx:if="{{order.fulfillmentType === 'pickup'}}">自提点：{{order.pickupSiteSnapshot.name}}<view>{{order.pickupSiteSnapshot.address}}</view></view>
-<view wx:else>配送地址：{{order.deliveryAddress}}</view>
+<view wx:else>配送地址：{{order.deliveryAddress}}<view>配送时间：{{order.deliveryDate}} {{order.deliveryTimeSlot}}</view></view>
 <view wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'pending_pickup'}}">自提码：{{order.pickupCode}}</view>
 <view wx:if="{{order.status === 'paid' || order.status === 'completed'}}"><textarea bindinput="reason" value="{{reason}}" disabled="{{busy}}" placeholder="退款原因"/><button bindtap="refund" loading="{{busy}}" disabled="{{busy}}">申请退款</button></view>
 </view></view>

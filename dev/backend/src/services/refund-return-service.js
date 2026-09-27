@@ -48,6 +48,8 @@ async function resolveReturn(state, refundId, input, actor) {
   }
   const reply = `${disposition === "restock" ? "整单商品已验收回库" : disposition === "partial" ? "分项验收完成" : "确认不增加可售库存"}：${input.reason.trim()}；${items.map(item => `${item.productId} 回库 ${item.restockQuantity}，不回库 ${item.noRestockQuantity}`).join("；")}`;
   tickets.resolveLinked(state, "refund_return", refundId, reply, actor.role?.id || actor.id);
+  const station = (state.stationOrders || []).find(item => item.orderId === order.id);
+  if (station) { station.stationStatus = "returned"; station.shelfCode = ""; station.returnedAt = new Date().toISOString(); }
   state.adminOperationLogs ||= [];
   state.adminOperationLogs.unshift({ id: nextId("op"), adminId: actor.adminId || null, roleId: actor.role?.id || actor.id, action: "refund.return.resolve", targetType: "refund", targetId: refundId, reason: input.reason.trim(), idempotencyKey: key, before: {}, after: { disposition, orderId: order.id, items }, createdAt: new Date().toISOString() });
   await saveState();

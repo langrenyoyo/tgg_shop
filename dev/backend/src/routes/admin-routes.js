@@ -132,7 +132,8 @@ async function handleAdminRoutes(ctx) {
   if (req.method === "PATCH" && url.pathname === "/api/admin/config") {
     const check = adminService.requirePermission(req, state, "config:write");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
-    return send(ctx.res, 200, adminService.updateConfig(state, await ctx.readBody(req), check));
+    const result = adminService.updateConfig(state, await ctx.readBody(req), check);
+    return send(ctx.res, result.ok === false ? result.status || 400 : 200, result);
   }
   if (req.method === "POST" && url.pathname === "/api/admin/monthly-point-rewards/settle") {
     const check = adminService.requirePermission(req, state, "config:write");
@@ -167,7 +168,8 @@ async function handleAdminRoutes(ctx) {
   const userMatch = url.pathname.match(/^\/api\/admin\/users\/([^/]+)$/);
   if (req.method === "PATCH" && userMatch) {
     const body = await ctx.readBody(req);
-    const check = adminService.requirePermission(req, state, Number(body.memberMonths) > 0 || body.clearMember === true ? "membership:manage" : "customer:read");
+    const membershipAdjustment = body.memberMonths !== undefined && Number(body.memberMonths) !== 0;
+    const check = adminService.requirePermission(req, state, membershipAdjustment || body.clearMember === true ? "membership:manage" : "customer:read");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
     const result = adminService.updateUser(state, userMatch[1], body, check);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.user : { error: result.error });

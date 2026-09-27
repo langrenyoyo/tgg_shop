@@ -18,7 +18,78 @@ tags:
   - name: Growth
   - name: Admin
   - name: Station
+  - name: POSPAL
 paths:
+  /api/admin/integrations/pospal/status:
+    get:
+      tags: [POSPAL]
+      summary: Get POSPAL integration status
+      description: Requires integration:read. Returns configuration presence, cursors, mapping counts and the latest synchronization result without exposing credentials.
+      responses:
+        "200": { description: POSPAL integration status }
+        "401": { description: Admin login required }
+        "403": { description: Missing integration read permission }
+
+  /api/admin/integrations/pospal/sync:
+    post:
+      tags: [POSPAL]
+      summary: Synchronize POSPAL data
+      description: Requires integration:write. Synchronizes products, inventory, customers, POS tickets or web orders using POSPAL cursors. This endpoint does not create POSPAL orders or modify POSPAL data.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resources:
+                  type: array
+                  items: { type: string, enum: [products, inventory, customers, tickets, orders] }
+                maxPages: { type: integer, minimum: 1, maximum: 100, default: 10 }
+                limit: { type: integer, minimum: 1, maximum: 100, default: 100 }
+                resetCursor: { type: boolean, default: false }
+                autoCreate: { type: boolean, default: false, description: Create unpublished TGG product drafts for unmatched POSPAL products }
+                apply: { type: boolean, default: true, description: Apply matched inventory snapshots to TGG stock }
+      responses:
+        "200": { description: Synchronization result }
+        "401": { description: Admin login required }
+        "403": { description: Missing integration write permission }
+        "503": { description: POSPAL configuration is incomplete }
+
+  /api/pospal/callback:
+    post:
+      tags: [POSPAL]
+      summary: Receive a POSPAL callback event
+      description: Public callback endpoint. Configure POSPAL_CALLBACK_TOKEN and send it as x-pospal-callback-token. Events are deduplicated before later synchronization.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200": { description: Callback accepted or replayed idempotently }
+        "401": { description: Invalid callback token }
+        "503": { description: Callback token is not configured in production }
+
+  /api/admin/integrations/pospal/orders/{orderId}/push:
+    post:
+      tags: [POSPAL]
+      summary: Push one paid TGG cash order to POSPAL
+      description: Requires integration:write. Only paid cash orders with mapped POSPAL barcodes can be pushed. Pure-points and mixed-payment orders are rejected to prevent duplicate or inconsistent collection.
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: POSPAL web order created or replayed idempotently }
+        "401": { description: Admin login required }
+        "403": { description: Missing integration write permission }
+        "409": { description: Order state, payment mode or product mapping prevents push }
+        "503": { description: POSPAL configuration is incomplete }
+
   /api/health:
     get:
       tags: [Health]
@@ -326,6 +397,26 @@ paths:
       responses:
         "200": { description: Station order }
         "404": { description: Order not found or not assigned to station }
+
+  /api/station/orders/{orderId}/picking:
+    post:
+      tags: [Station]
+      summary: Claim or release a picking task for an authorized station order
+      security:
+        - StationBearerAuth: []
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                release: { type: boolean, default: false }
+      responses:
+        "200": { description: Task claimed or released }
+        "404": { description: Order not found or not authorized }
+        "409": { description: Order unavailable or claimed by another worker }
 
   /api/station/orders/{orderId}/receive:
     post:
@@ -1975,7 +2066,7 @@ paths:
   /api/admin/users/{userId}:
     patch:
       tags: [Admin]
-      summary: Update user status or extend membership
+      summary: Update user status or adjust membership duration
       description: Requires customer:read permission.
       security:
         - AdminBearerAuth: []
@@ -1985,6 +2076,21 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                memberMonths:
+                  type: integer
+                  minimum: -12
+                  maximum: 12
+                  description: Positive extends membership; negative reduces it by 30 days per month.
+                clearMember: { type: boolean }
+                reason: { type: string }
+                idempotencyKey: { type: string }
       responses:
         "200":
           description: User updated

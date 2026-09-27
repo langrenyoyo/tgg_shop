@@ -4,7 +4,7 @@ const inventory = require("../repositories/inventory-repository");
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const fail = (status, error) => ({ ok: false, status, error });
 const allowed = (actor, permission) => (actor.role?.permissions || []).some(value => value === "*" || value === permission);
-const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "pointsPrice", "supportsCash", "supportsPoints"];
+const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "pointsPrice", "supportsCash", "supportsPoints", "barcode", "locationCode", "backupLocation", "storageType", "pickSequence"];
 
 function imageUrlValid(value) {
   if (!value || /[<>"'\\\s]/.test(value)) return false;
@@ -13,12 +13,25 @@ function imageUrlValid(value) {
 }
 
 function prepareProduct(input, previous = {}) {
-  const product = { name: "", category: "", tag: "", image: "", unit: "", description: "", cashPrice: 0, pointsPrice: 0, stock: 0, status: "off", supportsCash: true, supportsPoints: true, purePointsOnly: false, ...previous };
+  const product = { name: "", category: "", tag: "", image: "", unit: "", description: "", barcode: "", locationCode: "", backupLocation: "", storageType: "ambient", pickSequence: 0, cashPrice: 0, pointsPrice: 0, stock: 0, status: "off", supportsCash: true, supportsPoints: true, purePointsOnly: false, ...previous };
   for (const [key, limit] of Object.entries({ name: 120, category: 40, tag: 80, image: 2000, description: 5000, unit: 40 })) {
     if (!own(input, key)) continue;
     if (typeof input[key] !== "string" || input[key].trim().length > limit) return fail(400, `${key} 字段格式或长度不正确`);
     product[key] = input[key].trim();
     if (key !== "description" && /[<>]/.test(product[key])) return fail(400, "商品资料不支持 HTML 标签");
+  }
+  for (const [key, limit] of Object.entries({ barcode: 80, locationCode: 40, backupLocation: 40 })) {
+    if (!own(input, key)) continue;
+    if (typeof input[key] !== "string" || input[key].trim().length > limit || /[<>]/.test(input[key])) return fail(400, `${key} 字段格式或长度不正确`);
+    product[key] = input[key].trim();
+  }
+  if (own(input, "storageType")) {
+    if (!["ambient", "chilled", "frozen", "fresh"].includes(input.storageType)) return fail(400, "储存类型无效");
+    product.storageType = input.storageType;
+  }
+  if (own(input, "pickSequence")) {
+    if (!Number.isSafeInteger(input.pickSequence) || input.pickSequence < 0 || input.pickSequence > 100000) return fail(400, "拣货顺序必须是非负整数");
+    product.pickSequence = input.pickSequence;
   }
   for (const key of ["supportsCash", "supportsPoints", "purePointsOnly"]) {
     if (!own(input, key)) continue;

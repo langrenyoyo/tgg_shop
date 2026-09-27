@@ -356,6 +356,9 @@ function checkoutView(state, type) {
   const pickupSite = state.pickupSites?.[0] || state.home?.pickupSite || {};
   const promise = state.home?.deliveryPromise || {};
   const slots = state.config?.deliveryTimeSlots || ["09:00-12:00", "14:00-18:00", "18:00-21:00"];
+  const selectedSlot = slots.includes(state.selectedDeliverySlot) ? state.selectedDeliverySlot : slots[0];
+  const cutoffHour = Number.isFinite(Number(state.config?.deliveryCutoffHour)) ? Number(state.config.deliveryCutoffHour) : 5;
+  const deliveryTimeZone = state.config?.deliveryTimeZone || "Asia/Shanghai";
   const totalPoints = items.reduce((sum, item) => sum + (item.purePointsOnly ? (item.pointsPrice || 0) * (item.quantity || 1) : 0), 0);
   const totalCash = items.reduce((sum, item) => sum + (!item.purePointsOnly ? (item.cashPrice || 0) * (item.quantity || 1) : 0), 0);
   const mixed = items.some((item) => item.purePointsOnly) && items.some((item) => !item.purePointsOnly);
@@ -376,7 +379,7 @@ function checkoutView(state, type) {
       <button type="button" class="choice ${delivery ? "active" : ""}" data-page="checkoutDelivery"><span>送货上门</span></button>
     </section>
     <section class="field-card"><h3>${delivery ? "收货地址" : "自提点"}</h3><p>${delivery ? addressLine(defaultAddress) || "请先新增默认地址" : pickupSite.name || "师大自提站"} · ${delivery ? "" : pickupSite.address || "后台配置自提点地址"}</p>${delivery ? `<button type="button" class="link" data-page="address">管理地址</button>` : ""}</section>
-    <section class="field-card"><h3>配送时间</h3><p>${delivery ? "按后台截单时间计算预计配送日" : "到站后凭核销码取货"}</p><div class="slot-row">${slots.map((slot) => `<span class="state">${slot}</span>`).join("")}</div></section>
+    <section class="field-card"><h3>配送时间</h3><p>${delivery ? `每天 ${cutoffHour}:00（${deliveryTimeZone}）截单，截单前当天配送，之后次日配送` : "到站后凭核销码取货"}</p>${delivery ? `<label class="delivery-slot-picker">配送时段<select data-delivery-slot>${slots.map((slot) => `<option value="${homeEscape(slot)}" ${slot === selectedSlot ? "selected" : ""}>${homeEscape(slot)}</option>`).join("")}</select></label>` : `<div class="slot-row">${slots.map((slot) => `<span class="state">${homeEscape(slot)}</span>`).join("")}</div>`}</section>
     <section class="field-card">
       <h3>商品清单</h3>
       <div class="checkout-items">${items.map((item) => `<p><span>${item.name} x${item.quantity || 1}</span><strong>${lineTotalText(item)}</strong></p>`).join("") || `<p class="muted">暂无商品</p>`}</div>

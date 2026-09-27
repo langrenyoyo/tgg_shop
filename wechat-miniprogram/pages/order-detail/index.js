@@ -9,7 +9,7 @@ function nextStep(order) {
   if (order.status === "refunded") return "退款账务已完成。如涉及退货，商品验收由工作人员另行核对。";
   if (order.status === "cancelled" || order.status === "closed") return "订单已结束，可返回商城选购。";
   if (order.status === "completed") return "订单已完成。如有售后问题，可填写原因申请退款。";
-  if (order.status === "paid" && order.fulfillmentStatus === "pending_pickup") return "请前往下方自提点，向工作人员出示自提码。";
+  if (order.status === "paid" && order.fulfillmentStatus === "pending_pickup") return ["ready", "received"].includes(order.stationStatus) ? "商品已到站，请前往下方自提点，向工作人员出示自提码。" : order.stationStatus === "exception" ? "站点正在处理商品异常，请等待通知或联系客服。" : "商品正在备货，请等待站点确认到货后再前往自提。";
   if (order.status === "paid" && order.fulfillmentStatus === "pending_ship") return "付款已确认，等待商家安排配送。";
   if (order.status === "paid" && order.fulfillmentStatus === "shipping") return "商品正在配送，请实际收到商品后再确认收货。";
   return "请刷新查看最新订单进度。";

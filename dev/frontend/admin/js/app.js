@@ -782,6 +782,7 @@ document.body.addEventListener("click", (event) => {
   if (userAction) {
     const body = { reason: "后台用户会员管理" };
     if (userAction.dataset.actionType === "extend") body.memberMonths = 1;
+    if (userAction.dataset.actionType === "reduce") body.memberMonths = -1;
     if (userAction.dataset.actionType === "disable") body.status = "disabled";
     if (userAction.dataset.actionType === "enable") body.status = "active";
     if (userAction.dataset.actionType === "clearMember") body.clearMember = true;
@@ -801,7 +802,8 @@ document.body.addEventListener("click", (event) => {
   const ticketAction = event.target.closest("[data-ticket-action]");
   if (ticketAction) {
     const status = ticketAction.dataset.actionType || "processing";
-    const adminReply = status === "resolved" ? "已处理完成，如仍有问题请再次提交。" : "客服已受理，正在跟进。";
+    const adminReply = window.prompt("填写处理说明（站点异常需重新核对收货或退款后才能关闭）", status === "resolved" ? "已处理完成。" : "客服已受理，正在跟进。");
+    if (adminReply === null || !adminReply.trim()) return;
     api(`/api/admin/tickets/${ticketAction.dataset.ticketAction}`, {
       method: "PATCH",
       body: JSON.stringify({ status, adminReply, reason: "后台处理用户工单" })
@@ -1056,6 +1058,7 @@ document.body.addEventListener("submit", (event) => {
   const titles = {
     member: ["确认保存会员支付", "月会员价格和支付超时将立即影响用户下单。"],
     delivery: ["确认保存履约配送", "自提、送货上门、配送费和配送时段将立即影响用户下单。"],
+    stationPicking: ["确认保存站点拣货", "库位排序、扫码复核和提货位规则将立即影响站点工作人员。"],
     points: ["确认保存积分任务", "邀请、签到、抽奖和排行榜配置将立即影响用户增长玩法。"],
     finance: ["确认保存财务展示", "提现金额、手续费和展示广告配置将立即生效。"],
     dashboard: ["确认保存仪表盘阈值", "预警阈值会立即影响大屏提示。"],
@@ -1091,6 +1094,8 @@ function readProductForm(form) {
   return {
     name: String(fields.get("name") || ""), category: String(fields.get("category") || ""), unit: String(fields.get("unit") || ""),
     description: String(fields.get("description") || ""), image: String(fields.get("image") || ""), tag: String(fields.get("tag") || ""),
+    barcode: String(fields.get("barcode") || ""), locationCode: String(fields.get("locationCode") || ""), backupLocation: String(fields.get("backupLocation") || ""),
+    storageType: String(fields.get("storageType") || "ambient"), pickSequence: Number(fields.get("pickSequence") || 0),
     cashPrice: purePointsOnly ? null : Number(fields.get("cashPrice") || 0), pointsPrice: Number(fields.get("pointsPrice") || 0),
     stock: existing ? existing.stock : Number(fields.get("stock") || 0), purePointsOnly, supportsCash: !purePointsOnly,
     supportsPoints: purePointsOnly || fields.get("supportsPoints") === "on", reason: String(fields.get("reason") || "")
@@ -1160,7 +1165,17 @@ function buildConfigPayload(group, formData) {
       deliveryTimeSlots: parseListField(formData.get("deliveryTimeSlots")),
       purePointsNoCashTopup: true
     }),
+    stationPicking: () => ({
+      stationPickingEnabled: formData.get("stationPickingEnabled") === "on",
+      stationBatchPickingEnabled: formData.get("stationBatchPickingEnabled") === "on",
+      stationScanRequired: formData.get("stationScanRequired") === "on",
+      stationSortMode: String(formData.get("stationSortMode") || "location"),
+      stationShelfPrefix: String(formData.get("stationShelfPrefix") || "S-").trim(),
+      stationPickupHoldHours: Number(formData.get("stationPickupHoldHours")),
+      purePointsNoCashTopup: true
+    }),
     points: () => ({
+      membershipPointCashRate: Number(formData.get("membershipPointCashRate")),
       membershipMonthlyPrice: Number(formData.get("membershipMonthlyPrice")),
       membershipMonthlyPoints: Number(formData.get("membershipMonthlyPoints")),
       inviteRewardPoints: Number(formData.get("inviteRewardPoints")),

@@ -31,6 +31,13 @@ textarea { min-height:80px; resize:vertical; }
 .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 .orders { display:grid; gap:10px; }
 .order { padding:16px; display:grid; gap:10px; }
+.pick-list { display:grid; gap:6px; padding:10px; border-radius:10px; background:#f5faf7; }
+.pick-row { display:grid; grid-template-columns:90px 1fr auto; gap:8px; align-items:center; font-size:13px; }
+.pick-row strong { color:var(--green); }
+.pick-row small { color:var(--muted); }
+.scan-items { display:grid; gap:8px; padding:12px; border:1px solid var(--line); border-radius:10px; background:#f7fbf8; }
+.scan-item { display:grid; gap:6px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+.scan-item:last-child { border-bottom:0; padding-bottom:0; }
 .order-head,.order-meta,.actions { display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap; }
 .tag { display:inline-flex; padding:4px 8px; border-radius:99px; font-size:12px; font-weight:800; background:#e8f1ed; color:#4a6358; }
 .tag.ready { background:#fff2d9; color:#9b6510; }.tag.done { background:#dcf7e8; color:#087443; }.tag.bad { background:#ffe5e2; color:#a73529; }

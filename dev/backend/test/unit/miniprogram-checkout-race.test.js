@@ -10,7 +10,7 @@ function harness(name) {
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, `../../../../wechat-miniprogram/pages/${name}/index.js`), "utf8"), {
     Page: value => { page = value; },
     wx: { getStorageSync: () => ({ id: owner }) },
-    require: name => name.endsWith("api") ? { request: url => new Promise((resolve, reject) => pending.push({ url, resolve, reject })) } : {
+    require: name => name.endsWith("api") ? { request: url => url === "/api/addresses" ? Promise.resolve([]) : new Promise((resolve, reject) => pending.push({ url, resolve, reject })) } : {
       checkoutIdempotencyKey: () => "key", readCheckout: () => [{ productId: "apple", quantity: 1 }]
     }
   });

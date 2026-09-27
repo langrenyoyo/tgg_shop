@@ -10,11 +10,13 @@ function isMember(user) {
 }
 
 function calcDeliveryDate(config, createdAt = new Date()) {
-  const d = new Date(createdAt);
-  const target = new Date(d);
-  if (d.getHours() >= config.deliveryCutoffHour) {
-    target.setDate(target.getDate() + 1);
-  }
+  const timeZone = config.deliveryTimeZone || "Asia/Shanghai";
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false
+  }).formatToParts(new Date(createdAt)).filter(item => item.type !== "literal").map(item => [item.type, item.value]));
+  const cutoffHour = Number.isFinite(Number(config.deliveryCutoffHour)) ? Number(config.deliveryCutoffHour) : 5;
+  const target = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
+  if (Number(parts.hour) >= cutoffHour) target.setUTCDate(target.getUTCDate() + 1);
   return target.toISOString().slice(0, 10);
 }
 
@@ -32,6 +34,10 @@ function assertCanCreateOrder(state, user, payload) {
   if (fulfillmentType === "delivery" && !state.config.deliveryEnabled) return { ok: false, error: "送货上门暂未开放" };
   if (fulfillmentType === "pickup" && !state.pickupSites.some(site => site.id === (payload.pickupSiteId || "site_001") && site.enabled)) return { ok: false, error: "自提点不存在或已停用" };
   if (fulfillmentType === "delivery" && !String(payload.deliveryAddress || "").trim()) return { ok: false, error: "请填写配送地址" };
+
+  if (fulfillmentType === "delivery" && (!Array.isArray(state.config.deliveryTimeSlots) || !state.config.deliveryTimeSlots.length || (payload.deliveryTimeSlot && !state.config.deliveryTimeSlots.includes(payload.deliveryTimeSlot)))) {
+    return { ok: false, error: "配送时间段无效，请重新选择" };
+  }
 
   let cashAmount = 0;
   let pointAmount = 0;

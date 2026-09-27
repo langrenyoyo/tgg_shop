@@ -11,7 +11,8 @@ async function runStationClosure({ userPage, adminPage, CDPPage, base }) {
     await station.waitForText("现场操作");
     await station.click('[data-view="receive"]');
     await station.click(`[data-action="receive"][data-id="${order.id}"]`);
-    await station.fillFormAndSubmit("#actionForm", { shelfCode: "E2E-A-01", condition: "normal" });
+    await station.waitForExpression(`Boolean(document.querySelector('#actionForm'))`);
+    await station.fillFormAndSubmit("#actionForm", { shelfCode: "E2E-A-01", condition: "normal", ...Object.fromEntries(order.items.map(item => [`quantity_${item.productId}`, String(item.quantity)])) });
     await station.waitForText("收货成功");
     await station.waitForExpression(`!document.querySelector('#actionForm')`);
     await station.click('[data-view="pickup"]');

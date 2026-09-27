@@ -87,3 +87,21 @@ test("station cannot access an order assigned to another site", () => {
   assert.equal(stationService.receive(state, account, order.id, { condition: "normal" }).status, 404);
   assert.equal(stationService.listOrders(state, account).some((item) => item.id === order.id), false);
 });
+
+test("station orders expose configured product locations and enforce barcode scans when enabled", () => {
+  const state = createSeed();
+  state.config.stationScanRequired = true;
+  const product = state.products.find((item) => item.id === state.orders[0].items[0].productId);
+  product.barcode = "690000000001";
+  product.locationCode = "A-03-02";
+  product.storageType = "chilled";
+  const account = state.stationAccounts[0];
+  const listed = stationService.listOrders(state, account)[0];
+  assert.equal(listed.pickingItems[0].locationCode, "A-03-02");
+  assert.equal(listed.pickingItems[0].barcode, "690000000001");
+  const missingScan = stationService.receive(state, account, state.orders[0].id, { idempotencyKey: "scan-missing", receivedItems: [{ productId: product.id, quantity: 1 }] });
+  assert.equal(missingScan.ok, false);
+  assert.match(missingScan.error, /条码/);
+  const received = stationService.receive(state, account, state.orders[0].id, { idempotencyKey: "scan-ok", receivedItems: [{ productId: product.id, quantity: 1, barcode: "690000000001" }] });
+  assert.equal(received.ok, true);
+});

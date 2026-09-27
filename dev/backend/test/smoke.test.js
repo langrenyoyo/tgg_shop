@@ -783,7 +783,7 @@ async function run() {
     });
     assert(resolvedException.res.status === 200 && resolvedException.body.status === "resolved", "exception resolve failed");
 
-    assertPersisted(pureOrder.body.id, refundRequest.body.id, exception.body.id, recreatedAddress.body.id, withdrawal.body.id, refundStockOrder.body.id);
+    await assertPersisted(pureOrder.body.id, refundRequest.body.id, exception.body.id, recreatedAddress.body.id, withdrawal.body.id, refundStockOrder.body.id);
 
     console.log(`Smoke tests passed (${DRIVER})`);
   } finally {
@@ -871,8 +871,9 @@ async function assertPersistedPg(orderId, refundId, exceptionId, addressId, with
   await client.connect();
   try {
     if (!usingRealPg) {
-      const result = await client.query("SELECT COUNT(*) AS count FROM app_state WHERE state_id = 'main'");
-      assert(Number(result.rows[0].count || 0) === 1, "PG state row was not created");
+      // pg-mem's wire adapter does not support parameterized prepared queries.
+      const result = await client.query("SELECT state_id FROM app_state");
+      assert(result.rows.filter(row => row.state_id === PG_STATE_ID).length === 1, "PG state row was not created");
       return;
     }
 

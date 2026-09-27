@@ -7,7 +7,8 @@ const path = require("node:path");
 for (const scenario of [
   { name: "no fulfillment enabled", config: {}, sites: [], blocked: true },
   { name: "pickup enabled without sites", config: { pickupEnabled: true }, sites: [], blocked: true },
-  { name: "missing pickup sites falls back to delivery", config: { pickupEnabled: true, deliveryEnabled: true }, sites: [], type: "delivery" },
+  { name: "missing pickup sites falls back to delivery", config: { pickupEnabled: true, deliveryEnabled: true, deliveryTimeSlots: ["09:00-11:00"] }, sites: [], type: "delivery" },
+  { name: "delivery without slots is blocked", config: { deliveryEnabled: true, deliveryTimeSlots: [] }, sites: [], blocked: true },
   { name: "enabled pickup site", config: { pickupEnabled: true }, sites: [{ id: "site-1" }], type: "pickup" }
 ]) {
   test(`checkout: ${scenario.name}`, async () => {

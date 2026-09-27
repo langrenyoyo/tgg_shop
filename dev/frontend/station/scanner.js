@@ -8,10 +8,13 @@ export function parseScan(raw, target, selectedOrderId = "") {
   }
   const orderId = typeof (value.orderId || value.orderNo || value.orderCode) === "string" ? String(value.orderId || value.orderNo || value.orderCode).trim() : "";
   const pickupCode = typeof (value.pickupCode || value.code) === "string" ? String(value.pickupCode || value.code).trim() : "";
+  const productBarcode = typeof (value.productBarcode || value.barcode || value.code) === "string" ? String(value.productBarcode || value.barcode || value.code).trim() : "";
   if (orderId && !/^[A-Za-z0-9_-]{1,100}$/.test(orderId)) throw new Error("订单码格式不正确");
   if (selectedOrderId && orderId && selectedOrderId !== orderId) throw new Error("此码不属于当前订单，请核对后重新扫描");
   if (target === "orderId" && !orderId) throw new Error("请扫描包含订单号的订单码");
   if (target === "pickupCode" && !/^\d{6}$/.test(pickupCode)) throw new Error("请扫描包含六位取货码的二维码或条码");
+  if (target === "productBarcode" && !/^[A-Za-z0-9._-]{1,80}$/.test(productBarcode)) throw new Error("商品条码格式不正确");
+  if (target === "productBarcode") return { productBarcode };
   return target === "orderId" ? { orderId } : { orderId, pickupCode };
 }
 
@@ -48,7 +51,7 @@ export function createCameraScanner({ onError }) {
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
     overlay.setAttribute("aria-labelledby", "scannerTitle");
-    overlay.innerHTML = `<section class="dialog-card"><h2 id="scannerTitle">${target === "pickupCode" ? "扫描取货码" : "扫描订单码"}</h2><video class="scanner-video" autoplay muted playsinline></video><p class="scanner-status" role="status">正在请求摄像头权限…</p><p class="muted">将二维码或条码放入画面，识别后请核对并确认提交。</p><button type="button" class="secondary">关闭摄像头，手动输入</button></section>`;
+    overlay.innerHTML = `<section class="dialog-card"><h2 id="scannerTitle">${target === "pickupCode" ? "扫描取货码" : target === "productBarcode" ? "扫描商品条码" : "扫描订单码"}</h2><video class="scanner-video" autoplay muted playsinline></video><p class="scanner-status" role="status">正在请求摄像头权限…</p><p class="muted">将二维码或条码放入画面，识别后请核对并确认提交。</p><button type="button" class="secondary">关闭摄像头，手动输入</button></section>`;
     const video = overlay.querySelector("video");
     video.muted = true;
     const status = overlay.querySelector(".scanner-status");

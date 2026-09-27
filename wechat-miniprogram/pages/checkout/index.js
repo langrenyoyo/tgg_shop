@@ -1,7 +1,7 @@
 const { request } = require("../../utils/api");
 const cart = require("../../utils/cart");
 Page({
-  data: { items: [], modes: [], modeIndex: 0, sites: [], siteIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, busy: false, loading: true, fulfillmentError: "", error: "" },
+  data: { items: [], modes: [], modeIndex: 0, sites: [], siteIndex: 0, deliverySlotIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, busy: false, loading: true, fulfillmentError: "", error: "" },
   onLoad() { this.idempotencyKey = cart.checkoutIdempotencyKey(); this.ownerId = wx.getStorageSync("tgg_user")?.id; this.setData({ pending: cart.readCheckoutAttempt() }); this.load(); },
   onShow() { if (this.shown) this.load(); this.shown = true; },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
@@ -9,7 +9,7 @@ Page({
   async load() {
     const version = this.version = (this.version || 0) + 1;
     const owner = this.ownerId;
-    this.setData({ loading: true, error: "", items: [], user: null, modes: [], sites: [], addresses: [], defaultAddress: null, config: {}, estimatedPoints: 0, estimatedCash: "0.00" });
+    this.setData({ loading: true, error: "", items: [], user: null, modes: [], sites: [], addresses: [], defaultAddress: null, config: {}, deliverySlotIndex: 0, estimatedPoints: 0, estimatedCash: "0.00" });
     if (!owner || owner !== wx.getStorageSync("tgg_user")?.id) {
       this.setData({ loading: false, pending: null, deliveryAddress: "", error: "账号已变更，请重新打开结算页" });
       return;
@@ -43,6 +43,7 @@ Page({
   },
   validateFulfillment() {
     const { config, fulfillmentType, sites, siteIndex } = this.data;
+    if (fulfillmentType === "delivery" && !config.deliveryTimeSlots?.[this.data.deliverySlotIndex]) return "暂无可用配送时段，请联系商家";
     if (!config.pickupEnabled && !config.deliveryEnabled) return "暂未开放自提或配送，请稍后再试";
     if (fulfillmentType === "pickup" && (!config.pickupEnabled || !sites[siteIndex])) return "暂无可用自提点，请选择送货上门或稍后再试";
     if (fulfillmentType === "delivery" && !config.deliveryEnabled) return "送货上门暂未开放";
@@ -52,6 +53,7 @@ Page({
   site(e) { if (!this.data.busy && !this.data.pending) this.setData({ siteIndex: Number(e.detail.value) }, () => this.calculate()); },
   fulfillment(e) { if (!this.data.busy && !this.data.pending) this.setData({ fulfillmentType: e.detail.value }, () => this.calculate()); },
   address(e) { if (!this.data.busy && !this.data.pending) this.setData({ deliveryAddress: e.detail.value }); },
+  deliverySlot(e) { if (!this.data.busy && !this.data.pending) this.setData({ deliverySlotIndex: Number(e.detail.value) }, () => this.calculate()); },
   openAddress() { wx.navigateTo({ url: "/pages/address/index" }); },
   async submit() {
     if (this.disposed || this.data.busy || this.data.loading || (this.data.error && !this.data.pending)) return;
@@ -70,7 +72,8 @@ Page({
         items: this.data.items.map(({ productId, quantity }) => ({ productId, quantity })),
         paymentMode: mode, fulfillmentType: this.data.fulfillmentType,
         pickupSiteId: this.data.sites[this.data.siteIndex]?.id,
-        deliveryAddress: this.data.deliveryAddress.trim(), idempotencyKey: this.idempotencyKey
+        deliveryAddress: this.data.deliveryAddress.trim(), idempotencyKey: this.idempotencyKey,
+        ...(this.data.fulfillmentType === "delivery" ? { deliveryTimeSlot: this.data.config.deliveryTimeSlots[this.data.deliverySlotIndex] } : {})
       };
       cart.writeCheckoutAttempt(this.idempotencyKey, payload);
       this.setData({ pending: payload });

@@ -17,9 +17,14 @@ async function handleStationRoutes(ctx) {
   const orderMatch = url.pathname.match(/^\/api\/station\/orders\/([^/]+)$/);
   if (req.method === "GET" && orderMatch) {
     const order = stationService.findAccessibleOrder(state, account, orderMatch[1]);
-    return send(ctx.res, order ? 200 : 404, order ? stationService.safeOrder(order, (state.stationOrders || []).find((item) => item.orderId === order.id)) : { error: "订单不存在或不属于当前站点" });
+    return send(ctx.res, order ? 200 : 404, order ? stationService.safeOrder(order, (state.stationOrders || []).find((item) => item.orderId === order.id), state) : { error: "订单不存在或不属于当前站点" });
   }
   const receiveMatch = url.pathname.match(/^\/api\/station\/orders\/([^/]+)\/receive$/);
+  const pickingMatch = url.pathname.match(/^\/api\/station\/orders\/([^/]+)\/picking$/);
+  if (req.method === "POST" && pickingMatch) {
+    const result = stationService.claim(state, account, pickingMatch[1], await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result);
+  }
   if (req.method === "POST" && receiveMatch) {
     const result = stationService.receive(state, account, receiveMatch[1], await readBody(req));
     return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result : { error: result.error });

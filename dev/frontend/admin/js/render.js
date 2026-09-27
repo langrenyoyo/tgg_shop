@@ -256,7 +256,7 @@ function products(state) {
     ${state.productMessage ? `<p class="note" role="status">${escapeHtml(state.productMessage)}</p>` : ""}
     <form class="admin-form product-filter" data-product-filter-form><label>搜索商品<input name="search" value="${escapeAttr(state.productSearch || "")}" placeholder="名称、分类或商品编号"></label><label>状态<select name="status"><option value="">全部</option><option value="on" ${state.productStatus === "on" ? "selected" : ""}>已上架</option><option value="off" ${state.productStatus === "off" ? "selected" : ""}>草稿 / 已下架</option></select></label><button class="action" type="submit">查询</button><button class="action" type="button" data-product-edit-cancel>新增商品</button></form>
     <section class="table-panel">${simpleTable("商品上架与销售设置", ["商品", "分类", "价格", "库存", "状态", "操作"], rows.map((item) => [
-      `${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${item.id}</span>`,
+      `${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${item.id}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`,
       escapeHtml(item.category || "-"),
       item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `¥${Number(item.cashPrice || 0).toFixed(2)}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
       item.stock ?? 0,
@@ -314,7 +314,7 @@ export function promotionEditor(item = {}) {
 }
 
 function users(state) {
-  return `<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "状态", "操作"], (state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberUntil ? `月会员<br>${formatDateTime(item.memberUntil)}` : "-", badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">月会员支持后台续期与权益状态巡检。</section>`;
+  return `<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "状态", "操作"], (state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberUntil ? `月会员<br>${formatDateTime(item.memberUntil)}` : "-", badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">月会员支持后台续期、扣减与权益状态巡检。</section>`;
 }
 
 function addressBook(state) {
@@ -326,7 +326,7 @@ function inviteAudit(state) {
 }
 
 function customerTickets(state) {
-  return `<section class="table-panel">${simpleTable("客服/反馈/合作/招聘工单", ["工单", "用户", "类型", "状态", "内容", "操作"], (state.tickets || []).map((item) => [item.id, item.userId || "-", item.type || "-", badge(item.status || "open", item.status === "open" ? "orange" : ""), item.status === "resolved" ? "已处理完成" : escapeHtml(item.content || item.title || "-"), gatedAction("ticket:write", `<button class="action" data-ticket-action="${item.id}" data-action-type="${item.status === "resolved" ? "closed" : "resolved"}">${item.status === "resolved" ? "关闭" : "标记处理"}</button>`, "无工单权限")]))}</section>`;
+  return `<section class="table-panel">${simpleTable("客服/反馈/合作/招聘工单", ["工单", "用户", "类型", "状态", "内容", "操作"], (state.tickets || []).map((item) => [item.id, item.userId || "-", item.type || "-", badge(item.status || "open", item.status === "open" ? "orange" : ""), item.status === "resolved" ? "已处理完成" : escapeHtml(item.content || item.title || "-"), gatedAction("ticket:write", `${item.linkedType === "station_exception" && !["resolved", "closed"].includes(item.status) ? `<button class="action" data-ticket-action="${item.id}" data-action-type="processing">受理 / 跟进</button>` : ""}<button class="action" data-ticket-action="${item.id}" data-action-type="${item.status === "resolved" ? "closed" : "resolved"}">${item.status === "resolved" ? "关闭" : "标记处理"}</button>`, "无工单权限")]))}</section>`;
 }
 
 function agentsPickup(state) {
@@ -477,14 +477,43 @@ function settings(state) {
     { threshold: 3000, rewardPoints: 1500 },
     { threshold: 5000, rewardPoints: 3000 }
   ], null, 2);
+  const deliverySlots = Array.isArray(config.deliveryTimeSlots) && config.deliveryTimeSlots.length
+    ? config.deliveryTimeSlots.join("\n")
+    : "09:00-12:00\n14:00-18:00\n18:00-21:00";
   return `
+    <section class="panel">
+      <div class="panel-head"><h2>履约配送设置</h2><span>时区：${escapeHtml(config.deliveryTimeZone || "Asia/Shanghai")}</span></div>
+      <form class="config-form" data-config-form="delivery">
+        <label class="check"><input name="pickupEnabled" type="checkbox" ${config.pickupEnabled !== false ? "checked" : ""}> 开启到店自提</label>
+        <label class="check"><input name="deliveryEnabled" type="checkbox" ${config.deliveryEnabled !== false ? "checked" : ""}> 开启送货上门</label>
+        <label class="check"><input name="deliveryFeeEnabled" type="checkbox" ${config.deliveryFeeEnabled ? "checked" : ""}> 收取配送费</label>
+        <label>配送费（元）<input name="deliveryFee" type="number" min="0" step="0.1" value="${Number(config.deliveryFee || 0)}"></label>
+        <label>每日截单小时（0-23）<input name="deliveryCutoffHour" type="number" min="0" max="23" value="${Number.isFinite(Number(config.deliveryCutoffHour)) ? Number(config.deliveryCutoffHour) : 5}"></label>
+        <label class="wide">配送时间段（每行一个）<textarea name="deliveryTimeSlots" rows="4" placeholder="09:00-12:00\n14:00-18:00">${escapeHtml(deliverySlots)}</textarea></label>
+        <p class="note wide">截单前下单按当天配送，达到截单时间后按次日配送。配送日期按 ${escapeHtml(config.deliveryTimeZone || "Asia/Shanghai")} 计算，最多保存 12 个时段。</p>
+        <button class="action" type="submit">保存配送设置</button>
+      </form>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>站点拣货设置</h2><span>商品库位和条码请在商品编辑中维护</span></div>
+      <form class="config-form" data-config-form="stationPicking">
+        <label class="check"><input name="stationPickingEnabled" type="checkbox" ${config.stationPickingEnabled !== false ? "checked" : ""}> 开启站点拣货流程</label>
+        <label class="check"><input name="stationBatchPickingEnabled" type="checkbox" ${config.stationBatchPickingEnabled !== false ? "checked" : ""}> 开启批量拣货排序</label>
+        <label class="check"><input name="stationScanRequired" type="checkbox" ${config.stationScanRequired ? "checked" : ""}> 收货时必须扫码核对商品</label>
+        <label>排序方式<select name="stationSortMode"><option value="location" ${config.stationSortMode !== "createdAt" ? "selected" : ""}>按库位</option><option value="createdAt" ${config.stationSortMode === "createdAt" ? "selected" : ""}>按下单时间</option></select></label>
+        <label>提货位前缀<input name="stationShelfPrefix" value="${escapeAttr(config.stationShelfPrefix || "S-")}" maxlength="12"></label>
+        <label>订单保留时长（小时）<input name="stationPickupHoldHours" type="number" min="1" max="720" value="${config.stationPickupHoldHours ?? 48}"></label>
+        <p class="note wide">站点端会按照商品库位排序，并展示主库位、备用库位、条码和储存类型。开启强制扫码后，拣货员必须提交每个商品的实收明细。</p>
+        <button class="action" type="submit">保存拣货设置</button>
+      </form>
+    </section>
     <section class="panel">
       <div class="panel-head"><h2>会员与支付设置</h2><span>纯积分兑换不允许现金补差</span></div>
       <form class="config-form" data-config-form="points">
         <label>会员月价<input name="membershipMonthlyPrice" type="number" min="0" step="0.01" value="${config.membershipMonthlyPrice ?? 19.9}"></label>
         <label>30 天所需积分（0 表示关闭）<input name="membershipMonthlyPoints" type="number" min="0" value="${config.membershipMonthlyPoints ?? 0}"></label>
         <label>积分抵扣现金（元/积分）<input name="membershipPointCashRate" type="number" min="0" step="0.001" value="${config.membershipPointCashRate ?? 0.01}"></label>
-        <label class="check"><input name="monthlyPointRewardEnabled" type="checkbox" ${config.monthlyPointRewardEnabled !== false ? "checked" : "checked"}> 启用月度阶梯奖励</label>
+        <label class="check"><input name="monthlyPointRewardEnabled" type="checkbox" ${config.monthlyPointRewardEnabled !== false ? "checked" : ""}> 启用月度阶梯奖励</label>
         <label>月结小时<input name="monthlyPointRewardSettlementHour" type="number" min="0" max="23" value="${config.monthlyPointRewardSettlementHour ?? 0}"></label>
         <label>月结分钟<input name="monthlyPointRewardSettlementMinute" type="number" min="0" max="59" value="${config.monthlyPointRewardSettlementMinute ?? 10}"></label>
         <label>邀请奖励<input name="inviteRewardPoints" type="number" value="${config.inviteRewardPoints ?? 0}"></label>
@@ -603,7 +632,7 @@ function orderActionButtons(order) {
 function userActionButtons(item) {
   return `<div class="table-actions">
     ${gatedAction("approval:request", `<button class="action" data-user-points-adjust="${item.id}" data-user-points="${item.points || 0}">调积分</button>`, "无审批权限")}
-    ${gatedAction("membership:manage", `<button class="action" data-user-action="${item.id}" data-action-type="extend">续 1 月（30天）</button>`, "无会员权限")}
+    ${gatedAction("membership:manage", `<button class="action" data-user-action="${item.id}" data-action-type="extend">续 1 月（30天）</button>${item.isMember ? `<button class="action danger-action" data-user-action="${item.id}" data-action-type="reduce">减 1 月（30天）</button>` : `<button class="action danger-action" disabled title="当前用户无有效会员期限">减 1 月（30天）</button>`}`, "无会员权限")}
     ${gatedAction("customer:read", `<button class="action" data-user-action="${item.id}" data-action-type="${item.status === "disabled" ? "enable" : "disable"}">${item.status === "disabled" ? "启用" : "禁用"}</button>`, "无用户权限")}
   </div>`;
 }
