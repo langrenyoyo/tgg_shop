@@ -155,7 +155,7 @@ function createSeed() {
       {
         id: "p_banana",
         name: "精品香蕉 2斤",
-        category: "纯积分",
+        category: "水果",
         cashPrice: null,
         pointsPrice: 188,
         stock: 220,
@@ -169,7 +169,7 @@ function createSeed() {
       {
         id: "p_bokchoy",
         name: "有机青菜 1份",
-        category: "纯积分",
+        category: "蔬菜",
         cashPrice: null,
         pointsPrice: 99,
         stock: 18,

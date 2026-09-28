@@ -2,13 +2,22 @@ const { publicUser } = require("../http/http-utils");
 const productRepository = require("../repositories/product-repository");
 const siteRepository = require("../repositories/site-repository");
 
+const HOME_CATEGORIES = [
+  { name: "\u6c34\u679c", key: "fruit", icon: "category-fruit.png" },
+  { name: "\u852c\u83dc", key: "vegetable", icon: "category-vegetable.png" },
+  { name: "\u65e5\u7528", key: "daily", icon: "category-daily.png" },
+  { name: "\u96f6\u98df", key: "snack", icon: "category-snack.png" },
+  { name: "\u996e\u6599", key: "drink", icon: "category-drink.png" }
+];
+
 function getHome(state, user) {
   const config = state.config || {};
   return {
     user: publicUser(user),
     bannerProduct: productRepository.findActiveById(state, config.homeBannerProductId || "p_strawberry") || null,
     pickupSite: siteRepository.findEnabledPickupSite(state),
-    categories: ["\u6c34\u679c", "\u852c\u83dc", "\u8089\u79bd", "\u4e73\u54c1", "\u96f6\u98df", "\u65e5\u7528", "\u66f4\u591a"],
+    categories: HOME_CATEGORIES.map(item => item.name),
+    categoryShortcuts: HOME_CATEGORIES,
     deliveryPromise: config.homeDeliveryPromise || {
       title: "\u6700\u5feb 30 \u5206\u949f\u9001\u8fbe",
       subtitle: "TGG \u81ea\u5efa\u914d\u9001\u961f \u00b7 \u5e08\u5927\u5468\u8fb9 5km",
