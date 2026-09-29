@@ -522,17 +522,70 @@ paths:
         "409": { description: Order unavailable or claimed by another worker }
         "403": { description: Missing station receive permission }
 
+  /api/station/pickup-lookup:
+    post:
+      tags: [Station]
+      summary: Locate pickup goods without handing over the order
+      description: Requires station:pickup. Searches only assigned sites and paid, received pickup orders. Returns all package locations, bag counts, item count and pickupVersion. Does not change order state. A duplicate code requires the complete orderId.
+      security: [{ StationBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pickupCode]
+              properties:
+                pickupCode: { type: string, minLength: 1, maxLength: 128 }
+                orderId: { type: string, description: Optional except when the code matches multiple ready orders }
+      responses:
+        "200": { description: Object with ok, order (including packages, bagCount, itemCount and siteName), and pickupVersion }
+        "400": { description: Missing or invalid pickup code }
+        "401": { description: Station login required }
+        "403": { description: Missing pickup permission }
+        "404": { description: No matching ready order in authorized sites }
+        "409": { description: Ambiguous code; requiresOrderId is true }
+
   /api/station/orders/{orderId}/receive:
     post:
       tags: [Station]
       summary: Receive a pickup order at station
-      description: Requires station:receive permission. Reporting abnormal goods additionally requires station:exception.
+      description: Requires station:receive permission. Reporting abnormal goods additionally requires station:exception. Each package row records one storage location and the number of bags there. All positions are reserved until pickup or physical return processing. Receipts with packages require pickupVersion and complete package acknowledgement at handover.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                idempotencyKey: { type: string }
+                siteId: { type: string }
+                shelfCode: { type: string, description: Legacy single location; new clients use packages }
+                packages:
+                  type: array
+                  minItems: 1
+                  maxItems: 12
+                  items:
+                    type: object
+                    required: [shelfCode, storageType, bagCount]
+                    properties:
+                      shelfCode: { type: string, maxLength: 40, description: Empty only for ambient auto allocation }
+                      storageType: { type: string, enum: [ambient, chilled, frozen, fresh] }
+                      bagCount: { type: integer, minimum: 1, maximum: 99 }
+                receivedItems:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId: { type: string }
+                      quantity: { type: integer, minimum: 0 }
+                      barcode: { type: string }
       security:
         - StationBearerAuth: []
       parameters:
         - { in: path, name: orderId, required: true, schema: { type: string } }
       responses:
-        "200": { description: Order received }
+        "200": { description: Order received with persisted package locations and bag counts }
         "400": { description: Order state does not allow receiving }
         "403": { description: Missing station operation permission }
 
@@ -540,7 +593,22 @@ paths:
     post:
       tags: [Station]
       summary: Verify pickup code and hand over order
-      description: Requires station:pickup permission.
+      description: Requires station:pickup permission. After pickup-lookup, submit the returned pickupVersion and every package id in confirmedPackageIds. Rechecks the current payment, receipt, site and storage state. A stale preview is rejected. Reuse the idempotencyKey after uncertain responses. Legacy receipts without package metadata retain the original verification contract.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pickupCode, idempotencyKey]
+              properties:
+                pickupCode: { type: string }
+                idempotencyKey: { type: string }
+                pickupVersion: { type: string, description: Version returned from lookup; required for receipts with package metadata }
+                confirmedPackageIds:
+                  type: array
+                  uniqueItems: true
+                  items: { type: string }
       security:
         - StationBearerAuth: []
       parameters:
@@ -549,6 +617,7 @@ paths:
         "200": { description: Pickup completed }
         "400": { description: Invalid pickup code or order state }
         "403": { description: Missing station pickup permission }
+        "409": { description: Storage changed or lookup is required }
 
   /api/station/orders/{orderId}/exceptions:
     post:

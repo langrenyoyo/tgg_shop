@@ -12,7 +12,8 @@ async function runStationClosure({ userPage, adminPage, CDPPage, base }) {
     await station.click('[data-view="receive"]');
     await station.click(`[data-action="receive"][data-id="${order.id}"]`);
     await station.waitForExpression(`Boolean(document.querySelector('#actionForm'))`);
-    await station.fillFormAndSubmit("#actionForm", { shelfCode: "E2E-A-01", condition: "normal", ...Object.fromEntries(order.items.map(item => [`quantity_${item.productId}`, String(item.quantity)])) });
+    await station.evaluate(`document.querySelectorAll('[data-package-row]').forEach((row,i)=>{row.querySelector('[name="packageShelf"]').value='E2E-A-0'+(i+1);row.querySelector('[name="packageBags"]').value='2';})`);
+    await station.fillFormAndSubmit("#actionForm", { condition: "normal", ...Object.fromEntries(order.items.map(item => [`quantity_${item.productId}`, String(item.quantity)])) });
     await station.waitForText("收货成功");
     await station.waitForExpression(`!document.querySelector('#actionForm')`);
     await station.click('[data-view="pickup"]');
@@ -34,6 +35,11 @@ async function runStationClosure({ userPage, adminPage, CDPPage, base }) {
     await station.waitForText("取货码不正确");
     assert.equal(await station.evaluate(`document.querySelector('#actionForm button.primary').disabled`), false, "wrong code must allow retry without closing the form");
     await station.fillFormAndSubmit("#actionForm", { pickupCode: order.pickupCode });
+    await station.waitForText("找到货物后，再确认交付");
+    const beforeConfirm = await userPage.evaluate(`fetch('/api/orders/${order.id}',{headers:{Authorization:'Bearer '+localStorage.getItem('tggUserToken')}}).then(r=>r.json())`);
+    assert.equal(beforeConfirm.status, "paid", "looking up goods must not complete the order");
+    await station.evaluate(`document.querySelectorAll('[name="confirmedPackageIds"]').forEach(el=>el.checked=true)`);
+    await station.fillFormAndSubmit("#actionForm", {});
     await station.waitForText("提货核验成功");
     await station.waitForExpression(`!document.querySelector('#actionForm')`);
     await station.click('[data-view="logs"]');

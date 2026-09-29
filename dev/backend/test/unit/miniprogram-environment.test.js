@@ -68,10 +68,10 @@ test("relative product images resolve against the API origin instead of the deve
   assert.equal(api.resolveAssetUrl("https://cdn.example.com/strawberry.jpg"), "https://cdn.example.com/strawberry.jpg");
 });
 
-test("development retains explicit HTTPS overrides; unconfigured releases send no token", async () => {
+test("development uses configured HTTPS host instead of cached overrides; unconfigured releases send no token", async () => {
   const dev = setup("develop");
   await dev.api.request("/api/me");
-  assert.equal(dev.calls[0].url, "https://cached-test.vendor.com/api/me");
+  assert.equal(dev.calls[0].url, "https://dev.vendor.com/api/me");
   for (const release of ["", "http://prod.vendor.com", "https://user:password@prod.vendor.com"]) {
     const { api, calls } = setup("release", { release });
     await assert.rejects(api.request("/api/me"), /服务地址未配置/);
@@ -88,10 +88,10 @@ test("development may target an isolated local HTTP backend while releases remai
   await assert.rejects(release.api.request("/api/health"), /服务地址未配置/);
 });
 
-test("developer tools use the local admin backend while physical devices and published builds keep HTTPS", async () => {
+test("developer tools, physical devices and published builds all use the online backend", async () => {
   const actual = require("../../../../wechat-miniprogram/config/environments");
   for (const [version, platform, expected] of [
-    ["develop", "devtools", "http://127.0.0.1:5177"],
+    ["develop", "devtools", "https://shop.taoguoguo.cc"],
     ["develop", "ios", "https://shop.taoguoguo.cc"],
     ["develop", "android", "https://shop.taoguoguo.cc"],
     ["trial", "devtools", "https://shop.taoguoguo.cc"],
@@ -101,12 +101,14 @@ test("developer tools use the local admin backend while physical devices and pub
     await api.request("/api/health");
     assert.equal(calls[0].url, expected + "/api/health");
   }
-  const explicit = setup("develop", { ...actual, platform: "devtools", developmentConfig: { tggApiUrl: "https://explicit.example.com" } });
-  await explicit.api.request("/api/health");
-  assert.equal(explicit.calls[0].url, "https://explicit.example.com/api/health");
+  for (const cachedUrl of ["http://127.0.0.1:5177", "https://explicit.example.com"]) {
+    const cached = setup("develop", { ...actual, platform: "devtools", developmentConfig: { tggApiUrl: cachedUrl } });
+    await cached.api.request("/api/health");
+    assert.equal(cached.calls[0].url, "https://shop.taoguoguo.cc/api/health");
+  }
 });
 
-test("station password login and customer requests resolve the same local development backend", async () => {
+test("station password login and customer requests resolve the same online backend", async () => {
   const actual = require("../../../../wechat-miniprogram/config/environments");
   const { api } = setup("develop", { ...actual, platform: "devtools", developmentConfig: {} });
   const calls = [];
@@ -116,7 +118,7 @@ test("station password login and customer requests resolve the same local develo
   } };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/station-api.js"), "utf8"), context);
   await context.module.exports.request("/api/station/auth/login", { method: "POST", data: { username: "test-worker", password: "test-password" }, retry: false });
-  assert.equal(calls[0].url, "http://127.0.0.1:5177/api/station/auth/login");
+  assert.equal(calls[0].url, "https://shop.taoguoguo.cc/api/station/auth/login");
   assert.equal(calls[0].data.password, "test-password");
   assert.equal(calls[0].method, "POST");
 });

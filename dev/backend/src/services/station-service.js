@@ -2,6 +2,7 @@ const { nextId, saveState } = require("../data/store");
 const { verifyPickup } = require("../domain/fulfillment-rules");
 const tickets = require("../repositories/ticket-repository");
 const { canStation, publicStation } = require("../domain/station-accounts");
+const { packagesFor, preparePackages, pickupVersion } = require("../domain/station-storage");
 
 const RECEIVABLE = new Set(["paid"]);
 const BLOCKED = new Set(["cancelled", "refunding", "refunded", "closed"]);
@@ -58,6 +59,10 @@ function safeOrder(order, station = {}, state = {}) {
     createdAt: order.createdAt,
     stationStatus: effectiveStatus(order, station),
     shelfCode: station.shelfCode || "",
+    packages: packagesFor(station),
+    bagCount: packagesFor(station).reduce((total, row) => total + row.bagCount, 0),
+    itemCount: (order.items || []).reduce((total, row) => total + Number(row.quantity || 0), 0),
+    siteName: (state.pickupSites || []).find(site => site.id === orderSiteId(order))?.name || orderSiteId(order),
     receivedAt: station.receivedAt || "",
     holdUntil: station.holdUntil || "",
     overdue: order.status === "paid" && Boolean(station.holdUntil && new Date(station.holdUntil).getTime() <= Date.now()),
@@ -125,7 +130,7 @@ function listOrders(state, account, query = {}) {
       const product = (state.products || []).find((row) => row.id === item.productId) || {};
       return [item.title || item.name || item.productId, product.locationCode, product.backupLocation, product.barcode || product.pospalBarcode];
     });
-    return [order.id, order.userId, order.pickupSiteId, record?.shelfCode, ...productValues].some((value) => String(value || "").toLowerCase().includes(keyword));
+    return [order.id, order.userId, order.pickupSiteId, ...packagesFor(record).map(row => row.shelfCode), ...productValues].some((value) => String(value || "").toLowerCase().includes(keyword));
   }).map((order) => safeOrder(order, stationOrder(state, order), state)).sort((a, b) => {
     if (state.config?.stationBatchPickingEnabled !== false && state.config?.stationSortMode === "location") {
       const aLocation = a.pickingItems?.[0]?.locationCode || "";
@@ -194,12 +199,11 @@ function receive(state, account, orderId, input = {}) {
   const quantities = validateReceivedItems(state, order, input.receivedItems);
   if (!quantities.ok) return failure(state, account, order, "receive", key, quantities.error);
   if (record.pickerId && record.pickerId !== account.id) return { ok: false, status: 409, error: "订单由其他工作人员拣货，请联系其释放任务" };
-  const occupied = new Set((state.stationOrders || []).filter(row => row.siteId === orderSiteId(order) && row.orderId !== order.id && !["picked_up", "returned"].includes(row.stationStatus)).map(row => row.shelfCode).filter(Boolean));
-  let shelfCode = String(input.shelfCode || "").trim();
-  if (shelfCode.length > 40) return { ok: false, status: 400, error: "提货位不能超过 40 个字符" };
-  if (shelfCode && occupied.has(shelfCode)) return { ok: false, status: 409, error: "提货位已被占用，请更换" };
-  if (!shelfCode) { let n = 1; do { shelfCode = `${state.config.stationShelfPrefix || "S-"}${String(n++).padStart(4, "0")}`; } while (occupied.has(shelfCode)); }
-  input = { ...input, shelfCode };
+  const storage = preparePackages(state, order, input, record);
+  if (!storage.ok) return storage;
+  record.packages = storage.packages;
+  record.pickupLookupRequired = record.pickupLookupRequired || input.packages !== undefined;
+  input = { ...input, shelfCode: storage.packages[0].shelfCode };
   Object.assign(record, { siteId: orderSiteId(order), stationStatus: condition === "normal" ? "ready" : "exception", shelfCode: String(input.shelfCode || ""), receivedItems: quantities.items, receivedAt: new Date().toISOString(), receivedBy: account.id, exceptionType: condition === "normal" ? "" : condition, exceptionRemark: String(input.remark || "") });
   order.stationStatus = record.stationStatus;
   order.stationReceivedAt = record.receivedAt;
@@ -215,6 +219,18 @@ function receive(state, account, orderId, input = {}) {
   return result;
 }
 
+function lookupPickup(state, account, input = {}) {
+  if (!canStation(account, "station:pickup")) return { ok: false, status: 403, error: "没有提货核验权限" };
+  const code = typeof input.pickupCode === "string" ? input.pickupCode.trim() : "";
+  const id = typeof input.orderId === "string" ? input.orderId.trim() : "";
+  if (!code || code.length > 128) return { ok: false, status: 400, error: "请输入有效的提货码" };
+  const matches = (state.orders || []).filter(order => siteOrderAllowed(account, order) && (!id || order.id === id) && String(order.pickupCode || "") === code && order.status === "paid" && order.fulfillmentStatus === "pending_pickup" && ["ready", "received"].includes(stationOrder(state, order)?.stationStatus));
+  if (!matches.length) return { ok: false, status: 404, error: "取货码不正确或订单尚未收货、已提货，请核对当前站点" };
+  if (matches.length !== 1) return { ok: false, status: 409, error: "提货码对应多张订单，请补充完整订单号", requiresOrderId: true };
+  const order = matches[0], record = stationOrder(state, order);
+  return { ok: true, order: safeOrder(order, record, state), pickupVersion: pickupVersion(order, record) };
+}
+
 function pickup(state, account, orderId, input = {}) {
   if (!canStation(account, "station:pickup")) return { ok: false, status: 403, error: "没有提货核验权限" };
   const order = findAccessibleOrder(state, account, orderId);
@@ -227,6 +243,13 @@ function pickup(state, account, orderId, input = {}) {
   if (!record || !["received", "ready"].includes(record.stationStatus)) return failure(state, account, order, "pickup_verify", key, "订单尚未完成站点收货或当前不可提货");
   if (BLOCKED.has(order.status) || !RECEIVABLE.has(order.status)) return failure(state, account, order, "pickup_verify", key, "订单支付或状态不允许提货");
   if (!input.pickupCode || String(input.pickupCode) !== String(order.pickupCode)) return failure(state, account, order, "pickup_verify", key, "取货码不正确");
+  // Older clients retain the original code-verification contract. New clients
+  // acknowledge the exact packages displayed by the read-only lookup first.
+  if (record.pickupLookupRequired || input.pickupVersion !== undefined || input.confirmedPackageIds !== undefined) {
+    if (input.pickupVersion !== pickupVersion(order, record)) return { ok: false, status: 409, error: "货物位置或清单已变化，请重新查找并核对" };
+    const packages = packagesFor(record), checkedIds = input.confirmedPackageIds;
+    if (!packages.length || !Array.isArray(checkedIds) || checkedIds.length !== packages.length || new Set(checkedIds).size !== packages.length || packages.some(row => !checkedIds.includes(row.id))) return { ok: false, status: 400, error: "请核对全部存放位置和袋数后确认交付" };
+  }
   const checked = verifyPickup(state, order.id, input.pickupCode, { operatorType: "station", operatorId: account.id });
   if (!checked.ok && !checked.idempotent) return failure(state, account, order, "pickup_verify", key, checked.error);
   record.stationStatus = "picked_up";
@@ -296,4 +319,4 @@ function logs(state, account, query = {}) {
   return (state.stationOperationLogs || []).filter((item) => siteIds(account).includes(item.siteId)).filter((item) => !query.orderId || item.orderId === query.orderId).slice(0, 200);
 }
 
-module.exports = { publicStation, dashboard, listOrders, findAccessibleOrder, receive, pickup, createException, logs, safeOrder, claim };
+module.exports = { publicStation, dashboard, listOrders, findAccessibleOrder, receive, pickup, lookupPickup, createException, logs, safeOrder, claim };

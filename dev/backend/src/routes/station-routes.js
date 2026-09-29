@@ -10,6 +10,10 @@ async function handleStationRoutes(ctx) {
   const auth = resolveStation(req, state);
   if (!auth.ok) return send(ctx.res, auth.status || 401, { error: auth.error || "请先登录站点" });
   const account = auth.account;
+  if (req.method === "POST" && url.pathname === "/api/station/pickup-lookup") {
+    const result = stationService.lookupPickup(state, account, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result);
+  }
   if (req.method === "GET" && url.pathname === "/api/station/me") return send(ctx.res, 200, { station: stationService.publicStation(account), sites: (state.pickupSites || []).filter((site) => account.siteIds.includes(site.id)) });
   if (req.method === "GET" && url.pathname === "/api/station/dashboard") return send(ctx.res, 200, stationService.dashboard(state, account));
   if (req.method === "GET" && url.pathname === "/api/station/orders") return send(ctx.res, 200, stationService.listOrders(state, account, Object.fromEntries(url.searchParams.entries())));

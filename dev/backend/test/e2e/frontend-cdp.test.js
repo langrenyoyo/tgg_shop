@@ -209,6 +209,58 @@ test("user and admin frontends support core click flows", async (t) => {
   }
 });
 
+test("station browser locates split packages before explicit handover", async t => {
+  const chromePath = findChrome();
+  if (!chromePath) return t.skip("Chrome executable not found");
+  const server = startServer();
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-pickup-cdp-"));
+  const chrome = spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-extensions", "--remote-allow-origins=*", `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${userDataDir}`, "about:blank"], { stdio: "ignore", windowsHide: true });
+  let page;
+  try {
+    await waitForJson(`${BASE}/api/health`);
+    await waitForJson(`http://127.0.0.1:${CDP_PORT}/json/version`);
+    page = await CDPPage.create(`${BASE}/station`);
+    await page.waitForText("站点工作人员登录");
+    await page.fillFormAndSubmit('#loginForm', { username: "station001", password: "123456" });
+    await page.waitForText("现场操作");
+    const order = await page.evaluate(`fetch('/api/station/orders',{headers:{Authorization:'Bearer '+localStorage.getItem('tggStationToken')}}).then(r=>r.json()).then(rows=>rows.find(row=>row.status==='paid'&&row.stationStatus==='expected'))`);
+    assert.ok(order);
+    // User-owned order read retrieves its existing code for this isolated test server.
+    const code = await page.evaluate(`fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:'${order.userId}',password:'123456'})}).then(r=>r.json()).then(login=>fetch('/api/orders/${order.id}',{headers:{Authorization:'Bearer '+login.token}})).then(r=>r.json()).then(row=>row.pickupCode)`);
+    await page.click('[data-view="receive"]');
+    await page.click(`[data-action="receive"][data-id="${order.id}"]`);
+    await page.waitForExpression(`Boolean(document.querySelector('[data-package-row]'))`);
+    await page.evaluate(`document.querySelectorAll('[data-package-row]').forEach((row,i)=>{row.querySelector('[name="packageShelf"]').value='A-'+(i+1);row.querySelector('[name="packageBags"]').value='2';})`);
+    await page.click('[data-package-add]');
+    await page.evaluate(`(()=>{const row=document.querySelector('[data-package-row]:last-child');row.querySelector('[name="packageType"]').value='chilled';row.querySelector('[name="packageShelf"]').value='C-01';row.querySelector('[name="packageBags"]').value='1';})()`);
+    await page.fillFormAndSubmit('#actionForm', { condition: "normal", ...Object.fromEntries(order.items.map(item => [`quantity_${item.productId}`, String(item.quantity)])) });
+    await page.waitForText("收货成功");
+    await page.waitForExpression(`!document.querySelector('#actionForm')`);
+    await page.click('[data-view="dashboard"]');
+    await page.click('[data-action="open-pickup"]');
+    await page.fillFormAndSubmit('#actionForm', { pickupCode: code });
+    await page.waitForText("找到货物后，再确认交付");
+    await page.waitForText("C-01");
+    assert.equal(await page.evaluate(`fetch('/api/station/orders/${order.id}',{headers:{Authorization:'Bearer '+localStorage.getItem('tggStationToken')}}).then(r=>r.json()).then(o=>o.status)`), "paid");
+    await page.fillFormAndSubmit('#actionForm', {});
+    assert.equal(await page.evaluate(`document.querySelector('#actionForm').checkValidity()`), false);
+    await page.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    assert.equal(await page.evaluate(`document.documentElement.scrollWidth <= innerWidth`), true);
+    const screenshot = await page.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    fs.writeFileSync(path.join(os.tmpdir(), "tgg-pickup-locations.png"), Buffer.from(screenshot.data, "base64"));
+    await page.evaluate(`document.querySelectorAll('[name="confirmedPackageIds"]').forEach(el=>el.checked=true)`);
+    await page.fillFormAndSubmit('#actionForm', {});
+    await page.waitForText("提货核验成功");
+    await page.waitForExpression(`!document.querySelector('#actionForm')`);
+    assert.equal(await page.evaluate(`fetch('/api/station/orders/${order.id}',{headers:{Authorization:'Bearer '+localStorage.getItem('tggStationToken')}}).then(r=>r.json()).then(o=>o.status)`), "completed");
+    assert.deepEqual(page.runtimeErrors(), []);
+  } finally {
+    if (page) await page.close();
+    await stopProcess(server); await stopProcess(chrome);
+    removeDirBestEffort(userDataDir);
+  }
+});
+
 test("station worker configuration works through admin and station browser pages", async t => {
   const chromePath = findChrome();
   if (!chromePath) return t.skip("Chrome executable not found");
