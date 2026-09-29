@@ -1481,6 +1481,7 @@ function roundMoney(value) {
 }
 
 module.exports = {
+  logOperation,
   getAdminIdentity,
   requirePermission,
   getSummary,

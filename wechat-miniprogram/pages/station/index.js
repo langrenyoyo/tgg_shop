@@ -1,9 +1,20 @@
 const { request, clearStationSession } = require("../../utils/station-api");
 
 Page({
-  data: { station: {}, siteName: "授权站点", counts: {}, orders: [], pickingConfig: {}, current: null, checkItems: [], shelfCode: "", busy: false, view: "receive", loading: false, error: "" },
+  data: { station: {}, canReceive: false, canPickup: false, canException: false, siteName: "授权站点", counts: {}, orders: [], pickingConfig: {}, current: null, checkItems: [], shelfCode: "", busy: false, view: "receive", loading: false, error: "" },
   onShow() { if (!wx.getStorageSync("tgg_station_token")) return wx.reLaunch({ url: "/pages/station-login/index" }); this.load(); },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
+  handleActionError(error) {
+    if (error.statusCode === 401) {
+      this.attempt = this.pickupAttempt = null;
+      this.disposed = true; this.version = (this.version || 0) + 1;
+      this.setData({ current: null, orders: [], pendingReceive: false, pendingPickup: false, canReceive: false, canPickup: false, canException: false });
+      clearStationSession();
+      wx.reLaunch({ url: "/pages/station-login/index" });
+      return;
+    }
+    wx.showToast({ title: error.message || "操作失败", icon: "none" });
+  },
   async load() {
     const version = this.version = (this.version || 0) + 1;
     this.setData({ loading: true, error: "" });
@@ -11,6 +22,12 @@ Page({
       const [me, dashboard, orders] = await Promise.all([request("/api/station/me"), request("/api/station/dashboard"), request("/api/station/orders")]);
       if (this.disposed || version !== this.version) return;
       const site = me.sites?.[0] || {};
+      const permissions = me.station?.permissions || [];
+      this.setData({ canReceive: permissions.includes("station:receive"), canPickup: permissions.includes("station:pickup"), canException: permissions.includes("station:exception") });
+      if (!this.permissionsLoaded) {
+        this.permissionsLoaded = true;
+        this.setData({ view: this.data.canReceive ? "receive" : this.data.canPickup ? "pickup" : "exceptions" });
+      }
       const rows = (orders || []).filter(item => item.status === "paid" && (this.data.view === "receive" ? ["expected", "in_transit", "picking"].includes(item.stationStatus) : this.data.view === "exceptions" ? item.stationStatus === "exception" || item.overdue : ["ready", "received"].includes(item.stationStatus))).map(item => ({ ...item, itemsText: (item.items || []).map(row => `${row.title || row.name || row.productId} × ${row.quantity}`).join("、") }));
       this.setData({ station: me.station || {}, siteName: site.name || "授权站点", pickingConfig: dashboard.pickingConfig || {}, counts: dashboard.counts || {}, orders: rows, loading: false });
       const summary = new Map();
@@ -41,6 +58,7 @@ Page({
   receive(e) { this.receiveById(e.currentTarget.dataset.id); },
   pickup(e) { const row = this.data.orders.find(item => item.id === e.currentTarget.dataset.id); this.pickupByCode(row?.id || "", ""); },
   async receiveById(orderId) {
+    if (!this.data.canReceive) return wx.showToast({ title: "没有收货权限", icon: "none" });
     if (this.data.busy || this.data.current) return;
     if (!orderId) return wx.showToast({ title: "订单号不能为空", icon: "none" });
     this.setData({ busy: true });
@@ -48,7 +66,7 @@ Page({
       const result = await request(`/api/station/orders/${encodeURIComponent(orderId)}/picking`, { method: "POST", data: {} });
       const row = result.order;
       this.setData({ current: row, shelfCode: row.shelfCode || "", checkItems: row.pickingItems.map(item => ({ ...item, actualQuantity: "", scannedBarcode: "" })) });
-    } catch (error) { wx.showToast({ title: error.message, icon: "none" }); }
+    } catch (error) { this.handleActionError(error); }
     finally { this.setData({ busy: false }); }
   },
   quantity(e) { if (!this.data.busy && !this.attempt) this.setData({ checkItems: this.data.checkItems.map((item, index) => index === Number(e.currentTarget.dataset.index) ? { ...item, actualQuantity: e.detail.value } : item) }); },
@@ -66,6 +84,7 @@ Page({
     finally { this.setData({ busy: false }); }
   },
   async confirmReceive() {
+    if (!this.data.canReceive) return wx.showToast({ title: "没有收货权限", icon: "none" });
     if (this.data.busy || !this.data.current) return;
     this.setData({ busy: true });
     try {
@@ -81,7 +100,8 @@ Page({
       wx.showToast({ title: "收货上架成功" });
       await this.load();
     } catch (error) {
-      if ([400, 404, 409].includes(error.statusCode)) this.attempt = null;
+      if (error.statusCode === 401) return this.handleActionError(error);
+      if ([400, 403, 404, 409].includes(error.statusCode)) this.attempt = null;
       this.setData({ pendingReceive: Boolean(this.attempt) });
       wx.showToast({ title: error.message, icon: "none" });
     } finally { this.setData({ busy: false }); }
@@ -90,22 +110,24 @@ Page({
     if (this.data.busy || this.attempt || !this.data.current) return;
     this.setData({ busy: true });
     try { await request(`/api/station/orders/${encodeURIComponent(this.data.current.id)}/picking`, { method: "POST", data: { release: true } }); this.setData({ current: null }); await this.load(); }
-    catch (error) { wx.showToast({ title: error.message, icon: "none" }); }
+    catch (error) { this.handleActionError(error); }
     finally { this.setData({ busy: false }); }
   },
   exception(e) {
+    if (!this.data.canException) return wx.showToast({ title: "没有异常登记权限", icon: "none" });
     if (this.data.busy || this.attempt) return;
     const id = e.currentTarget.dataset.id || this.data.current?.id;
     wx.showModal({ title: "登记缺货、破损或超时说明", editable: true, success: async result => {
       if (!result.confirm || !result.content.trim() || this.data.busy) return;
       this.setData({ busy: true });
       try { await request(`/api/station/orders/${encodeURIComponent(id)}/exceptions`, { method: "POST", data: { type: "manual", remark: result.content.trim(), idempotencyKey: `mini_exception_${id}_${Date.now()}` } }); this.setData({ current: null }); await this.load(); }
-      catch (error) { wx.showToast({ title: error.message, icon: "none" }); }
+      catch (error) { this.handleActionError(error); }
       finally { this.setData({ busy: false }); }
     } });
   },
   retryPickup() { if (this.pickupAttempt) return this.pickupByCode(this.pickupAttempt.orderId, this.pickupAttempt.data.pickupCode); },
   async pickupByCode(orderId, pickupCode) {
+    if (!this.data.canPickup) return wx.showToast({ title: "没有提货核验权限", icon: "none" });
     if (this.data.busy || this.data.current) return;
     if (this.pickupAttempt && (orderId !== this.pickupAttempt.orderId || pickupCode !== this.pickupAttempt.data.pickupCode)) return wx.showToast({ title: "请先重试确认上次提货", icon: "none" });
     if (!pickupCode) return wx.showModal({ title: "输入取货码", editable: true, success: result => { if (result.confirm) this.pickupByCode(orderId, result.content.trim()); } });
@@ -117,7 +139,8 @@ Page({
       this.pickupAttempt = null; this.setData({ pendingPickup: false });
       wx.showToast({ title: "提货成功" }); await this.load();
     } catch (error) {
-      if ([400,404,409].includes(error.statusCode)) this.pickupAttempt = null;
+      if (error.statusCode === 401) return this.handleActionError(error);
+      if ([400,403,404,409].includes(error.statusCode)) this.pickupAttempt = null;
       this.setData({ pendingPickup: Boolean(this.pickupAttempt) });
       wx.showToast({ title: error.message, icon: "none" });
     } finally { this.setData({ busy: false }); }

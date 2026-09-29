@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
-const { ensureAdminUsers, effectiveRole, publicAdmin, verifyAdminPassword } = require("../domain/admin-accounts");
+const { ensureAdminUsers, effectiveRole, publicAdmin, verifyAdminPassword, hashAdminPassword } = require("../domain/admin-accounts");
+const { publicStation } = require("../domain/station-accounts");
 const { nextId, saveState } = require("../data/store");
 const { getBearerToken, issueToken, publicRole, verifyToken } = require("../domain/auth");
 const { publicUser } = require("../http/http-utils");
@@ -76,7 +77,7 @@ async function stationWechatLogin(state, input = {}) {
   if (account.status !== "active") return { ok: false, status: 403, error: "站点账号已停用" };
   clearLoginAttempts(state, "station", account.id);
   const result = tokenResult(state, {
-    station: { id: account.id, username: account.username, name: account.name, role: account.role, siteIds: account.siteIds },
+    station: publicStation(account),
     tokenPayload: { type: "station", stationId: account.id }
   });
   await saveState();
@@ -84,14 +85,16 @@ async function stationWechatLogin(state, input = {}) {
 }
 
 async function bindStationWechat(state, account, input = {}) {
+  const version = account.authVersion || 0;
   const session = await exchangeWechatCode(input.code);
   if (!session.ok) return session;
+  if (account.status !== "active" || (account.authVersion || 0) !== version || !(state.stationAccounts || []).includes(account)) return { ok: false, status: 401, error: "站点授权已变更，请重新登录" };
   const existing = (state.stationAccounts || []).find((item) => item.wechatOpenid === session.data.openid);
   if (existing && existing.id !== account.id) return { ok: false, status: 409, error: "该微信已绑定其他站点账号" };
   if (account.wechatOpenid && account.wechatOpenid !== session.data.openid) return { ok: false, status: 409, error: "站点账号已绑定其他微信，请联系运营管理员解绑" };
   account.wechatOpenid = session.data.openid;
   await saveState();
-  return { ok: true, station: { id: account.id, username: account.username, name: account.name, role: account.role, siteIds: account.siteIds }, bound: true };
+  return { ok: true, station: publicStation(account), bound: true };
 }
 
 async function exchangeWechatCode(rawCode) {
@@ -135,14 +138,16 @@ function adminLogin(state, input = {}) {
 
 function stationLogin(state, input = {}) {
   const identity = String(input.username || input.accountId || "").trim();
-  const account = (state.stationAccounts || []).find((item) => item.id === identity || item.username === identity);
-  if (!account || account.status === "disabled") return { ok: false, status: 401, error: "站点账号或密码错误" };
+  const account = (state.stationAccounts || []).find((item) => item.id === identity || item.username.toLowerCase() === identity.toLowerCase());
+  if (!account || account.status !== "active") return { ok: false, status: 401, error: "站点账号或密码错误" };
   const locked = assertNotLocked(state, "station", account.id);
   if (!locked.ok) return locked;
-  if (!isValidPassword(input.password)) return recordFailedLogin(state, "station", account.id);
+  if (typeof input.password !== "string" || input.password.length > 128 || !(account.passwordHash ? verifyAdminPassword(input.password, account.passwordHash) : isValidPassword(input.password))) return recordFailedLogin(state, "station", account.id);
+  // Upgrade legacy accounts once; subsequent logins always use the account hash.
+  if (!account.passwordHash) account.passwordHash = hashAdminPassword(input.password);
   clearLoginAttempts(state, "station", account.id);
   const result = tokenResult(state, {
-    station: { id: account.id, username: account.username, name: account.name, role: account.role, siteIds: account.siteIds },
+    station: publicStation(account),
     tokenPayload: { type: "station", stationId: account.id }
   });
   saveState();
@@ -174,6 +179,7 @@ function refresh(state, input = {}, expectedType) {
   if (!session) return { ok: false, status: 401, error: "刷新令牌无效或已过期" };
 
   if (expectedType === "admin" && !ensureAdminUsers(state).some(item => item.id === session.subjectId && item.status === "active")) return { ok: false, status: 401, error: "管理员已禁用" };
+  if (expectedType === "station" && !(state.stationAccounts || []).some(item => item.id === session.subjectId && item.status === "active")) return { ok: false, status: 401, error: "站点账号已停用" };
   const tokenPayload = session.subjectType === "admin"
     ? { type: "admin", adminId: session.subjectId, tokenId: session.tokenId }
     : session.subjectType === "station"

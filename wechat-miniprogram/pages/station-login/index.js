@@ -8,7 +8,7 @@ Page({
     return new Promise((resolve, reject) => wx.login({ success: result => result.code ? resolve(result.code) : reject(new Error("微信未返回登录凭证")), fail: reject }));
   },
   async wechatLogin() {
-    if (this.data.loading) return;
+    if (this.data.loading || this.data.binding) return;
     this.setData({ loading: true, error: "" });
     try {
       const result = await request("/api/station/auth/wechat-login", { method: "POST", data: { code: await this.wxCode() }, retry: false });
@@ -19,7 +19,7 @@ Page({
     } finally { this.setData({ loading: false }); }
   },
   async bindWechat() {
-    if (this.data.binding) return;
+    if (this.data.binding || this.data.loading) return;
     if (!this.data.username.trim() || !this.data.password) return this.setData({ error: "请输入站点账号和密码" });
     this.setData({ binding: true, error: "" });
     try {

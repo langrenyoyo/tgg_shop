@@ -1,6 +1,7 @@
 const { nextId, saveState } = require("../data/store");
 const { verifyPickup } = require("../domain/fulfillment-rules");
 const tickets = require("../repositories/ticket-repository");
+const { canStation, publicStation } = require("../domain/station-accounts");
 
 const RECEIVABLE = new Set(["paid"]);
 const BLOCKED = new Set(["cancelled", "refunding", "refunded", "closed"]);
@@ -9,10 +10,6 @@ function siteIds(account) { return Array.isArray(account?.siteIds) ? account.sit
 
 function allowedSite(account, siteId) {
   return siteIds(account).includes(String(siteId || ""));
-}
-
-function publicStation(account) {
-  return { id: account.id, username: account.username, name: account.name, role: account.role, siteIds: siteIds(account) };
 }
 
 function sitesFor(state, account) {
@@ -177,6 +174,7 @@ function appendLog(state, input) {
 }
 
 function receive(state, account, orderId, input = {}) {
+  if (!canStation(account, "station:receive")) return { ok: false, status: 403, error: "没有收货权限" };
   const order = findAccessibleOrder(state, account, orderId);
   if (!order) return { ok: false, status: 404, error: "订单不存在或不属于当前站点" };
   const key = String(input.idempotencyKey || `receive:${account.id}:${orderId}`);
@@ -218,6 +216,7 @@ function receive(state, account, orderId, input = {}) {
 }
 
 function pickup(state, account, orderId, input = {}) {
+  if (!canStation(account, "station:pickup")) return { ok: false, status: 403, error: "没有提货核验权限" };
   const order = findAccessibleOrder(state, account, orderId);
   if (!order) return { ok: false, status: 404, error: "订单不存在或不属于当前站点" };
   const key = String(input.idempotencyKey || `pickup:${account.id}:${orderId}`);
@@ -251,6 +250,7 @@ function failure(state, account, order, action, key, error) {
 }
 
 function createException(state, account, orderId, input = {}) {
+  if (!canStation(account, "station:exception")) return { ok: false, status: 403, error: "没有异常登记权限" };
   const order = findAccessibleOrder(state, account, orderId);
   if (!order) return { ok: false, status: 404, error: "订单不存在或不属于当前站点" };
   const type = String(input.type || "unknown");
@@ -276,6 +276,7 @@ function createException(state, account, orderId, input = {}) {
 }
 
 function claim(state, account, orderId, input = {}) {
+  if (!canStation(account, "station:receive")) return { ok: false, status: 403, error: "没有收货权限" };
   const order = findAccessibleOrder(state, account, orderId);
   if (!order) return { ok: false, status: 404, error: "订单不存在或不属于当前站点" };
   const record = stationOrder(state, order) || { orderId, siteId: orderSiteId(order) };

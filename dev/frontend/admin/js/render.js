@@ -2,6 +2,7 @@ import { pendingApprovalIntents } from "./api.js";
 import { renderDashboard } from "./dashboard.js";
 import { productEditor } from "./product-editor.js";
 import { adminAccountsView } from "./admin-accounts.js";
+import { stationAccountsView } from "./station-accounts.js";
 let currentAdminState = {};
 
 const viewPermissions = {
@@ -17,6 +18,7 @@ const viewPermissions = {
   inviteAudit: "customer:read",
   customerTickets: "ticket:write",
   agentsPickup: "pickup_site:write",
+  stationStaff: "admin:manage",
   taskReview: "task:review",
   signinAds: "signin:config",
   financeRefund: "refund:approve",
@@ -41,6 +43,7 @@ const titles = {
   inviteAudit: ["邀请关系审计", "邀请绑定、提成积分和关系追踪"],
   customerTickets: ["客服工单", "客服、反馈、商务合作和招聘咨询"],
   agentsPickup: ["代理与自提点", "自提点启用、隐藏和核销"],
+  stationStaff: ["站点工作人员", "人员账号、站点授权与微信绑定管理"],
   taskReview: ["悬赏任务审核", "任务提交审核与积分入账"],
   signinAds: ["签到广告配置", "连续签到奖励与广告组配置"],
   financeRefund: ["支付 / 积分 / 提现流水", "财务审批、退款和提现"],
@@ -168,6 +171,7 @@ export function renderAdminPage(state) {
     inviteAudit,
     customerTickets,
     agentsPickup,
+    stationStaff: value => stationAccountsView(value),
     taskReview,
     signinAds,
     financeRefund,

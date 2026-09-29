@@ -41,6 +41,7 @@ function setup(version, overrides = {}) {
   const developmentConfig = overrides.developmentConfig || { tggApiUrl: "https://cached-test.vendor.com" };
   const context = { module: { exports: {} }, require: () => environments, wx: {
     getAccountInfoSync: () => ({ miniProgram: { envVersion: version } }),
+    getDeviceInfo: () => ({ platform: overrides.platform || "ios" }),
     getStorageSync: key => key === "tgg_config" ? developmentConfig : "user-token",
     request: options => { calls.push(options); options.success({ statusCode: 200, data: {} }); },
     uploadFile: options => { calls.push(options); options.success({ statusCode: 200, data: JSON.stringify({ code: 0, data: [{ path: "/uploads/proof.png" }] }) }); }
@@ -85,4 +86,37 @@ test("development may target an isolated local HTTP backend while releases remai
   assert.equal(calls[0].url, "http://127.0.0.1:5788/api/health");
   const release = setup("release", { release: "http://127.0.0.1:5788" });
   await assert.rejects(release.api.request("/api/health"), /服务地址未配置/);
+});
+
+test("developer tools use the local admin backend while physical devices and published builds keep HTTPS", async () => {
+  const actual = require("../../../../wechat-miniprogram/config/environments");
+  for (const [version, platform, expected] of [
+    ["develop", "devtools", "http://127.0.0.1:5177"],
+    ["develop", "ios", "https://shop.taoguoguo.cc"],
+    ["develop", "android", "https://shop.taoguoguo.cc"],
+    ["trial", "devtools", "https://shop.taoguoguo.cc"],
+    ["release", "devtools", "https://shop.taoguoguo.cc"]
+  ]) {
+    const { api, calls } = setup(version, { ...actual, platform, developmentConfig: {} });
+    await api.request("/api/health");
+    assert.equal(calls[0].url, expected + "/api/health");
+  }
+  const explicit = setup("develop", { ...actual, platform: "devtools", developmentConfig: { tggApiUrl: "https://explicit.example.com" } });
+  await explicit.api.request("/api/health");
+  assert.equal(explicit.calls[0].url, "https://explicit.example.com/api/health");
+});
+
+test("station password login and customer requests resolve the same local development backend", async () => {
+  const actual = require("../../../../wechat-miniprogram/config/environments");
+  const { api } = setup("develop", { ...actual, platform: "devtools", developmentConfig: {} });
+  const calls = [];
+  const context = { module: { exports: {} }, require: () => api, wx: {
+    getStorageSync: () => "",
+    request: options => { calls.push(options); options.success({ statusCode: 200, data: { ok: true } }); }
+  } };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/station-api.js"), "utf8"), context);
+  await context.module.exports.request("/api/station/auth/login", { method: "POST", data: { username: "test-worker", password: "test-password" }, retry: false });
+  assert.equal(calls[0].url, "http://127.0.0.1:5177/api/station/auth/login");
+  assert.equal(calls[0].data.password, "test-password");
+  assert.equal(calls[0].method, "POST");
 });

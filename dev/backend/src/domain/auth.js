@@ -76,7 +76,7 @@ function resolveStation(req, state) {
   if (!session) return { ok: false, status: 401, error: "站点登录会话已失效" };
   session.lastSeenAt = new Date().toISOString();
   const account = (state.stationAccounts || []).find((item) => item.id === verified.payload.stationId);
-  if (!account || account.status === "disabled") return { ok: false, status: 401, error: "站点账号不存在或已停用" };
+  if (!account || account.status !== "active") return { ok: false, status: 401, error: "站点账号不存在或已停用" };
   return { ok: true, account, auth: verified.payload };
 }
 

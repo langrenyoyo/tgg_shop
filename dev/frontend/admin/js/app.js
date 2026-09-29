@@ -1,6 +1,7 @@
 import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin } from "./api.js";
 import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
+import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
 
 const state = {
   loading: true,
@@ -110,6 +111,10 @@ async function loadDashboard() {
   state.ledger = ledger.ok ? ledger.data : { pointLedger: [], paymentLedger: [] };
   state.roles = roles.ok ? roles.data : [];
   state.adminUsers = adminUsers.ok ? adminUsers.data : [];
+  const staff = await safeApi("/api/admin/station-accounts", { accounts: [], sites: [] });
+  state.stationAccounts = staff.ok ? staff.data.accounts : [];
+  state.stationAccountSites = staff.ok ? staff.data.sites : [];
+  state.stationAccountsError = staff.ok ? "" : staff.error?.message || "工作人员加载失败";
   state.permissionCatalog = permissionCatalog.ok ? permissionCatalog.data : [];
   state.refunds = refunds.ok ? refunds.data : [];
   state.exceptions = exceptions.ok ? exceptions.data : [];
@@ -355,6 +360,7 @@ document.querySelector("#refresh").addEventListener("click", () => {
 });
 
 document.body.addEventListener("click", (event) => {
+  if (stationAccountClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (event.target.closest("button:disabled")) return;
   const adminToggle = event.target.closest("[data-admin-toggle]");
   if (adminToggle) {
@@ -909,6 +915,7 @@ document.body.addEventListener("change", (event) => {
 });
 
 document.body.addEventListener("submit", (event) => {
+  if (stationAccountSubmit(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   const loginForm = event.target.closest("[data-admin-login]");
   if (loginForm) {
     event.preventDefault();

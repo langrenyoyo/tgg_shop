@@ -3,7 +3,8 @@
   <view class="station-head"><view><view class="eyebrow">站点工作台</view><view class="title">{{siteName}}</view><view class="muted">{{station.name || '站点工作人员'}}</view></view><button class="logout" bindtap="logout">退出</button></view>
   <view class="stats"><view><text>待收货</text><text>{{counts.pendingReceive || 0}}</text></view><view><text>待提货</text><text>{{counts.readyPickup || 0}}</text></view><view><text>异常</text><text>{{counts.exceptions || 0}}</text></view></view>
   <view class="tabs"><button data-view="receive" bindtap="switchView">待收货</button><button data-view="pickup" bindtap="switchView">待提货</button><button data-view="exceptions" bindtap="switchView">异常跟进</button></view>
-  <view wx:if="{{!current && view !== 'exceptions'}}" class="card quick"><button bindtap="scan" data-target="{{view === 'receive' ? 'orderId' : 'pickupCode'}}">扫码{{view === 'receive' ? '查单' : '提货'}}</button><button class="light" bindtap="manual">手动输入</button></view>
+  <view wx:if="{{!canReceive && !canPickup && !canException}}" class="muted">当前账号仅可查看，操作权限请联系管理员配置。</view>
+  <view wx:if="{{!current && ((view === 'receive' && canReceive) || (view === 'pickup' && canPickup))}}" class="card quick"><button bindtap="scan" data-target="{{view === 'receive' ? 'orderId' : 'pickupCode'}}">扫码{{view === 'receive' ? '查单' : '提货'}}</button><button class="light" bindtap="manual">手动输入</button></view>
   <view wx:if="{{summary.length && !current}}" class="card"><view>多单商品汇总（按站点分别备货，逐单核对分装）</view><view wx:for="{{summary}}" wx:key="key">{{item.siteName}} · {{item.locationCode}} · {{item.title}} × {{item.quantity}}</view></view>
   <view wx:if="{{pendingPickup}}" class="card">上次提货结果待确认。<button bindtap="retryPickup" disabled="{{busy}}">重试原提货核验</button></view>
   <view wx:if="{{current}}" class="card">
@@ -15,11 +16,11 @@
     </view>
     <input value="{{shelfCode}}" bindinput="shelf" disabled="{{busy || pendingReceive}}" placeholder="提货位（留空自动分配）"/>
     <view wx:if="{{pendingReceive}}">提交结果待确认，请重试原收货单。</view>
-    <button bindtap="confirmReceive" disabled="{{busy}}">{{pendingReceive ? '重试确认' : '确认收货上架'}}</button><button bindtap="exception" disabled="{{busy || pendingReceive}}">上报异常</button><button bindtap="release" disabled="{{busy || pendingReceive}}">释放任务</button>
+    <button wx:if="{{canReceive}}" bindtap="confirmReceive" disabled="{{busy}}">{{pendingReceive ? '重试确认' : '确认收货上架'}}</button><button wx:if="{{canException}}" bindtap="exception" disabled="{{busy || pendingReceive}}">上报异常</button><button bindtap="release" disabled="{{busy || pendingReceive}}">释放任务</button>
   </view>
   <view wx:for="{{orders}}" wx:key="id" class="card order"><view class="order-top"><text>{{item.id}}</text><text class="tag">{{item.stationStatus}}</text></view><view class="items">{{item.itemsText}}</view><view class="muted">提货位：{{item.shelfCode || '待分配'}}</view><view wx:if="{{item.holdUntil}}">保管期限：{{item.holdUntil}}{{item.overdue ? '（已超时，请跟进）' : ''}}</view><view wx:if="{{item.exceptionRemark}}">异常：{{item.exceptionRemark}}</view><view wx:if="{{item.pickerId}}">拣货员：{{item.pickerId}}</view>
     <view wx:for="{{item.pickingItems}}" wx:for-item="goods" wx:key="productId">{{goods.locationCode}} · {{goods.title}} × {{goods.quantity}} <text wx:if="{{goods.backupLocation}}">备用：{{goods.backupLocation}}</text></view>
-    <button wx:if="{{item.stationStatus === 'expected' || item.stationStatus === 'in_transit' || item.stationStatus === 'picking' || item.stationStatus === 'exception'}}" bindtap="receive" data-id="{{item.id}}" disabled="{{busy || current || !pickingConfig.enabled}}">领取并核对收货</button><button wx:else bindtap="pickup" data-id="{{item.id}}">核验提货</button><button bindtap="exception" data-id="{{item.id}}" disabled="{{busy || pendingReceive}}">登记异常</button>
+    <button wx:if="{{canReceive && (item.stationStatus === 'expected' || item.stationStatus === 'in_transit' || item.stationStatus === 'picking' || item.stationStatus === 'exception')}}" bindtap="receive" data-id="{{item.id}}" disabled="{{busy || current || !pickingConfig.enabled}}">领取并核对收货</button><button wx:if="{{canPickup && (item.stationStatus === 'ready' || item.stationStatus === 'received')}}" bindtap="pickup" data-id="{{item.id}}" disabled="{{busy || current}}">核验提货</button><button wx:if="{{canException}}" bindtap="exception" data-id="{{item.id}}" disabled="{{busy || pendingReceive}}">登记异常</button>
   </view>
   <view wx:if="{{!loading && !orders.length}}" class="empty">暂无订单</view>
 </view>

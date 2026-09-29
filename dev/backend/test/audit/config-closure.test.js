@@ -36,7 +36,7 @@ test("native station must support receiving after admin enables mandatory barcod
   let page;
   const messages = [];
   const request = async (url, options) => {
-    if (url === "/api/station/me") return { station: account, sites: state.pickupSites };
+    if (url === "/api/station/me") return { station: station.publicStation(account), sites: state.pickupSites };
     if (url === "/api/station/dashboard") return station.dashboard(state, account);
     if (url === "/api/station/orders") return station.listOrders(state, account);
     if (url.endsWith("/picking")) return station.claim(state, account, order.id, options.data);

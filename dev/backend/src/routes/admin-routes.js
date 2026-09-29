@@ -7,6 +7,18 @@ const taskReconciliation = require("../services/task-reconciliation-service");
 async function handleAdminRoutes(ctx) {
   const { req, url, state, send } = ctx;
   if (!url.pathname.startsWith("/api/admin/")) return false;
+  const stationAccountMatch = url.pathname.match(/^\/api\/admin\/station-accounts(?:\/([^/]+)(?:\/(reset-password|unbind-wechat))?)?$/);
+  if (stationAccountMatch) {
+    const check = adminService.requirePermission(req, state, "admin:manage");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const service = require("../services/station-account-service");
+    const [, id, operation] = stationAccountMatch;
+    if (req.method === "GET" && !id) return send(ctx.res, 200, service.list(state));
+    const action = req.method === "POST" && !id ? "create" : req.method === "PATCH" && id && !operation ? "update" : req.method === "POST" && operation ? operation : null;
+    if (!action) return send(ctx.res, 405, { error: "不支持的操作" });
+    const result = await service.mutate(state, id, action, await ctx.readBody(req), check);
+    return send(ctx.res, result.ok ? action === "create" ? 201 : 200 : result.status, result.ok ? result.account : { error: result.error });
+  }
   const taskReconcileMatch = url.pathname.match(/^\/api\/admin\/task-submissions\/([^/]+)\/reconcile$/);
   if (req.method === "POST" && taskReconcileMatch) {
     const check = adminService.requirePermission(req, state, "task:review");

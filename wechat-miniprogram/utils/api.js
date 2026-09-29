@@ -3,7 +3,15 @@ const environments = require("../config/environments");
 function getBaseUrl() {
   const version = wx.getAccountInfoSync?.().miniProgram?.envVersion;
   const cfg = version === "develop" ? wx.getStorageSync("tgg_config") || {} : {};
-  const baseUrl = cfg.tggApiUrl || environments[version || "release"];
+  let inDevtools = false;
+  if (version === "develop") {
+    try {
+      const device = wx.getDeviceInfo ? wx.getDeviceInfo() : wx.getSystemInfoSync?.();
+      inDevtools = device?.platform === "devtools";
+    } catch { /* If platform detection is unavailable, use the configured HTTPS environment. */ }
+  }
+  const defaultUrl = inDevtools ? environments.devtools || environments.develop : environments[version || "release"];
+  const baseUrl = cfg.tggApiUrl || defaultUrl;
   const localDevelopmentUrl = version === "develop" && /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\/?$/.test(String(baseUrl || ""));
   if (typeof baseUrl !== "string" || (!/^https:\/\/[^/?#\s@]+\/?$/.test(baseUrl) && !localDevelopmentUrl)) {
     throw new Error("服务地址未配置，请联系管理员");

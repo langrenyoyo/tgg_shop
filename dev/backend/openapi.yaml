@@ -20,6 +20,107 @@ tags:
   - name: Station
   - name: POSPAL
 paths:
+  /api/admin/station-accounts:
+    get:
+      tags: [Admin]
+      summary: List station workers and assignable pickup sites
+      description: Requires admin:manage. Returns accounts and sites. Accounts expose permissions, status, wechatBound and passwordConfigured, never password hashes or WeChat openids.
+      security: [{ AdminBearerAuth: [] }]
+      responses:
+        "200": { description: Object containing accounts and sites arrays }
+        "401": { description: Admin login required }
+        "403": { description: Missing admin management permission }
+    post:
+      tags: [Admin]
+      summary: Create a station worker with an independent password
+      description: Requires admin:manage. Username is unique ignoring case. Passwords are salted and hashed. Empty permissions grants read-only access to the assigned sites.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/StationAccountInput"
+                - type: object
+                  required: [username, name, password, siteIds, permissions, reason]
+      responses:
+        "201": { description: Public station account created }
+        "400": { description: Invalid account fields }
+        "401": { description: Admin login required }
+        "403": { description: Missing admin management permission }
+        "409": { description: Username already exists }
+
+  /api/admin/station-accounts/{stationId}:
+    parameters:
+      - $ref: "#/components/parameters/StationId"
+    patch:
+      tags: [Admin]
+      summary: Update a station worker's name, sites, permissions or status
+      description: Requires admin:manage. Username cannot change. Existing station access and refresh sessions are revoked and unfinished picking claims are released. Reason is required. Changes are audited without credentials.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StationAccountInput"
+      responses:
+        "200": { description: Public station account updated }
+        "400": { description: Invalid update }
+        "401": { description: Admin login required }
+        "403": { description: Missing admin management permission }
+        "404": { description: Station worker not found }
+
+  /api/admin/station-accounts/{stationId}/reset-password:
+    parameters:
+      - $ref: "#/components/parameters/StationId"
+    post:
+      tags: [Admin]
+      summary: Reset a station worker's password
+      description: Requires admin:manage. Revokes all station sessions, clears password login lockouts and releases unfinished picking claims. Existing WeChat binding is retained; unbind separately to replace the worker's WeChat identity.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password, reason]
+              properties:
+                password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
+                reason: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "200": { description: Password reset }
+        "400": { description: Invalid password or reason }
+        "401": { description: Admin login required }
+        "403": { description: Missing admin management permission }
+        "404": { description: Station worker not found }
+
+  /api/admin/station-accounts/{stationId}/unbind-wechat:
+    parameters:
+      - $ref: "#/components/parameters/StationId"
+    post:
+      tags: [Admin]
+      summary: Remove a station worker's WeChat binding
+      description: Requires admin:manage. Revokes all station sessions and releases unfinished picking claims. Rebinding requires password login again.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "200": { description: Binding removed }
+        "400": { description: Missing reason }
+        "401": { description: Admin login required }
+        "403": { description: Missing admin management permission }
+        "404": { description: Station worker not found }
+
   /api/admin/integrations/pospal/status:
     get:
       tags: [POSPAL]
@@ -359,6 +460,7 @@ paths:
     get:
       tags: [Station]
       summary: Get station identity and authorized sites
+      description: Station identity includes permissions (station:receive, station:pickup, station:exception). Clients must use these grants to display operation controls.
       security:
         - StationBearerAuth: []
       responses:
@@ -402,6 +504,7 @@ paths:
     post:
       tags: [Station]
       summary: Claim or release a picking task for an authorized station order
+      description: Requires station:receive permission.
       security:
         - StationBearerAuth: []
       parameters:
@@ -417,11 +520,13 @@ paths:
         "200": { description: Task claimed or released }
         "404": { description: Order not found or not authorized }
         "409": { description: Order unavailable or claimed by another worker }
+        "403": { description: Missing station receive permission }
 
   /api/station/orders/{orderId}/receive:
     post:
       tags: [Station]
       summary: Receive a pickup order at station
+      description: Requires station:receive permission. Reporting abnormal goods additionally requires station:exception.
       security:
         - StationBearerAuth: []
       parameters:
@@ -429,11 +534,13 @@ paths:
       responses:
         "200": { description: Order received }
         "400": { description: Order state does not allow receiving }
+        "403": { description: Missing station operation permission }
 
   /api/station/orders/{orderId}/pickup-verify:
     post:
       tags: [Station]
       summary: Verify pickup code and hand over order
+      description: Requires station:pickup permission.
       security:
         - StationBearerAuth: []
       parameters:
@@ -441,17 +548,20 @@ paths:
       responses:
         "200": { description: Pickup completed }
         "400": { description: Invalid pickup code or order state }
+        "403": { description: Missing station pickup permission }
 
   /api/station/orders/{orderId}/exceptions:
     post:
       tags: [Station]
       summary: Register a station fulfillment exception
+      description: Requires station:exception permission.
       security:
         - StationBearerAuth: []
       parameters:
         - { in: path, name: orderId, required: true, schema: { type: string } }
       responses:
         "201": { description: Exception registered }
+        "403": { description: Missing station exception permission }
         "404": { description: Order not found or not assigned to station }
 
   /api/station/operation-logs:
@@ -2735,6 +2845,11 @@ components:
       scheme: bearer
       bearerFormat: HMAC
   parameters:
+    StationId:
+      in: path
+      name: stationId
+      required: true
+      schema: { type: string }
     ProductId:
       in: path
       name: productId
@@ -2772,6 +2887,22 @@ components:
       schema:
         type: string
   schemas:
+    StationAccountInput:
+      type: object
+      required: [reason]
+      properties:
+        username: { type: string, pattern: '^[a-zA-Z0-9_.-]{3,40}$', description: Only set when creating a worker }
+        name: { type: string, minLength: 1, maxLength: 50 }
+        password: { type: string, minLength: 8, maxLength: 128, writeOnly: true, description: Initial password on creation; use reset-password for existing workers }
+        siteIds:
+          type: array
+          minItems: 1
+          items: { type: string }
+        permissions:
+          type: array
+          items: { type: string, enum: ['station:receive', 'station:pickup', 'station:exception'] }
+        status: { type: string, enum: [active, disabled], default: active }
+        reason: { type: string, minLength: 1, maxLength: 200 }
     User:
       type: object
       properties:

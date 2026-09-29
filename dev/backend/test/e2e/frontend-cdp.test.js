@@ -209,6 +209,78 @@ test("user and admin frontends support core click flows", async (t) => {
   }
 });
 
+test("station worker configuration works through admin and station browser pages", async t => {
+  const chromePath = findChrome();
+  if (!chromePath) return t.skip("Chrome executable not found");
+  const server = startServer();
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-staff-cdp-"));
+  const chrome = spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-extensions", "--remote-allow-origins=*", `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${userDataDir}`, "about:blank"], { stdio: "ignore", windowsHide: true });
+  let adminPage, stationPage;
+  try {
+    await waitForJson(`${BASE}/api/health`);
+    await waitForJson(`http://127.0.0.1:${CDP_PORT}/json/version`);
+    adminPage = await CDPPage.create(`${BASE}/admin`);
+    await adminPage.waitForExpression(`Boolean(document.querySelector('[data-admin-login]') || document.querySelector('.dashboard-metrics'))`);
+    if (await adminPage.evaluate(`Boolean(document.querySelector('[data-admin-login]'))`)) await adminPage.fillFormAndSubmit('[data-admin-login]', { username: "super_admin", password: "123456" });
+    await adminPage.waitForText("最近订单");
+    await adminPage.click('[data-view="stationStaff"]');
+    await adminPage.waitForText("新增工作人员");
+    await adminPage.click('[data-station-edit="new"]');
+    await adminPage.evaluate(`document.querySelector('[data-station-form] [name="siteIds"][value="site_001"]').checked = true`);
+    await adminPage.evaluate(`document.querySelectorAll('[data-station-form] [name="permissions"]').forEach(el => el.checked = el.value === 'station:pickup')`);
+    await adminPage.fillFormAndSubmit('[data-station-form]', { username: "browserworker", name: "浏览器提货员", password: "Browser-Worker-88", reason: "浏览器开通" });
+    await adminPage.waitForExpression(`!document.querySelector('[data-station-form]')`);
+    await adminPage.waitForText("browserworker");
+    const account = await adminPage.evaluate(`fetch('/api/admin/station-accounts', {headers:{Authorization:'Bearer '+localStorage.getItem('tggAdminToken')}}).then(r=>r.json()).then(data=>data.accounts.find(row=>row.username==='browserworker'))`);
+    assert.deepEqual(account.permissions, ["station:pickup"]);
+    assert.deepEqual(account.siteIds, ["site_001"]);
+
+    stationPage = await CDPPage.create(`${BASE}/station`);
+    await stationPage.waitForText("站点工作人员登录");
+    await stationPage.fillFormAndSubmit('#loginForm', { username: "browserworker", password: "Browser-Worker-88" });
+    await stationPage.waitForText("现场操作");
+    assert.equal(await stationPage.evaluate(`document.querySelector('[data-action="open-receive"]').hidden`), true);
+    assert.equal(await stationPage.evaluate(`document.querySelector('[data-action="open-pickup"]').hidden`), false);
+    assert.equal(await stationPage.evaluate(`document.querySelector('[data-action="open-exception"]').hidden`), true);
+
+    await adminPage.click(`[data-station-edit="${account.id}"]`);
+    await adminPage.evaluate(`document.querySelectorAll('[data-station-form] [name="permissions"]').forEach(el => el.checked = false)`);
+    await adminPage.fillFormAndSubmit('[data-station-form]', { name: "浏览器只读员", reason: "撤销操作权限" });
+    await adminPage.waitForExpression(`!document.querySelector('[data-station-form]')`);
+    await stationPage.click('[data-action="refresh"]');
+    await stationPage.waitForText("站点工作人员登录");
+    await stationPage.fillFormAndSubmit('#loginForm', { username: "browserworker", password: "Browser-Worker-88" });
+    await stationPage.waitForText("现场操作");
+    assert.equal(await stationPage.evaluate(`document.querySelector('[data-action="open-pickup"]').hidden`), true);
+
+    await adminPage.click(`[data-station-reset="${account.id}"]`);
+    await adminPage.fillFormAndSubmit('[data-station-password]', { password: "Replacement-Worker-99", reason: "独立重置密码" });
+    await adminPage.waitForExpression(`!document.querySelector('[data-station-password]')`);
+    await stationPage.click('[data-action="refresh"]');
+    await stationPage.waitForText("站点工作人员登录");
+    await stationPage.fillFormAndSubmit('#loginForm', { username: "browserworker", password: "Replacement-Worker-99" });
+    await stationPage.waitForText("现场操作");
+    await adminPage.click(`[data-station-id="${account.id}"][data-station-action="status"]`);
+    await adminPage.waitForExpression(`document.querySelector('[data-station-id="${account.id}"][data-station-action="status"]').dataset.status === 'active'`);
+    await stationPage.click('[data-action="refresh"]');
+    await stationPage.waitForText("站点工作人员登录");
+    await stationPage.fillFormAndSubmit('#loginForm', { username: "browserworker", password: "Replacement-Worker-99" });
+    await stationPage.waitForText("站点账号或密码错误");
+    await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await adminPage.click(`[data-station-edit="${account.id}"]`);
+    assert.equal(await adminPage.evaluate(`document.documentElement.scrollWidth <= window.innerWidth`), true);
+    const screenshot = await adminPage.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    fs.writeFileSync(path.join(os.tmpdir(), "tgg-station-staff-admin.png"), Buffer.from(screenshot.data, "base64"));
+    assert.deepEqual(adminPage.runtimeErrors(), []);
+    assert.deepEqual(stationPage.runtimeErrors(), []);
+  } finally {
+    if (adminPage) await adminPage.close();
+    if (stationPage) await stationPage.close();
+    await stopProcess(server); await stopProcess(chrome);
+    removeDirBestEffort(userDataDir);
+  }
+});
+
 async function runAdminRepairPatrol(adminPage, userPage) {
   await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   assert.equal(await adminPage.evaluate(`getComputedStyle(document.querySelector('.dashboard-metrics')).display`), "grid");
