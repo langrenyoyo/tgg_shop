@@ -1121,6 +1121,24 @@ document.body.addEventListener("change", async event => {
     finally { delete homeForm.dataset.uploading; }
     return;
   }
+  if (homeForm && event.target.matches("[data-home-category-image-upload]")) {
+    const file = event.target.files?.[0];
+    const row = event.target.closest("[data-category-shortcut-row]");
+    if (!file || !row) return;
+    const message = row.querySelector("[data-home-category-upload-message]");
+    if (file.size > 10 * 1024 * 1024) { message.textContent = "图片不能超过 10 MB"; return; }
+    if (homeForm.dataset.uploading) return;
+    homeForm.dataset.uploading = "1";
+    message.textContent = "图片上传中…";
+    try {
+      const body = new FormData(); body.append("file", file);
+      const result = await api("/api/admin/home-images", { method: "POST", body });
+      row.querySelector('[name="categoryIcon"]').value = result.data[0].url;
+      message.textContent = "分类 Logo 上传成功，保存首页配置后生效";
+    } catch (error) { message.textContent = error.message; }
+    finally { delete homeForm.dataset.uploading; }
+    return;
+  }
   const form = event.target.closest("[data-product-create-form]");
   if (!form) return;
   if (event.target.name === "productType") {
@@ -1213,6 +1231,14 @@ function buildConfigPayload(group, formData) {
       homeBannerProductId: String(formData.get("homeBannerProductId") || ""),
       homeBannerImage: String(formData.get("homeBannerImage") || ""),
       homeServiceBadges: parseListField(formData.get("homeServiceBadges")),
+      homeCategoryShortcuts: formData.getAll("categoryKey").map((key, index) => ({
+        key: String(key || "").trim(),
+        category: String(formData.getAll("categoryValue")[index] || "").trim(),
+        name: String(formData.getAll("categoryName")[index] || "").trim(),
+        icon: String(formData.getAll("categoryIcon")[index] || "").trim(),
+        sort: Number(formData.getAll("categorySort")[index] || index),
+        enabled: formData.getAll("categoryEnabled").includes(key)
+      })),
       homeDeliveryPromise: {
         title: String(formData.get("homePromiseTitle") || ""),
         subtitle: String(formData.get("homePromiseSubtitle") || ""),

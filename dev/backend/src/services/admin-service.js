@@ -766,6 +766,18 @@ function updateConfig(state, input, actor = {}) {
       return { ok: false, status: 400, error: "请填写 1 至 12 个有效配送时段（HH:mm-HH:mm，结束晚于开始）" };
     }
   }
+  if (Object.prototype.hasOwnProperty.call(input, "homeCategoryShortcuts")) {
+    const shortcuts = input.homeCategoryShortcuts;
+    const valid = Array.isArray(shortcuts) && shortcuts.length >= 1 && shortcuts.length <= 8
+      && shortcuts.every((item, index) => {
+        const name = String(item?.name || "").trim();
+        const category = String(item?.category || "").trim();
+        const key = String(item?.key || `category-${index}`).trim();
+        const icon = String(item?.icon || "").trim();
+        return name && category && key && (!icon || ((/^\/(assets|uploads)\/[\w.%/-]+$/.test(icon) && !icon.includes("..")) || /^https?:\/\/[^\s"'<>\\]+$/i.test(icon)));
+      }) && new Set(shortcuts.map((item, index) => String(item?.key || `category-${index}`).trim())).size === shortcuts.length;
+    if (!valid) return { ok: false, status: 400, error: "首页分类至少需要 1 项，最多 8 项，且名称、分类、Logo 和标识必须有效" };
+  }
   const before = { ...state.config };
   const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "splashAdEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
   const numberKeys = [
@@ -830,6 +842,22 @@ function updateConfig(state, input, actor = {}) {
   }
   if (Array.isArray(input.homeServiceBadges)) {
     state.config.homeServiceBadges = input.homeServiceBadges.map(String).map((item) => item.trim()).filter(Boolean);
+  }
+  if (Array.isArray(input.homeCategoryShortcuts)) {
+    const shortcuts = input.homeCategoryShortcuts.map((item, index) => {
+      const name = String(item?.name || "").trim().slice(0, 20);
+      const category = String(item?.category || "").trim().slice(0, 40);
+      const key = String(item?.key || `category-${index}`).trim().slice(0, 40);
+      const icon = String(item?.icon || "").trim();
+      const sort = Number.isFinite(Number(item?.sort)) ? Math.max(0, Math.min(99, Math.trunc(Number(item.sort)))) : index;
+      const validIcon = !icon || ((/^\/(assets|uploads)\/[\w.%/-]+$/.test(icon) && !icon.includes("..")) || /^https?:\/\/[^\s"'<>\\]+$/i.test(icon));
+      return { key, category, name, icon, sort, enabled: item?.enabled !== false, validIcon };
+    }).filter(item => item.name && item.category && item.key && item.validIcon).map(({ validIcon, ...item }) => item);
+    if (shortcuts.length >= 1 && shortcuts.length <= 8 && new Set(shortcuts.map(item => item.key)).size === shortcuts.length) {
+      state.config.homeCategoryShortcuts = shortcuts.sort((a, b) => a.sort - b.sort);
+    } else {
+      return { ok: false, status: 400, error: "首页分类至少需要 1 项，最多 8 项，且名称、分类和值必须有效" };
+    }
   }
   if (Array.isArray(input.homePromotionEntries)) {
     state.config.homePromotionEntries = input.homePromotionEntries

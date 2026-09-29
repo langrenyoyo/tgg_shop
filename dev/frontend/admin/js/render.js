@@ -284,6 +284,13 @@ function homeOps(state) {
   const config = state.config || {};
   const promise = config.homeDeliveryPromise || {};
   const products = state.products || [];
+  const categoryShortcuts = Array.isArray(config.homeCategoryShortcuts) && config.homeCategoryShortcuts.length ? config.homeCategoryShortcuts : [
+    { key: "fruit", category: "水果", name: "水果", icon: "/assets/icons/category-fruit.png", enabled: true, sort: 0 },
+    { key: "vegetable", category: "蔬菜", name: "蔬菜", icon: "/assets/icons/category-vegetable.png", enabled: true, sort: 1 },
+    { key: "daily", category: "日用", name: "日用", icon: "/assets/icons/category-daily.png", enabled: true, sort: 2 },
+    { key: "snack", category: "零食", name: "零食", icon: "/assets/icons/category-snack.png", enabled: true, sort: 3 },
+    { key: "drink", category: "饮料", name: "饮料", icon: "/assets/icons/category-drink.png", enabled: true, sort: 4 }
+  ];
   const field = (label, name, value, required = false) => `<label>${label}<input name="${name}" value="${escapeAttr(value || "")}" ${required ? "required" : ""}></label>`;
   return `<section class="panel"><div class="panel-head"><h2>首页运营配置</h2><span>保存后在用户首页生效</span></div>
     ${state.homeMessage ? `<p role="status">${escapeHtml(state.homeMessage)}</p>` : ""}
@@ -294,11 +301,25 @@ function homeOps(state) {
         <label class="wide">首页 Banner 图片地址<input name="homeBannerImage" value="${escapeAttr(config.homeBannerImage || "")}" placeholder="上传图片或填写 https 图片地址 / 本地图片路径"></label>
         <div class="product-upload wide"><label>上传首页 Banner 图片<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-home-banner-image-upload></label><span data-home-banner-upload-message role="status">支持 PNG / JPEG / GIF / WebP，最大 10 MB</span></div>
       </div>
+      <h3>首页分类入口</h3><p class="muted-text">可修改首页分类名称和 Logo；“商品分类值”用于匹配商品分类，建议保持与商品分类一致。</p>
+      <div class="category-shortcut-editors">${categoryShortcuts.map(homeCategoryShortcutEditor).join("")}</div>
       <h3>配送服务承诺</h3><div class="editor-grid">${field("承诺标题", "homePromiseTitle", promise.title)}${field("承诺副标题", "homePromiseSubtitle", promise.subtitle)}${field("截单说明", "homePromiseCutoffText", promise.cutoffText)}${field("配送费说明", "homePromiseDeliveryFeeText", promise.deliveryFeeText)}${field("服务范围", "homePromiseServiceAreaText", promise.serviceAreaText)}</div>
       <div class="panel-head"><h3>活动入口</h3><button class="action" type="button" data-promotion-add>新增入口</button></div>
       <div class="promotion-editors" data-promotion-rows>${(config.homePromotionEntries || []).map(promotionEditor).join("")}</div>
       <button class="action" type="submit">保存首页配置</button><button class="action muted-action" type="reset">重置填写</button>
     </fieldset></form>${can("config:write") ? "" : `<p class="muted-text">当前角色仅可查看，保存需要配置修改权限。</p>`}</section>`;
+}
+
+function homeCategoryShortcutEditor(item = {}) {
+  return `<div class="category-shortcut-editor" data-category-shortcut-row>
+    <input type="hidden" name="categoryKey" value="${escapeAttr(item.key || "")}">
+    <label>显示名称<input name="categoryName" value="${escapeAttr(item.name || item.category || "")}" maxlength="20" required></label>
+    <label>商品分类值<input name="categoryValue" value="${escapeAttr(item.category || item.name || "")}" maxlength="40" required></label>
+    <label>排序<input name="categorySort" type="number" min="0" max="99" value="${Number(item.sort || 0)}"></label>
+    <label class="check"><input name="categoryEnabled" type="checkbox" value="${escapeAttr(item.key || "")}" ${item.enabled === false ? "" : "checked"}> 显示</label>
+    <label class="wide">Logo 地址<input name="categoryIcon" value="${escapeAttr(item.icon || "")}" placeholder="上传图片或填写 /uploads/..."></label>
+    <div class="product-upload wide"><label>上传分类 Logo<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-home-category-image-upload></label><span data-home-category-upload-message role="status">支持 PNG / JPEG / GIF / WebP，最大 10 MB</span></div>
+  </div>`;
 }
 
 export function promotionEditor(item = {}) {

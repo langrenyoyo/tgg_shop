@@ -18,8 +18,8 @@
   <view class="exchange-strip" bindtap="goExchange"><view><view class="exchange-title">让积分，变成喜欢的好物</view><view class="exchange-subtitle">纯积分兑换 · 无需开通会员</view></view><view class="exchange-action">去兑换 ›</view></view>
   <view class="service-strip"><view wx:for="{{home.serviceBadges}}" wx:key="*this" class="service-badge">{{item}}</view></view>
   <view class="home-categories" wx:if="{{home.categories.length}}">
-    <view wx:for="{{home.categories}}" wx:key="key" class="home-category" data-category="{{item.name}}" bindtap="goCategory">
-      <view class="home-category-icon"><image wx:if="{{item.icon}}" src="/assets/icons/{{item.icon}}" mode="aspectFit"/><text wx:else>{{item.name[0]}}</text></view>
+    <view wx:for="{{home.categories}}" wx:key="key" class="home-category" data-category="{{item.category || item.name}}" bindtap="goCategory">
+      <view class="home-category-icon"><image wx:if="{{item.icon}}" src="{{item.icon}}" mode="aspectFit"/><text wx:else>{{item.name[0]}}</text></view>
       <text>{{item.name}}</text>
     </view>
   </view>

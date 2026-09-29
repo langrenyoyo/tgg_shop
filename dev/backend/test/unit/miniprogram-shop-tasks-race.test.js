@@ -35,6 +35,18 @@ test("shop tolerates a malformed product row without crashing the page", () => {
   assert.deepEqual(h.definition.data.products.map(item => item.id), ["ok"]);
 });
 
+test("shop category sidebar can collapse and expand while preserving the selected category", () => {
+  const h = page("shop");
+  h.definition.data.category = "水果";
+  assert.equal(h.definition.data.categoryCollapsed, false);
+  h.definition.toggleCategoryMenu();
+  assert.equal(h.definition.data.categoryCollapsed, true);
+  assert.equal(h.definition.data.category, "水果");
+  h.definition.toggleCategoryMenu();
+  assert.equal(h.definition.data.categoryCollapsed, false);
+  assert.equal(h.definition.data.category, "水果");
+});
+
 test("home normalizes missing nested API fields before template rendering", async () => {
   let definition; let resolve;
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/home/index.js"), "utf8"), { Page: value => { definition = value; }, wx: { getStorageSync: () => null }, require: () => ({ request: () => new Promise(r => { resolve = r; }) }) });

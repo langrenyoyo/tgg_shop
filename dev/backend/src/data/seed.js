@@ -54,6 +54,13 @@ function createSeed() {
       homeBannerSubtitle: "新鲜到站，会员现金购物更优惠",
       homeBannerProductId: "p_strawberry",
       homeServiceBadges: ["自建配送", "坏果包赔", "低价会员购"],
+      homeCategoryShortcuts: [
+        { key: "fruit", category: "水果", name: "水果", icon: "/assets/icons/category-fruit.png", enabled: true },
+        { key: "vegetable", category: "蔬菜", name: "蔬菜", icon: "/assets/icons/category-vegetable.png", enabled: true },
+        { key: "daily", category: "日用", name: "日用", icon: "/assets/icons/category-daily.png", enabled: true },
+        { key: "snack", category: "零食", name: "零食", icon: "/assets/icons/category-snack.png", enabled: true },
+        { key: "drink", category: "饮料", name: "饮料", icon: "/assets/icons/category-drink.png", enabled: true }
+      ],
       homePromotionEntries: [
         { title: "新人礼包", text: "首单配送券", tone: "green", page: "membership" },
         { title: "会员专享", text: "现金购权益", tone: "orange", page: "membership" },
