@@ -25,12 +25,14 @@ test("member payment survives new request keys and only allows renewal after set
 test("resuming an already paid provider order queries before invoking native payment", async () => {
   const calls = [];
   const context = { module: { exports: {} }, require: () => ({ request: async url => {
-    calls.push(url); return { payment: { status: "paid" } };
+    calls.push(url);
+    if (url === "/api/config") return { testBypassEnabled: false };
+    return { payment: { status: "paid" } };
   } }), wx: { requestPayment() { assert.fail("Already paid order must not invoke payment"); } } };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/payment.js"), "utf8"), context);
   const result = await context.module.exports.pay({ payNo: "member-1", status: "pending", metadata: { lfwin: { providerOrderNo: "provider-1" } } });
   assert.equal(result.status, "paid");
-  assert.deepEqual(calls, ["/api/payments/member-1/lfwin/query"]);
+  assert.deepEqual(calls, ["/api/config", "/api/payments/member-1/lfwin/query"]);
 });
 
 test("reopened membership page loads pending orders and queries without creating payment", async () => {

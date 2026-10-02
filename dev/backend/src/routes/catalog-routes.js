@@ -3,7 +3,10 @@ const catalogService = require("../services/catalog-service");
 async function handleCatalogRoutes(ctx) {
   const { req, url, state, user, send, publicUser } = ctx;
 
-  if (req.method === "GET" && url.pathname === "/api/config") return send(ctx.res, 200, state.config);
+  if (req.method === "GET" && url.pathname === "/api/config") return send(ctx.res, 200, {
+    ...state.config,
+    testBypassEnabled: process.env.NODE_ENV !== "production" && String(process.env.TGG_TEST_BYPASS_ENABLED || "") === "1"
+  });
 
   if (req.method === "GET" && url.pathname === "/api/home") {
     return send(ctx.res, 200, catalogService.getHome(state, user));

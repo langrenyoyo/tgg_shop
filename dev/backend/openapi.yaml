@@ -19,7 +19,34 @@ tags:
   - name: Admin
   - name: Station
   - name: POSPAL
+  - name: Testing
 paths:
+  /api/test/payments/{payNo}/settle:
+    post:
+      tags: [Testing]
+      summary: Settle an own payment in test mode
+      description: Available only when NODE_ENV is not production and TGG_TEST_BYPASS_ENABLED=1. Never enabled in production.
+      security: [{ UserBearerAuth: [] }]
+      parameters:
+        - { in: path, name: payNo, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Payment settled by the test adapter }
+        "403": { description: Test bypass is disabled }
+        "404": { description: Payment does not belong to the current user }
+
+  /api/test/withdrawals/{withdrawalId}/complete:
+    post:
+      tags: [Testing]
+      summary: Complete an own withdrawal in test mode
+      description: Available only when NODE_ENV is not production and TGG_TEST_BYPASS_ENABLED=1. Writes a test payout ledger entry and never calls a real provider.
+      security: [{ UserBearerAuth: [] }]
+      parameters:
+        - { in: path, name: withdrawalId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Withdrawal completed by the test adapter }
+        "403": { description: Test bypass is disabled }
+        "404": { description: Withdrawal does not belong to the current user }
+
   /api/admin/station-accounts:
     get:
       tags: [Admin]

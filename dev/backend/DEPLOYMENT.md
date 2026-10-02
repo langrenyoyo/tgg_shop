@@ -75,6 +75,12 @@ Avatars use the existing authenticated upload endpoint and store a relative `/up
 - `GET /api/health`
 - Returns driver and readiness state.
 
+## Isolated payment and withdrawal test bypass
+
+For a local or isolated test server only, set `TGG_TEST_BYPASS_ENABLED=1` while keeping `NODE_ENV=development` (or another non-production value). The public config then exposes `testBypassEnabled`; the web client and mini-program skip the real payment prompt and settle the user's own test payment through `/api/test/payments/{payNo}/settle`. A submitted withdrawal can be completed through `/api/test/withdrawals/{withdrawalId}/complete`, which writes a `TEST_SUCCESS` payout record without contacting Huifu.
+
+The bypass is rejected whenever `NODE_ENV=production`, even if the flag is accidentally left on. Do not enable it on a shared staging environment with real user data. Turn it off with `TGG_TEST_BYPASS_ENABLED=0` before any production deployment.
+
 ## Notes
 
 - The backend serves `/admin` and `/user` statically.

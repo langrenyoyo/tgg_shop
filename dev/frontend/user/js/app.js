@@ -215,7 +215,10 @@ async function requestRefund(orderId) {
 
 async function requestWithdrawal() {
   const withdrawal = await api("/api/withdrawals", { method: "POST", body: JSON.stringify({ amount: 1, channel: "wechat" }) });
-  state.withdrawals = [withdrawal, ...state.withdrawals];
+  const completed = state.config?.testBypassEnabled
+    ? await api(`/api/test/withdrawals/${encodeURIComponent(withdrawal.id)}/complete`, { method: "POST", body: "{}" })
+    : null;
+  state.withdrawals = [completed?.withdrawal || withdrawal, ...state.withdrawals];
   await refreshUser();
   toast("提现申请已提交，等待财务审核");
   renderPage(state);

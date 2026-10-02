@@ -1,6 +1,11 @@
 const { request } = require("./api");
 async function pay(payment) {
   if (payment.status === "paid") return payment;
+  const config = await request("/api/config");
+  if (config.testBypassEnabled) {
+    const bypassed = await request(`/api/test/payments/${encodeURIComponent(payment.payNo)}/settle`, { method: "POST", data: {} });
+    return bypassed.payment || bypassed;
+  }
   if (payment.metadata?.lfwin?.providerOrderNo || payment.metadata?.lfwin?.submissionState) {
     const current = await request(`/api/payments/${encodeURIComponent(payment.payNo)}/lfwin/query`, { method: "POST", data: {} });
     if (current.payment?.status === "paid") return current.payment;
