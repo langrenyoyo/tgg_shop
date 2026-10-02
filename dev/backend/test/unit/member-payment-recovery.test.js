@@ -35,6 +35,39 @@ test("resuming an already paid provider order queries before invoking native pay
   assert.deepEqual(calls, ["/api/config", "/api/payments/member-1/lfwin/query"]);
 });
 
+test("test payment settles without invoking LFWin or native payment", async () => {
+  const calls = [];
+  const context = { module: { exports: {} }, require: () => ({ request: async url => {
+    calls.push(url);
+    if (url === "/api/config") return { testBypassEnabled: true };
+    assert.equal(url, "/api/test/payments/member-test/settle");
+    return { payment: { status: "paid" } };
+  } }), wx: { requestPayment() { assert.fail("Test payment must not invoke native payment"); } } };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/payment.js"), "utf8"), context);
+  assert.equal((await context.module.exports.pay({ payNo: "member-test", status: "pending" })).status, "paid");
+  assert.deepEqual(calls, ["/api/config", "/api/test/payments/member-test/settle"]);
+});
+
+test("membership test query is read-only and does not contact an unconfigured provider", async () => {
+  let page;
+  const pending = { payNo: "member-test", payScene: "member_open", status: "pending", metadata: { lfwin: { submissionState: "unknown" } } };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/membership/index.js"), "utf8"), {
+    Page: value => { page = value; },
+    require: name => name.endsWith("/api") ? { request: async (url, options) => {
+      assert.equal(options?.method, undefined);
+      if (url === "/api/me") return { id: "alice" };
+      if (url === "/api/config") return { testBypassEnabled: true, membershipMonthlyPrice: 19.9 };
+      if (url === "/api/payments") return [pending];
+      assert.fail(`Unexpected provider request: ${url}`);
+    } } : { pay() { assert.fail("Query must not settle a payment"); } },
+    wx: { showToast() {}, getStorageSync: key => ({ tgg_user: { id: "alice" }, tgg_token: "token" })[key] }
+  });
+  page.setData = data => Object.assign(page.data, data);
+  await page.load();
+  await page.queryPayment({ currentTarget: { dataset: { payNo: pending.payNo } } });
+  assert.equal(page.data.payments[0].status, "pending");
+});
+
 test("reopened membership page loads pending orders and queries without creating payment", async () => {
   let page;
   let settled = false;

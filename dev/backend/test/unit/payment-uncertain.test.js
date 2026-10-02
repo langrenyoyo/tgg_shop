@@ -6,6 +6,18 @@ const { createOrder } = require("../../src/domain/rules");
 const payments = require("../../src/services/payment-service");
 const orders = require("../../src/services/user-order-service");
 
+test("missing provider configuration leaves payment retryable without an uncertain submission", async () => {
+  const state = createSeed();
+  const payment = payments.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const before = JSON.stringify(state);
+  const result = await payments.initiateLfwinPayment(state, payment.payNo, {}, {
+    isConfigured: () => false,
+    createPayment() { assert.fail("An unconfigured provider must not receive a payment request"); }
+  });
+  assert.equal(result.status, 503);
+  assert.equal(JSON.stringify(state), before);
+});
+
 test("provider timeout preserves inventory and recovers paid order using merchant number", async () => {
   const state = createSeed();
   const order = createOrder(state, "u_1001", { paymentMode: "cash", items: [{ productId: "p_apple", quantity: 1 }] }).order;

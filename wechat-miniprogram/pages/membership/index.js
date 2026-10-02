@@ -1,7 +1,7 @@
 const { request } = require("../../utils/api");
 const { pay } = require("../../utils/payment");
 Page({
-  data: { user: null, price: 0, pointsRequired: 0, payments: [], busy: false, loading: false, error: "" },
+  data: { user: null, price: 0, pointsRequired: 0, payments: [], config: {}, busy: false, loading: false, error: "" },
   onShow() { this.load(); },
   onUnload() { this.version = (this.version || 0) + 1; this.ownerId = null; },
   sameOwner(owner = this.ownerId) { return Boolean(owner && owner === this.ownerId && owner === wx.getStorageSync("tgg_user")?.id && wx.getStorageSync("tgg_token")); },
@@ -14,13 +14,13 @@ Page({
     const owner = wx.getStorageSync("tgg_user")?.id;
     if (owner !== this.ownerId) this.key = null;
     this.ownerId = owner;
-    this.setData({ user: null, price: 0, pointsRequired: 0, payments: [], loading: false, error: "" });
+    this.setData({ user: null, price: 0, pointsRequired: 0, payments: [], config: {}, loading: false, error: "" });
     if (!this.sameOwner(owner)) { this.setData({ error: "请登录后查看会员信息" }); return; }
     this.setData({ loading: true });
     try {
       const [user, config, payments] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/payments")]);
       if (version !== this.version || !this.sameOwner(owner)) return;
-      this.setData({ user, price: config.membershipMonthlyPrice, pointsRequired: config.membershipMonthlyPoints || 0, payments: payments.filter(payment => payment.payScene === "member_open" && payment.status === "pending"), error: "" });
+      this.setData({ user, config, price: config.membershipMonthlyPrice, pointsRequired: config.membershipMonthlyPoints || 0, payments: payments.filter(payment => payment.payScene === "member_open" && payment.status === "pending"), error: "" });
     }
     catch (error) { if (version === this.version && this.sameOwner(owner)) this.setData({ error: error.message }); }
     finally { if (version === this.version) this.setData({ loading: false }); }
@@ -43,7 +43,13 @@ Page({
     if (!payment) return;
     this.setData({ busy: true });
     try {
-      if (payment.metadata?.lfwin?.providerOrderNo || payment.metadata?.lfwin?.submissionState) {
+      if (this.data.config.testBypassEnabled) {
+        const payments = await request("/api/payments");
+        if (!this.sameOwner(owner)) return;
+        const current = payments.find(item => item.payNo === payment.payNo);
+        if (current?.status === "paid") this.key = null;
+        wx.showToast({ title: current?.status === "paid" ? "会员已开通" : current?.status === "pending" ? "请点击继续支付完成测试" : "订单状态已更新", icon: "none" });
+      } else if (payment.metadata?.lfwin?.providerOrderNo || payment.metadata?.lfwin?.submissionState) {
         const result = await request("/api/payments/" + encodeURIComponent(payment.payNo) + "/lfwin/query", { method: "POST", data: {} });
         if (!this.sameOwner(owner)) return;
         if (result.payment?.status === "paid") this.key = null;

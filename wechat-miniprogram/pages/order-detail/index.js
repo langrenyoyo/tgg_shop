@@ -52,6 +52,13 @@ Page({
       const payments = await request("/api/payments");
       if (!this.sameOwner(owner)) return;
       const payment = payments.find(item => item.orderId === this.id && item.direction === "in" && item.status === "pending");
+      const config = await request("/api/config");
+      if (!this.sameOwner(owner)) return;
+      if (config.testBypassEnabled) {
+        wx.showToast({ title: payment ? "请点击支付完成测试" : "请刷新查看订单状态", icon: "none" });
+        await this.load();
+        return;
+      }
       if (payment && (payment.metadata?.lfwin?.providerOrderNo || payment.metadata?.lfwin?.submissionState)) {
         const result = await request("/api/payments/" + encodeURIComponent(payment.payNo) + "/lfwin/query", { method: "POST", data: {} });
         wx.showToast({ title: result.payment?.status === "paid" ? "付款已确认" : "尚未确认付款", icon: "none" });

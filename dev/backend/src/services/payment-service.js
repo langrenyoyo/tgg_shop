@@ -116,6 +116,8 @@ async function initiateLfwinLocked(state, payment, input, client) {
   if (payment.status !== "pending") return { ok: false, status: 400, error: "Payment is not pending" };
   if (payment.orderId && state.orders.find(order => order.id === payment.orderId)?.status !== "pending_payment") return { ok: false, status: 409, error: "订单状态已变更" };
 
+  // A local configuration failure must not become an uncertain provider order.
+  if (typeof client.isConfigured === "function" && !client.isConfigured()) return { ok: false, status: 503, error: "支付服务尚未配置，请联系管理员；测试环境请启用测试支付" };
   if (["sending", "unknown"].includes(payment.metadata?.lfwin?.submissionState)) return { ok: false, status: 409, error: "上次支付发起结果待核对，请先查询付款结果" };
   payment.metadata = { ...(payment.metadata || {}), lfwin: {
     ...(payment.metadata?.lfwin || {}), submissionState: "sending", requestedAt: new Date().toISOString()
