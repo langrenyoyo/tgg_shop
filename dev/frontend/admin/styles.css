@@ -1151,6 +1151,155 @@ td img {
   width: 16px;
 }
 
+/* System settings use a consistent two-column form and clear business groups. */
+.system-settings {
+  display: grid;
+  gap: 20px;
+  max-width: 1180px;
+  padding-bottom: 24px;
+}
+
+.system-settings > .panel {
+  margin: 0;
+  scroll-margin-top: 24px;
+}
+
+.system-settings-nav {
+  position: sticky;
+  top: 16px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 8px 20px rgb(16 24 40 / 6%);
+  backdrop-filter: blur(10px);
+}
+
+.system-settings-nav a {
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: var(--text);
+  background: #f2f4f7;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.system-settings-nav a:hover,
+.system-settings-nav a:focus-visible {
+  color: var(--green-dark);
+  background: #e8fbf1;
+  outline: 0;
+}
+
+.config-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+  align-items: start;
+}
+
+.config-form > label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.config-form > label input,
+.config-form > label select,
+.config-form > label textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px;
+  color: var(--ink);
+  background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.config-form > label input:focus,
+.config-form > label select:focus,
+.config-form > label textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgb(18 183 106 / 12%);
+  outline: 0;
+}
+
+.config-form > label small,
+.settings-group small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.config-form .wide {
+  grid-column: 1 / -1;
+}
+
+.settings-switches {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #dcefe3;
+  border-radius: 12px;
+  background: #f6fcf8;
+}
+
+.settings-switches .check,
+.settings-group .check {
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.settings-group {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+.settings-group legend {
+  padding: 0 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.settings-save {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-save span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .admin-accounts-panel {
   margin-bottom: 24px;
 }
@@ -1890,6 +2039,9 @@ td img {
   .stats,
   .grid-2,
   .grid-3,
+  .config-form,
+  .settings-group,
+  .settings-switches,
   .product-rules,
   .settings-repeat-row,
   .settings-repeat-row.ad-row,
@@ -1901,5 +2053,20 @@ td img {
 
   .product-create-grid .wide {
     grid-column: auto;
+  }
+
+  .config-form .wide,
+  .settings-group .wide,
+  .settings-save {
+    grid-column: auto;
+  }
+
+  .system-settings-nav {
+    position: static;
+  }
+
+  .settings-save {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

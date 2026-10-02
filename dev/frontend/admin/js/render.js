@@ -506,53 +506,75 @@ function settings(state) {
     ? config.deliveryTimeSlots.join("\n")
     : "09:00-12:00\n14:00-18:00\n18:00-21:00";
   return `
-    <section class="panel">
+    <div class="system-settings">
+    <nav class="system-settings-nav" aria-label="设置分组">
+      <a href="#settings-delivery">履约配送</a>
+      <a href="#settings-picking">站点拣货</a>
+      <a href="#settings-member">会员与支付</a>
+      <a href="#settings-growth">邀请与签到</a>
+      <a href="#settings-rewards">月度奖励</a>
+    </nav>
+    <section class="panel" id="settings-delivery">
       <div class="panel-head"><h2>履约配送设置</h2><span>时区：${escapeHtml(config.deliveryTimeZone || "Asia/Shanghai")}</span></div>
       <form class="config-form" data-config-form="delivery">
+        <div class="settings-switches">
         <label class="check"><input name="pickupEnabled" type="checkbox" ${config.pickupEnabled !== false ? "checked" : ""}> 开启到店自提</label>
         <label class="check"><input name="deliveryEnabled" type="checkbox" ${config.deliveryEnabled !== false ? "checked" : ""}> 开启送货上门</label>
         <label class="check"><input name="deliveryFeeEnabled" type="checkbox" ${config.deliveryFeeEnabled ? "checked" : ""}> 收取配送费</label>
+        </div>
         <label>配送费（元）<input name="deliveryFee" type="number" min="0" step="0.1" value="${Number(config.deliveryFee || 0)}"></label>
         <label>每日截单小时（0-23）<input name="deliveryCutoffHour" type="number" min="0" max="23" value="${Number.isFinite(Number(config.deliveryCutoffHour)) ? Number(config.deliveryCutoffHour) : 5}"></label>
         <label class="wide">配送时间段（每行一个）<textarea name="deliveryTimeSlots" rows="4" placeholder="09:00-12:00\n14:00-18:00">${escapeHtml(deliverySlots)}</textarea></label>
         <p class="note wide">截单前下单按当天配送，达到截单时间后按次日配送。配送日期按 ${escapeHtml(config.deliveryTimeZone || "Asia/Shanghai")} 计算，最多保存 12 个时段。</p>
-        <button class="action" type="submit">保存配送设置</button>
+        <div class="settings-save"><span>保存本组配送方式、费用及时间段</span><button class="action" type="submit">保存配送设置</button></div>
       </form>
     </section>
-    <section class="panel">
+    <section class="panel" id="settings-picking">
       <div class="panel-head"><h2>站点拣货设置</h2><span>商品库位和条码请在商品编辑中维护</span></div>
       <form class="config-form" data-config-form="stationPicking">
+        <div class="settings-switches">
         <label class="check"><input name="stationPickingEnabled" type="checkbox" ${config.stationPickingEnabled !== false ? "checked" : ""}> 开启站点拣货流程</label>
         <label class="check"><input name="stationBatchPickingEnabled" type="checkbox" ${config.stationBatchPickingEnabled !== false ? "checked" : ""}> 开启批量拣货排序</label>
         <label class="check"><input name="stationScanRequired" type="checkbox" ${config.stationScanRequired ? "checked" : ""}> 收货时必须扫码核对商品</label>
+        </div>
         <label>排序方式<select name="stationSortMode"><option value="location" ${config.stationSortMode !== "createdAt" ? "selected" : ""}>按库位</option><option value="createdAt" ${config.stationSortMode === "createdAt" ? "selected" : ""}>按下单时间</option></select></label>
         <label>提货位前缀<input name="stationShelfPrefix" value="${escapeAttr(config.stationShelfPrefix || "S-")}" maxlength="12"></label>
         <label>订单保留时长（小时）<input name="stationPickupHoldHours" type="number" min="1" max="720" value="${config.stationPickupHoldHours ?? 48}"></label>
         <p class="note wide">站点端会按照商品库位排序，并展示主库位、备用库位、条码和储存类型。开启强制扫码后，拣货员必须提交每个商品的实收明细。</p>
-        <button class="action" type="submit">保存拣货设置</button>
+        <div class="settings-save"><span>保存本组站点作业规则</span><button class="action" type="submit">保存拣货设置</button></div>
       </form>
     </section>
-    <section class="panel">
+    <section class="panel" id="settings-member">
       <div class="panel-head"><h2>会员与支付设置</h2><span>纯积分兑换不允许现金补差</span></div>
       <form class="config-form" data-config-form="points">
+        <fieldset class="settings-group">
+        <legend>会员开通</legend>
         <label>会员月价<input name="membershipMonthlyPrice" type="number" min="0" step="0.01" value="${config.membershipMonthlyPrice ?? 19.9}"></label>
-        <label>30 天所需积分（0 表示关闭）<input name="membershipMonthlyPoints" type="number" min="0" value="${config.membershipMonthlyPoints ?? 0}"></label>
+        <label>30 天所需积分（0 表示关闭）<input name="membershipMonthlyPoints" type="number" min="0" value="${config.membershipMonthlyPoints ?? 0}"><small>大于 0 时，用户会员页显示积分开通入口。</small></label>
         <label>积分抵扣现金（元/积分）<input name="membershipPointCashRate" type="number" min="0" step="0.001" value="${config.membershipPointCashRate ?? 0.01}"></label>
-        <label class="check"><input name="monthlyPointRewardEnabled" type="checkbox" ${config.monthlyPointRewardEnabled !== false ? "checked" : ""}> 启用月度阶梯奖励</label>
-        <label>月结小时<input name="monthlyPointRewardSettlementHour" type="number" min="0" max="23" value="${config.monthlyPointRewardSettlementHour ?? 0}"></label>
-        <label>月结分钟<input name="monthlyPointRewardSettlementMinute" type="number" min="0" max="59" value="${config.monthlyPointRewardSettlementMinute ?? 10}"></label>
-        <label>邀请奖励<input name="inviteRewardPoints" type="number" value="${config.inviteRewardPoints ?? 0}"></label>
-        <label>邀请提成%<input name="inviteCommissionRatePercent" type="number" value="${Math.round(Number(config.inviteCommissionRate || 0) * 100)}"></label>
-        <label>签到广告最少<input name="signinAdGroupMin" type="number" value="${config.signinAdGroupMin ?? 0}"></label>
-        <label>签到广告最多<input name="signinAdGroupMax" type="number" value="${config.signinAdGroupMax ?? 0}"></label>
+        </fieldset>
+        <fieldset class="settings-group" id="settings-growth">
+        <legend>邀请、签到与榜单</legend>
+        <label>邀请奖励（积分）<input name="inviteRewardPoints" type="number" value="${config.inviteRewardPoints ?? 0}"></label>
+        <label>邀请提成（%）<input name="inviteCommissionRatePercent" type="number" value="${Math.round(Number(config.inviteCommissionRate || 0) * 100)}"></label>
+        <label>签到广告最少（次）<input name="signinAdGroupMin" type="number" value="${config.signinAdGroupMin ?? 0}"></label>
+        <label>签到广告最多（次）<input name="signinAdGroupMax" type="number" value="${config.signinAdGroupMax ?? 0}"></label>
         <label>连续签到天数<input name="signinStreakDays" type="number" value="${config.signinStreakDays ?? 7}"></label>
-        <label>抽奖每日上限<input name="lotteryDailyLimit" type="number" value="${config.lotteryDailyLimit ?? 1}"></label>
-        <label>榜单刷新分钟<input name="rankingRefreshMinutes" type="number" value="${config.rankingRefreshMinutes ?? 5}"></label>
+        <label>抽奖每日上限（次）<input name="lotteryDailyLimit" type="number" value="${config.lotteryDailyLimit ?? 1}"></label>
+        <label>榜单刷新间隔（分钟）<input name="rankingRefreshMinutes" type="number" value="${config.rankingRefreshMinutes ?? 5}"></label>
         <label class="wide">连续签到文案<input name="signinStreakRewardText" value="${escapeAttr(config.signinStreakRewardText || "")}"></label>
-        <label class="wide">月度奖励规则 JSON<textarea name="monthlyPointRewardRulesJson" rows="7">${escapeHtml(rulesJson)}</textarea></label>
-        <button class="action" type="submit">保存积分配置</button>
+        </fieldset>
+        <fieldset class="settings-group" id="settings-rewards">
+        <legend>月度阶梯奖励</legend>
+        <label class="check wide"><input name="monthlyPointRewardEnabled" type="checkbox" ${config.monthlyPointRewardEnabled !== false ? "checked" : ""}> 启用月度阶梯奖励</label>
+        <label>月结小时（0–23）<input name="monthlyPointRewardSettlementHour" type="number" min="0" max="23" value="${config.monthlyPointRewardSettlementHour ?? 0}"></label>
+        <label>月结分钟（0–59）<input name="monthlyPointRewardSettlementMinute" type="number" min="0" max="59" value="${config.monthlyPointRewardSettlementMinute ?? 10}"></label>
+        <label class="wide">月度奖励规则 JSON<textarea name="monthlyPointRewardRulesJson" rows="7" spellcheck="false">${escapeHtml(rulesJson)}</textarea><small>threshold 为达标积分，rewardPoints 为奖励积分；请保留 JSON 数组格式。</small></label>
+        </fieldset>
+        <div class="settings-save"><span>统一保存会员、邀请、签到、榜单及月度奖励设置</span><button class="action" type="submit">保存积分配置</button></div>
       </form>
     </section>
+    </div>
   `;
 }
 
