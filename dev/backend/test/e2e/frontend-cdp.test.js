@@ -183,6 +183,7 @@ test("user and admin frontends support core click flows", async (t) => {
     await runAdminRepairPatrol(adminPage, userPage);
     await runAdminConsistencyPatrol(adminPage);
     await runAdminProductPatrol(adminPage, userPage);
+    await runPrintingPatrol(adminPage);
     await adminPage.waitForExpression(`(() => {
       const button = document.querySelector('button[data-view="financeRefund"]');
       return Boolean(button && !button.disabled);
@@ -332,6 +333,40 @@ test("station worker configuration works through admin and station browser pages
     removeDirBestEffort(userDataDir);
   }
 });
+
+async function runPrintingPatrol(page) {
+  await page.click('button[data-view="printing"]');
+  await page.waitForText("芯烨云小票打印");
+  assert.equal(await page.evaluate(`document.querySelector('[name="paperWidth"]').value`), "80");
+  await page.fillFormAndSubmit('[data-print-printer]', { name:"浏览器测试小票机",sn:"BROWSER_PRINT_80",fulfillmentType:"pickup",siteId:"site_001",copies:1,enabled:true,autoPrint:false,reason:"浏览器打印配置验收" });
+  await page.waitForText("浏览器测试小票机");
+  await page.waitForExpression(`Boolean(document.querySelector('[data-print-action="edit"]'))`);
+  const overview = await page.evaluate(`fetch('/api/admin/printing', {headers:{Authorization:'Bearer '+localStorage.getItem('tggAdminToken')}}).then(r=>r.json())`);
+  const printer = overview.printers.find(p=>p.sn==="BROWSER_PRINT_80");
+  assert.ok(printer);assert.equal(printer.paperWidth,80);
+  await page.click(`[data-print-action="edit"][data-print-id="${printer.id}"]`);
+  assert.equal(await page.evaluate(`document.querySelector('[name="sn"]').readOnly`),true);
+  await page.click(`[data-print-action="test"][data-print-id="${printer.id}"]`);
+  await page.waitForText("设备测试页");
+  await page.waitForText("待发送");
+  await page.click('[data-print-action="cancel"]');
+  await page.waitForText("已取消");
+  const order = await page.evaluate(`fetch('/api/admin/orders',{headers:{Authorization:'Bearer '+localStorage.getItem('tggAdminToken')}}).then(r=>r.json()).then(rows=>rows.find(o=>o.status==='paid'&&o.fulfillmentType==='pickup'&&o.pickupSiteId==='site_001'))`);
+  assert.ok(order,"expected a paid pickup order for receipt testing");
+  await page.fillFormAndSubmit('[data-print-order]',{orderId:order.id,printerId:printer.id,reason:"浏览器订单打印"});
+  await page.waitForText("浏览器订单打印");
+  await page.waitForText("待发送");
+  await page.click('[data-print-action="refresh"]');
+  await page.waitForText("浏览器订单打印");
+  for (const width of [1440,760,390]) {
+    await page.send("Emulation.setDeviceMetricsOverride",{width,height:1000,deviceScaleFactor:1,mobile:false});
+    assert.equal(await page.evaluate(`document.documentElement.scrollWidth <= window.innerWidth`),true,`printing layout overflow at ${width}px`);
+  }
+  await page.send("Emulation.setDeviceMetricsOverride",{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  const screenshot=await page.send("Page.captureScreenshot",{format:"png",captureBeyondViewport:true});
+  fs.writeFileSync(path.join(os.tmpdir(),"tgg-printing-admin.png"),Buffer.from(screenshot.data,"base64"));
+  assert.deepEqual(page.runtimeErrors(),[]);
+}
 
 async function runAdminRepairPatrol(adminPage, userPage) {
   await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
@@ -843,6 +878,9 @@ function startServer() {
     env: {
       ...process.env,
       TGG_LOAD_DOTENV: "0",
+      XPYUN_ENABLED: "0",
+      XPYUN_USER: "",
+      XPYUN_USER_KEY: "",
       TGG_TASK_PLATFORM_BASE_URL: "",
       TGG_TASK_PLATFORM_APPID: "",
       TGG_TASK_PLATFORM_KEY: "",

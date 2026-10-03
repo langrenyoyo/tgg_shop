@@ -236,6 +236,7 @@ function applyLfwinPaymentNotification(state, payload, client = createLfwinClien
   payment.callbackTime = new Date().toISOString();
   payment.updatedAt = payment.callbackTime;
   payment.thirdTradeNo = payload.trade_no || payload.orderid;
+  if (result.order) require("./print-model").enqueueAuto(state, result.order);
   payment.metadata = {
     ...(payment.metadata || {}),
     lfwin: {
@@ -275,6 +276,7 @@ function mockPaymentCallback(state, payNo, input = {}) {
   payment.callbackTime = now;
   payment.updatedAt = now;
   payment.thirdTradeNo = input.thirdTradeNo || `MOCK_${payment.payNo}`;
+  if (result.order) require("./print-model").enqueueAuto(state, result.order);
 
   saveState();
   return { ok: true, payment, result };

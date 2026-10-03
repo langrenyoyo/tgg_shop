@@ -2,6 +2,7 @@ const { createSeed } = require("./seed");
 
 function normalizeState(nextState) {
   const seed = createSeed();
+  nextState.printing ||= { printers: [], jobs: [] };
   nextState.config = { ...seed.config, ...(nextState.config || {}) };
   nextState.roles = mergeRoles(nextState.roles || [], seed.roles, nextState.config.rolePermissionOverrides || {});
   require("../domain/admin-accounts").ensureAdminUsers(nextState);

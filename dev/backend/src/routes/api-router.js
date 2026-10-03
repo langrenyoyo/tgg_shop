@@ -13,6 +13,7 @@ const { handleAdminRoutes } = require("./admin-routes");
 const { handleStationRoutes } = require("./station-routes");
 const { handlePospalRoutes } = require("./pospal-routes");
 const { handleTestRoutes } = require("./test-routes");
+const { handlePrintRoutes } = require("./print-routes");
 
 const routeHandlers = [
   handleAuthRoutes,
@@ -24,6 +25,7 @@ const routeHandlers = [
   handleAccountRoutes,
   handlePospalRoutes,
   handleTestRoutes,
+  handlePrintRoutes,
   handleAdminRoutes,
   handleStationRoutes
 ];

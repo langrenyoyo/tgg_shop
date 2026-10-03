@@ -550,6 +550,7 @@ function readState(database) {
 
   return {
     config,
+    printing: JSON.parse(database.prepare("SELECT snapshot_json FROM print_state WHERE id = 'main'").get()?.snapshot_json || '{"printers":[],"jobs":[]}'),
     currentUserId: config.currentUserId || seed.currentUserId,
     users,
     addresses,
@@ -640,6 +641,7 @@ function deleteExistingRows(database) {
 }
 
 function insertState(database, state) {
+  database.prepare("INSERT OR REPLACE INTO print_state (id, snapshot_json) VALUES ('main', ?)").run(JSON.stringify(state.printing || { printers: [], jobs: [] }));
   const insertAdmin = database.prepare("INSERT INTO admin_user VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
   for (const account of require("../domain/admin-accounts").ensureAdminUsers(state)) {
     insertAdmin.run(account.id, account.username, account.name, account.passwordHash, JSON.stringify(account.roleIds), account.status, account.createdAt, account.updatedAt, account.lastLoginAt || null);

@@ -15,6 +15,8 @@ const { whenReady, getStoreDriver, isPgReady, shutdownStore, getState } = requir
 const { settleMonthlyPointRewards } = require("./src/services/monthly-point-reward-service");
 const { withPersistence } = require("./src/data/persistence-scope");
 const { createTaskSweep } = require("./src/services/task-sweep-service");
+const printWorker = require("./src/services/print-service").createWorker();
+let printTimer = null;
 
 const PORT = Number(process.env.PORT || 5177);
 let rewardSweepTimer = null;
@@ -63,6 +65,7 @@ async function start() {
     runTaskSweep();
   });
   taskSweepTimer = setInterval(runTaskSweep, 15 * 60 * 1000);
+  printTimer = setInterval(() => printWorker.run().catch(() => console.error("Print worker failed; check persistence and printer tasks")), 10000);
 }
 
 start().catch((error) => {
@@ -76,6 +79,8 @@ process.on("SIGTERM", shutdown);
 async function shutdown() {
   if (rewardSweepTimer) clearInterval(rewardSweepTimer);
   if (taskSweepTimer) clearInterval(taskSweepTimer);
+  if (printTimer) clearInterval(printTimer);
+  await printWorker.stop().catch(() => {});
   await taskSweep.stop().catch(() => {});
   await shutdownStore().catch(() => {});
   server.close(() => process.exit(0));

@@ -3,9 +3,11 @@ import { renderDashboard } from "./dashboard.js";
 import { productEditor } from "./product-editor.js";
 import { adminAccountsView } from "./admin-accounts.js";
 import { stationAccountsView } from "./station-accounts.js";
+import { printingView } from "./printing.js";
 let currentAdminState = {};
 
 const viewPermissions = {
+  printing: "order:read",
   dashboard: "order:read",
   orders: "order:read",
   stateMachine: "order:read",
@@ -31,6 +33,7 @@ const viewPermissions = {
 };
 
 const titles = {
+  printing: ["打印管理", "芯烨云设备、自动小票、任务核对与补打"],
   dashboard: ["运营仪表盘", "订单、商品、积分、权限和异常补偿的运营总览"],
   orders: ["订单管理", "查看自提、配送、支付和退款状态"],
   stateMachine: ["订单状态机", "支付、扣分、履约、退款、关闭的边界"],
@@ -159,6 +162,7 @@ export function renderAdminPage(state) {
   }
 
   const views = {
+    printing: value => printingView(value),
     dashboard,
     orders,
     stateMachine,
@@ -670,6 +674,7 @@ function productActionButtons(item) {
 
 function orderActionButtons(order) {
   const actions = [];
+  if (["paid","completed"].includes(order.status)) actions.push(gatedAction("order:fulfillment", `<button class="action" data-print-order-id="${escapeAttr(order.id)}">打印小票</button>`));
   if (order.fulfillmentStatus === "pending_pickup") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-pickup-verify="${order.id}" data-pickup-code="${order.pickupCode || ""}">核销自提</button>`, "无履约权限"));
   if (order.fulfillmentStatus === "pending_ship") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-ship="${order.id}" data-staff-id="staff_001">分配配送</button>`, "无履约权限"));
   if (order.fulfillmentStatus === "shipping") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-deliver="${order.id}">确认送达</button>`, "无履约权限"));

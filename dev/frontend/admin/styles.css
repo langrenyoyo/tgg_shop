@@ -913,6 +913,25 @@ button {
   color: #fee2e2;
 }
 
+.print-management { display: grid; gap: 20px; min-width: 0; }
+.print-management > section { min-width: 0; }
+.print-management p { color: #667085; line-height: 1.7; }
+.print-management [role="alert"], .print-test { color: #b54708; }
+.print-management [role="status"] { color: var(--green-dark); }
+.print-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: end; }
+.print-form label { display: grid; gap: 8px; color: #344054; font-size: 14px; min-width: 0; }
+.print-form input, .print-form select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 8px; font: inherit; background: #fff; }
+.print-form input[readonly] { background: #f2f4f7; }
+.print-form .print-check { display: flex; align-items: center; min-height: 42px; }
+.print-check input { width: 18px; height: 18px; flex-shrink: 0; }
+.print-scroll { max-width: 100%; overflow-x: auto; }
+.print-scroll table { width: 100%; min-width: 840px; table-layout: fixed; }
+.print-scroll td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; line-height: 1.7; }
+.print-scroll .table-actions { flex-wrap: wrap; gap: 6px; }
+.print-scroll small { color: #667085; }
+@media (max-width: 1100px) { .print-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .print-form { grid-template-columns: minmax(0, 1fr); } .print-management .panel-head { flex-wrap: wrap; } }
+
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(130px, 1fr));

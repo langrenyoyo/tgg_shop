@@ -173,6 +173,7 @@ function createOrder(state, userId, payload) {
   }
 
   orderRepository.add(state, order);
+  if (order.status === "paid") require("../services/print-model").enqueueAuto(state, order);
   logOrderStatus(state, order, {
     fromStatus: null,
     toStatus: order.status,
@@ -213,6 +214,7 @@ function payOrder(state, orderId) {
     toFulfillmentStatus: order.fulfillmentStatus,
     reason: "模拟现金支付成功"
   });
+  require("../services/print-model").enqueueAuto(state, order);
   saveState();
   return { ok: true, order };
 }

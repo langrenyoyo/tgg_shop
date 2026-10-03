@@ -2,6 +2,7 @@ import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmi
 import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
+import { printingClick, printingSubmit } from "./printing.js";
 
 const state = {
   loading: true,
@@ -102,6 +103,9 @@ async function loadDashboard() {
     return;
   }
   state.summary = summary.ok ? summary.data : { role: state.role };
+  const printing = await safeApi("/api/admin/printing", null);
+  state.printing = printing.ok ? printing.data : null;
+  state.printingError = printing.ok ? "" : printing.error?.message || "打印管理加载失败";
   state.summaryError = summary.ok ? "" : summary.error?.message || "统计数据加载失败，请刷新重试";
   state.orders = orders.ok ? orders.data : [];
   state.products = products.ok ? products.data : [];
@@ -360,6 +364,7 @@ document.querySelector("#refresh").addEventListener("click", () => {
 });
 
 document.body.addEventListener("click", (event) => {
+  if (printingClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (stationAccountClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (event.target.closest("button:disabled")) return;
   const adminToggle = event.target.closest("[data-admin-toggle]");
@@ -915,6 +920,7 @@ document.body.addEventListener("change", (event) => {
 });
 
 document.body.addEventListener("submit", (event) => {
+  if (printingSubmit(event, state, { api, reload: loadDashboard })) return;
   if (stationAccountSubmit(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   const loginForm = event.target.closest("[data-admin-login]");
   if (loginForm) {

@@ -21,6 +21,139 @@ tags:
   - name: POSPAL
   - name: Testing
 paths:
+  /api/admin/printing:
+    get:
+      tags: [Admin]
+      summary: Printing configuration and most recent 200 jobs
+      description: Requires order:read. Returns configured/enabled booleans, workerError, printers, sites, jobs and totalJobs. Credentials, receipt contents and internal idempotency keys are never returned.
+      security: [{ AdminBearerAuth: [] }]
+      responses:
+        "200": { description: Printing overview }
+        "401": { description: Administrator login required }
+        "403": { description: Missing order read permission }
+
+  /api/admin/printing/printers:
+    post:
+      tags: [Admin]
+      summary: Add an XPYUN receipt printer
+      description: Requires config:write. Creating local configuration does not register the device at XPYUN. A maximum of 100 printers is supported.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrinterSettings' }
+      responses:
+        "200": { description: Printer configuration saved }
+        "400": { description: Invalid device settings or missing reason }
+        "401": { description: Administrator login required }
+        "403": { description: Missing configuration permission }
+        "409": { description: Serial number already configured }
+
+  /api/admin/printing/printers/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    patch:
+      tags: [Admin]
+      summary: Update or disable a receipt printer
+      description: Requires config:write and all required settings. Serial number is immutable. Disabling does not clear tasks already accepted by XPYUN.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrinterSettings' }
+      responses:
+        "200": { description: Printer saved }
+        "400": { description: Invalid settings }
+        "401": { description: Administrator login required }
+        "403": { description: Missing configuration permission }
+        "404": { description: Printer not found }
+        "409": { description: Serial number conflict }
+
+  /api/admin/printing/printers/{id}/{action}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+      - { in: path, name: action, required: true, schema: { type: string, enum: [register, status, test] } }
+    post:
+      tags: [Admin]
+      summary: Register a printer, query device status or queue a test page
+      description: Requires config:write. register/status require server credentials and validate device ownership; status is 0 offline, 1 online, 2 abnormal. test queues one receipt and requires idempotencyKey. Sending also requires XPYUN_ENABLED=1.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                idempotencyKey: { type: string, pattern: '^[a-zA-Z0-9:_-]{8,160}$', description: Required for test action }
+      responses:
+        "200": { description: Device verified or test task saved; does not mean paper was printed }
+        "400": { description: Invalid request }
+        "401": { description: Administrator login required }
+        "403": { description: Missing configuration permission }
+        "404": { description: Printer not found }
+        "409": { description: Request conflict or operation in progress }
+        "502": { description: XPYUN request failed; inspect device or task status }
+        "503": { description: XPYUN credentials not configured }
+
+  /api/admin/printing/orders/{orderId}:
+    parameters:
+      - { in: path, name: orderId, required: true, schema: { type: string } }
+    post:
+      tags: [Admin]
+      summary: Queue an order receipt or explicit reprint
+      description: Requires order:fulfillment. Only paid/completed merchandise orders with a matching enabled printer may be printed. Pending or uncertain tasks block duplicates. Printed orders require reprint=true. Content is snapshotted; pickup verification secrets are excluded.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [printerId, reason, idempotencyKey]
+              properties:
+                printerId: { type: string }
+                reason: { type: string, minLength: 1, maxLength: 200 }
+                idempotencyKey: { type: string, pattern: '^[a-zA-Z0-9:_-]{8,160}$' }
+                reprint: { type: boolean, default: false }
+      responses:
+        "200": { description: Task saved or existing idempotent result returned }
+        "400": { description: Invalid input or receipt exceeds size limit }
+        "401": { description: Administrator login required }
+        "403": { description: Missing fulfillment permission }
+        "404": { description: Order or printer not found }
+        "409": { description: Order/device mismatch, duplicate request or reconciliation required }
+
+  /api/admin/printing/jobs/{id}/{action}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+      - { in: path, name: action, required: true, schema: { type: string, enum: [query, retry, cancel, resolve] } }
+    post:
+      tags: [Admin]
+      summary: Query, retry, cancel or manually reconcile a print task
+      description: Requires order:fulfillment. query needs a provider order ID and never resends. retry/cancel accept only failed or unsent local jobs without a provider ID. resolve accepts only unknown/unconfirmed jobs; cancelling an uncertain task requires explicit cloud clearance confirmation. All mutations require a reason and are audited.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 200, description: Required except for query }
+                outcome: { type: string, enum: [printed, cancelled], description: Required for resolve }
+                confirmCloudCleared: { type: boolean, description: Must be true for resolve to cancelled }
+      responses:
+        "200": { description: Task updated; printed requires cloud confirmation or audited manual resolution }
+        "400": { description: Missing reason or cloud clearance confirmation }
+        "401": { description: Administrator login required }
+        "403": { description: Missing fulfillment permission }
+        "404": { description: Task not found }
+        "409": { description: Task state forbids operation }
+        "502": { description: Cloud query failed }
+        "503": { description: XPYUN credentials not configured }
+
   /api/test/payments/{payNo}/settle:
     post:
       tags: [Testing]
@@ -2983,6 +3116,21 @@ components:
       schema:
         type: string
   schemas:
+    PrinterSettings:
+      type: object
+      required: [name, sn, fulfillmentType, paperWidth, copies, enabled, autoPrint, reason]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+        sn: { type: string, pattern: '^[a-zA-Z0-9_-]{4,60}$' }
+        fulfillmentType: { type: string, enum: [pickup, delivery] }
+        siteId: { type: string, description: Existing pickup site ID required for pickup printers }
+        paperWidth: { type: integer, enum: [58, 80], default: 80 }
+        copies: { type: integer, minimum: 1, maximum: 5, default: 1 }
+        enabled: { type: boolean }
+        autoPrint: { type: boolean, description: Queue on future order payments only }
+        shopName: { type: string, maxLength: 40 }
+        footer: { type: string, maxLength: 120 }
+        reason: { type: string, minLength: 1, maxLength: 200 }
     StationAccountInput:
       type: object
       required: [reason]
