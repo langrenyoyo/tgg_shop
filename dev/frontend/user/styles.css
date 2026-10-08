@@ -384,6 +384,9 @@ button {
   color: var(--green-dark);
 }
 
+.regular-price { display: block; margin: 8px 0; color: #e43b43; font-size: 19px; font-weight: 800; overflow-wrap: anywhere; }
+.member-unit-price, .member-highlight { display: inline-block; max-width: 100%; box-sizing: border-box; margin-top: 4px; padding: 4px 8px; border-radius: 5px 14px 14px 5px; font-size: 14px; font-weight: 700; line-height: 1.35; color: #774426; background: linear-gradient(110deg, #fff0d4, #f9d8c5); border: 1px solid #f1d2b6; box-shadow: inset 0 1px 0 rgba(255,255,255,.85); }
+
 .add {
   width: 26px;
   height: 26px;

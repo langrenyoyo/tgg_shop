@@ -38,6 +38,13 @@ button[disabled] { opacity: .5; }
 .product-price { color: #e6783d; font-size: 34rpx; font-weight: 700; overflow-wrap: break-word; min-width: 0; }
 .product-price.points-price { color: #009b60; }
 .price-label { display: block; font-size: 20rpx; font-weight: 400; color: #8b988a; margin-bottom: 2rpx; }
+.regular-price { color: #e43b43; font-size: 32rpx; font-weight: 700; line-height: 1.35; margin: 8rpx 0; overflow-wrap: anywhere; }
+.member-highlight { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4rpx; box-sizing: border-box; max-width: 100%; padding: 6rpx 10rpx; border-radius: 8rpx 20rpx 20rpx 8rpx; color: #774426; background: linear-gradient(110deg, #fff0d4, #f9d8c5); border: 1rpx solid #f1d2b6; font-size: 25rpx; font-weight: 700; line-height: 1.3; box-shadow: inset 0 2rpx 0 rgba(255,255,255,.85); }
+.product-price.member-highlight, .cart-price.member-highlight { color: #774426; font-size: 25rpx; }
+.member-highlight .price-label { display: inline; margin: 0; color: #774426; font-size: 22rpx; font-weight: 700; }
+.price-detail { margin: 16rpx 0; }
+.price-detail .regular-price { font-size: 40rpx; }
+.price-detail .member-highlight { font-size: 32rpx; padding: 10rpx 16rpx; }
 .product-arrow { width: 48rpx; height: 48rpx; border-radius: 50%; background: #e8f5eb; color: #009b60; text-align: center; line-height: 44rpx; font-size: 36rpx; flex-shrink: 0; }
 .empty-state { padding: 60rpx 28rpx; text-align: center; color: #819184; font-size: 26rpx; line-height: 1.8; }
 .empty-state button { margin: 24rpx auto 0; display: inline-block; }

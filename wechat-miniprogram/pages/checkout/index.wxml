@@ -2,7 +2,7 @@
 <view wx:if="{{user && !user.isMember}}" class="card">下单需要先购买月会员，会员到期请先续费。<button bindtap="openMembership">购买会员后下单</button></view>
 <view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重试</button></view>
 <view wx:if="{{pending}}" class="card">上次提交结果待确认，将按原商品、支付和收货信息重试。<view>{{pending.fulfillmentType === 'delivery' ? pending.deliveryAddress : '自提点：' + pending.pickupSiteId}}</view><button bindtap="submit" disabled="{{busy || loading}}" loading="{{busy}}">重试原订单</button><view wx:if="{{pending.deliveryTimeSlot}}">配送时段：{{pending.deliveryTimeSlot}}</view></view>
-<view class="card" wx:for="{{items}}" wx:key="productId">{{item.product.name}} × {{item.quantity}}</view>
+<view class="card" wx:for="{{items}}" wx:key="productId">{{item.product.name}} × {{item.quantity}}<block wx:if="{{!item.product.purePointsOnly}}"><view wx:if="{{item.product.regularPrice > 0}}" class="regular-price">普通价 ¥{{item.product.regularPrice}} / 件</view><view class="member-highlight">会员价 ¥{{item.product.cashPrice}} / 件</view></block></view>
 <view class="card" wx:if="{{items.length && !pending}}">
 <picker range="{{modes}}" range-key="label" value="{{modeIndex}}" bindchange="mode"><view>支付方式：{{modes[modeIndex].label || '暂无可用方式'}}</view></picker>
 <radio-group bindchange="fulfillment"><label wx:if="{{config.pickupEnabled}}"><radio value="pickup" checked="{{fulfillmentType === 'pickup'}}"/>自提</label><label wx:if="{{config.deliveryEnabled}}"><radio value="delivery" checked="{{fulfillmentType === 'delivery'}}"/>送货上门</label></radio-group>
