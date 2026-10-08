@@ -17,7 +17,7 @@
       <view class="product-grid"><view class="product-tile" wx:for="{{products}}" wx:key="id" bindtap="open" data-id="{{item.id}}">
         <image wx:if="{{item.image}}" class="product-photo" src="{{item.image}}" mode="aspectFill"/><view wx:else class="product-photo photo-empty">商品图片待更新</view>
         <view class="product-info"><view class="product-name">{{item.name}}</view><view class="product-meta">{{item.tag || item.category}}</view>
-          <view wx:if="{{!item.purePointsOnly && item.regularPrice > 0}}" class="regular-price">普通价 <text>¥{{item.regularPrice}}</text></view>
+          <view wx:if="{{!item.purePointsOnly && item.regularPrice > 0}}" class="regular-price">零售价 <text>¥{{item.regularPrice}}</text></view>
           <view class="product-bottom"><view class="product-price {{item.purePointsOnly ? 'points-price' : 'member-highlight'}}"><text class="price-label">{{item.purePointsOnly ? '纯积分兑换' : '会员价'}}</text>{{item.purePointsOnly ? item.pointsPrice + ' 积分' : '¥' + item.cashPrice}}</view><view class="product-arrow">›</view></view>
         </view>
       </view></view>

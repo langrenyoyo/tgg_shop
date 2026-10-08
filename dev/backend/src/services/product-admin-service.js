@@ -50,7 +50,7 @@ function prepareProduct(input, previous = {}) {
     const value = input[key];
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100000000
       || (!money && !Number.isSafeInteger(value)) || (money && Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)) {
-      return fail(400, money ? "会员价和普通价须为非负金额，最多两位小数" : "库存和积分价须为非负整数");
+      return fail(400, money ? "会员价和零售价须为非负金额，最多两位小数" : "库存和积分价须为非负整数");
     }
     product[key] = value;
   }
@@ -63,7 +63,7 @@ function prepareProduct(input, previous = {}) {
     if (!product.image) missing.push("商品主图");
     if (product.stock <= 0) missing.push("可售库存（大于 0）");
     if (!product.purePointsOnly && (!product.supportsCash || !(product.cashPrice > 0))) missing.push("会员价（大于 0）");
-    if (!product.purePointsOnly && !(product.regularPrice > 0)) missing.push("普通价（大于 0）");
+    if (!product.purePointsOnly && !(product.regularPrice > 0)) missing.push("零售价（大于 0）");
     if (product.supportsPoints && !(product.pointsPrice > 0)) missing.push("积分价（大于 0）");
     if (missing.length) return fail(400, `暂不能上架，请完善：${missing.join("、")}`);
   }

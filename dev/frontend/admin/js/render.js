@@ -266,7 +266,7 @@ function products(state) {
     <section class="table-panel">${simpleTable("商品上架与销售设置", ["商品", "分类", "价格", "库存", "状态", "操作"], rows.map((item) => [
       `${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${item.id}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`,
       escapeHtml(item.category || "-"),
-      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `会员价 ¥${Number(item.cashPrice || 0).toFixed(2)} / 普通价 ${item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
+      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `会员价 ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
       item.stock ?? 0,
       badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)

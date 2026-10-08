@@ -1941,7 +1941,7 @@ paths:
                 regularPrice:
                   type: number
                   nullable: true
-                  description: 普通价，仅展示；现金商品上架必须大于零
+                  description: 零售价，仅展示；现金商品上架必须大于零
                 pointsPrice:
                   type: integer
                 stock:
@@ -2025,7 +2025,7 @@ paths:
                 regularPrice:
                   type: number
                   nullable: true
-                  description: 普通价，仅展示；现金商品上架必须大于零
+                  description: 零售价，仅展示；现金商品上架必须大于零
                 pointsPrice:
                   type: integer
                 supportsPoints:
