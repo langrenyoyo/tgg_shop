@@ -15,7 +15,7 @@
     <view class="quick-item" bindtap="goInvite"><view class="quick-icon peach"><image src="/assets/icons/gift.png"/></view><view>邀请好友</view><text>一起享好物</text></view>
     <view class="quick-item" bindtap="goMembership"><view class="quick-icon cream"><image src="/assets/icons/member.png"/></view><view>会员权益</view><text>查看专属权益</text></view>
   </view>
-  <view class="exchange-strip" bindtap="goExchange"><view><view class="exchange-title">让积分，变成喜欢的好物</view><view class="exchange-subtitle">纯积分兑换 · 无需开通会员</view></view><view class="exchange-action">去兑换 ›</view></view>
+  <view class="exchange-strip" bindtap="goExchange"><view><view class="exchange-title">让积分，变成喜欢的好物</view><view class="exchange-subtitle">纯积分兑换 · 需先开通会员</view></view><view class="exchange-action">去兑换 ›</view></view>
   <view class="service-strip"><view wx:for="{{home.serviceBadges}}" wx:key="*this" class="service-badge">{{item}}</view></view>
   <view class="home-categories" wx:if="{{home.categories.length}}">
     <view wx:for="{{home.categories}}" wx:key="key" class="home-category" data-category="{{item.category || item.name}}" bindtap="goCategory">

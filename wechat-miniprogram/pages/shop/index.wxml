@@ -10,7 +10,7 @@
     </view>
     <view class="shop-content">
       <view class="shop-section"><view>{{category === '全部' ? '全部好物' : category}}</view><text>{{products.length}} 件商品</text></view>
-      <view wx:if="{{category === '纯积分兑换'}}" class="exchange-note">纯积分兑换无需会员，使用积分即可下单</view>
+      <view wx:if="{{category === '纯积分兑换'}}" class="exchange-note">纯积分兑换需先开通会员，使用积分下单</view>
       <view wx:if="{{error}}" class="empty-state card">{{error}}<view><button class="btn btn-light" bindtap="load">重新加载</button></view></view>
       <view wx:elif="{{loading}}" class="empty-state">好物加载中…</view>
       <view wx:elif="{{!products.length}}" class="empty-state card">暂无符合条件的商品<view class="muted">试试其他分类或关键词</view></view>

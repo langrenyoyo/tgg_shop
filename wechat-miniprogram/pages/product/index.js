@@ -31,12 +31,14 @@ Page({
   },
   add() {
     if (!this.canPurchase()) return;
+    if (!this.data.isMember) return this.open("/pages/membership/index");
     try { cart.add(this.data.product); wx.showToast({ title: "已加入购物车" }); }
     catch (error) { wx.showToast({ title: error.message, icon: "none" }); }
   },
   buy() {
     if (!this.canPurchase()) return;
     if (!wx.getStorageSync("tgg_token")) return this.open("/pages/login/index");
+    if (!this.data.isMember) return this.open("/pages/membership/index");
     cart.writeCheckout([{ productId: this.id, quantity: 1 }]);
     this.open("/pages/checkout/index");
   },

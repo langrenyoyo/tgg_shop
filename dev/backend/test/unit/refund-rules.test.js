@@ -9,6 +9,7 @@ const { verifyPickup, shipOrder } = require("../../src/domain/fulfillment-rules"
 
 test("refund during delivery never makes goods in transit sellable and opens one return follow-up", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const user = state.users.find(item => item.id === "u_1001");
   const product = state.products.find(item => item.id === "p_banana");
   const order = createOrder(state, user.id, { paymentMode: "pure_points", fulfillmentType: "delivery", deliveryAddress: "测试地址", items: [{ productId: product.id, quantity: 1 }] }).order;
@@ -29,6 +30,7 @@ test("refund during delivery never makes goods in transit sellable and opens one
 test("refund recovery does not repeat ledger credits or stock restoration when status is stale", () => {
   for (const mode of ["pure_points", "cash"]) {
     const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
     const user = state.users.find(item => item.id === "u_1001");
     const product = state.products.find(item => item.id === (mode === "cash" ? "p_apple" : "p_banana"));
     const order = createOrder(state, user.id, { paymentMode: mode, items: [{ productId: product.id, quantity: 1 }] }).order;
@@ -55,6 +57,7 @@ test("refund recovery does not repeat ledger credits or stock restoration when s
 
 test("pure-points refund returns points and marks order refunded", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const user = state.users.find((item) => item.id === "u_1002");
   const product = state.products.find((item) => item.id === "p_banana");
   const beforePoints = user.points;
@@ -97,6 +100,7 @@ test("pure-points refund returns points and marks order refunded", () => {
 
 test("completed pickup refund does not restore stock automatically", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const product = state.products.find((item) => item.id === "p_banana");
   const beforeStock = product.stock;
   const orderResult = createOrder(state, "u_1002", {
@@ -121,6 +125,7 @@ test("completed pickup refund does not restore stock automatically", () => {
 
 test("cash refund writes outbound payment ledger", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const orderResult = createOrder(state, "u_1001", {
     paymentMode: "cash",
     fulfillmentType: "pickup",
@@ -140,6 +145,7 @@ test("cash refund writes outbound payment ledger", () => {
 
 test("cannot refund another user's order", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const orderResult = createOrder(state, "u_1001", {
     paymentMode: "cash",
     fulfillmentType: "pickup",

@@ -23,8 +23,8 @@ Page({
       const items = cart.readCheckout().map(item => ({ ...item, product: products.find(p => p.id === item.productId) }));
       if (!items.length || items.some(item => !item.product)) throw new Error("请选择有效商品");
       const modes = [];
-      if (items.every(item => item.product.supportsPoints)) modes.push({ id: "pure_points", label: "纯积分兑换" });
       if (user.isMember && items.every(item => item.product.supportsCash && !item.product.purePointsOnly)) modes.push({ id: "cash", label: "会员现金购买" });
+      if (user.isMember && items.every(item => item.product.supportsPoints)) modes.push({ id: "pure_points", label: "纯积分兑换" });
       if (user.isMember && items.every(item => item.product.supportsPoints && !item.product.purePointsOnly)) modes.push({ id: "points_plus_cash", label: "积分不足现金补差" });
       const fulfillmentType = config.pickupEnabled && sites.length ? "pickup" : config.deliveryEnabled ? "delivery" : "pickup";
       const defaultAddress = addresses.find(item => item.isDefault) || addresses[0] || null;
@@ -55,6 +55,7 @@ Page({
   address(e) { if (!this.data.busy && !this.data.pending) this.setData({ deliveryAddress: e.detail.value }); },
   deliverySlot(e) { if (!this.data.busy && !this.data.pending) this.setData({ deliverySlotIndex: Number(e.detail.value) }, () => this.calculate()); },
   openAddress() { wx.navigateTo({ url: "/pages/address/index" }); },
+  openMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
   async submit() {
     if (this.disposed || this.data.busy || this.data.loading || (this.data.error && !this.data.pending)) return;
     if (!this.ownerId || wx.getStorageSync("tgg_user")?.id !== this.ownerId) return wx.showToast({ title: "账号已变更，请重新结算", icon: "none" });
@@ -63,6 +64,7 @@ Page({
     try {
       let payload = this.data.pending;
       if (!payload) {
+      if (!this.data.user?.isMember) return this.openMembership();
       const mode = this.data.modes[this.data.modeIndex]?.id;
       if (!mode) throw new Error("当前商品没有可用支付方式，请查看会员权益");
       const fulfillmentError = this.validateFulfillment();

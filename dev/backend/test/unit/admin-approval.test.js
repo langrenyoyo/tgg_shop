@@ -14,6 +14,7 @@ function actor(state, roleId) {
 test("refund approval requires secondary review before execution", () => {
   const state = createSeed();
   const user = state.users.find((item) => item.id === "u_1002");
+  user.memberUntil = new Date(Date.now() + 86400000).toISOString();
   const beforePoints = user.points;
   const orderResult = createOrder(state, "u_1002", {
     paymentMode: "pure_points",
@@ -55,6 +56,7 @@ test("refund approval requires secondary review before execution", () => {
 test("manual points adjustment requires secondary review and writes ledger", () => {
   const state = createSeed();
   const user = state.users.find((item) => item.id === "u_1002");
+  user.memberUntil = new Date(Date.now() + 86400000).toISOString();
   const beforePoints = user.points;
 
   const request = adminService.requestApproval(

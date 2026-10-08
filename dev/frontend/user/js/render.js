@@ -308,7 +308,7 @@ function categoryModeLabel(mode) {
 function productView(product, state = {}) {
   if (!product) return `<div class="empty">暂无商品</div>`;
   const isPure = product.purePointsOnly;
-  const memberLocked = !isPure && !isMemberUser(state.user);
+  const memberLocked = !isMemberUser(state.user);
   const stock = Number(product.stock || 0);
   return `
     <article class="hero-product top-card product-detail-hero">
@@ -318,11 +318,12 @@ function productView(product, state = {}) {
         <h2>${homeEscape(product.name)}</h2>
         <p class="muted">${productMetaLine(product, isPure)}</p>
         <div class="service-tags">${productServiceTags(product, isPure).map((tag) => `<span>${tag}</span>`).join("")}</div>
-        <div class="price" style="margin-top:8px">${productPriceText(product, isPure)}</div>
+        <div class="price" style="margin-top:8px">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</div>
+        ${!isPure && product.regularPrice > 0 ? `<p class="muted">普通价 ${money(product.regularPrice)}（仅展示）</p>` : ""}
       </div>
     </article>
-    <section class="notice detail-rule"><strong>${isPure ? "纯积分兑换" : "会员现金购"}</strong><p>${isPure ? "无需开通会员，不展示现金补差入口；积分不足时直接提示积分不足。" : "普通用户需先开通月会员，会员可使用现金购物和积分不足现金补差。"}</p></section>
-    ${memberLocked ? `<section class="member-lock"><strong>当前为普通用户</strong><span>开通月会员后可使用现金购买该商品；纯积分商品无需会员。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
+    <section class="notice detail-rule"><strong>${isPure ? "纯积分兑换" : "会员现金购"}</strong><p>${isPure ? "需先开通会员，不展示现金补差入口；积分不足时直接提示积分不足。" : "普通用户需先开通月会员，会员可使用现金购物和积分不足现金补差。"}</p></section>
+    ${memberLocked ? `<section class="member-lock"><strong>当前为普通用户</strong><span>开通月会员后可使用现金购买该商品；纯积分商品需先开通会员。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
     <section class="field-card"><h3>履约服务</h3><div class="detail-service-grid"><span>最快 30 分钟送达</span><span>TGG 自建配送队</span><span>师大周边 5km</span><span>支持自提核销</span></div></section>
     <section class="field-card"><h3>商品介绍</h3><p>${homeEscape(product.unit || "")}</p><p style="white-space:pre-wrap">${homeEscape(product.description || "暂无商品介绍")}</p></section>
     <section class="field-card"><h3>商品保障</h3><p>商品由平台统一上架和库存管理；生鲜商品支持坏果包赔，售后进入退款/补偿流程。</p></section>
@@ -338,13 +339,13 @@ function cartView(state) {
   const totalPoints = items.reduce((sum, item) => sum + (item.purePointsOnly ? (item.pointsPrice || 0) * (item.quantity || 1) : 0), 0);
   const totalCash = items.reduce((sum, item) => sum + (!item.purePointsOnly ? (item.cashPrice || 0) * (item.quantity || 1) : 0), 0);
   const mixed = items.some((item) => item.purePointsOnly) && items.some((item) => !item.purePointsOnly);
-  const memberLocked = totalCash > 0 && !isMemberUser(state.user);
+  const memberLocked = !isMemberUser(state.user);
   return `
     <div class="stack cart-list">
-      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" /><span><strong>${item.name}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 无需会员" : "会员现金商品 · 自建配送"}</p><div class="qty"><button type="button" data-cart-qty="${item.id}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${item.id}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${item.id}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
+      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" /><span><strong>${item.name}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 需先开通会员" : "会员现金商品 · 自建配送"}</p><div class="qty"><button type="button" data-cart-qty="${item.id}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${item.id}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${item.id}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
     </div>
     ${mixed ? `<section class="notice" style="margin-top:10px"><strong>请分开结算</strong><p>纯积分兑换不提供现金补差入口，现金商品需会员购买。</p></section>` : ""}
-    ${memberLocked ? `<section class="member-lock"><strong>现金商品需月会员</strong><span>普通用户可继续兑换纯积分商品；现金商品开通月会员后可结算。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
+    ${memberLocked ? `<section class="member-lock"><strong>下单需月会员</strong><span>所有商品均需先购买月会员后下单。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
     <section class="total-bar"><span>合计：${totalText(totalCash, totalPoints)}</span><button type="button" class="primary" data-page="checkoutPickup" ${!items.length || mixed ? "disabled" : ""}>去结算</button></section>
   `;
 }
@@ -364,7 +365,7 @@ function checkoutView(state, type) {
   const mixed = items.some((item) => item.purePointsOnly) && items.some((item) => !item.purePointsOnly);
   const pureOnly = items.length > 0 && items.every((item) => item.purePointsOnly);
   const cashOnly = items.length > 0 && items.every((item) => !item.purePointsOnly);
-  const memberLocked = cashOnly && !isMemberUser(state.user);
+  const memberLocked = !isMemberUser(state.user);
   const deliveryFee = state.config?.deliveryFeeEnabled && delivery && cashOnly ? Number(state.config.deliveryFee || 0) : 0;
   const disabled = !items.length || mixed || (delivery && !defaultAddress);
   return `
@@ -385,7 +386,7 @@ function checkoutView(state, type) {
       <div class="checkout-items">${items.map((item) => `<p><span>${item.name} x${item.quantity || 1}</span><strong>${lineTotalText(item)}</strong></p>`).join("") || `<p class="muted">暂无商品</p>`}</div>
       <div class="fee-lines" style="margin-top:10px"><p><span>配送费</span><strong>${deliveryFee ? money(deliveryFee) : "¥0.0"}</strong></p></div>
     </section>
-    ${memberLocked ? `<section class="member-lock"><strong>现金商品需月会员</strong><span>开通后可现金购买和使用积分不足现金补差。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
+    ${memberLocked ? `<section class="member-lock"><strong>下单需月会员</strong><span>开通后可现金购买和使用积分不足现金补差。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
     <section class="total-bar"><span>合计：${totalText(totalCash + deliveryFee, totalPoints)}</span><button type="button" class="primary" data-checkout-submit="${delivery ? "delivery" : "pickup"}" ${disabled ? "disabled" : ""}>提交订单</button></section>
   `;
 }
@@ -470,8 +471,8 @@ function membershipView(state) {
   const memberDaysLeft = getMemberDaysLeft(user);
   return `
     <section class="soft-card" style="padding:22px;background:#e8fbf1"><h2 style="margin:0;color:var(--green-dark)">月会员</h2><p class="muted">普通用户升级为会员需开通月会员；会员可现金购物，也可在积分不足时现金补差。</p></section>
-    <section class="field-card"><h3>当前状态</h3><p>${memberActive ? `会员剩余 ${memberDaysLeft} 天，有效期至 ${formatDate(user.memberUntil)}` : "当前为普通用户，可使用纯积分兑换，不可现金购物。"}</p></section>
-    <section class="field-card"><h3>会员权益</h3><p>现金购物、积分不足现金补差、会员价商品。纯积分兑换无需会员。</p></section>
+    <section class="field-card"><h3>当前状态</h3><p>${memberActive ? `会员剩余 ${memberDaysLeft} 天，有效期至 ${formatDate(user.memberUntil)}` : "当前为普通用户，需先购买月会员后下单。"}</p></section>
+    <section class="field-card"><h3>会员权益</h3><p>现金购物、积分不足现金补差、会员价商品。纯积分兑换需先开通会员。</p></section>
     <button type="button" class="primary" style="width:100%;margin-top:18px" data-action="member">${memberActive ? "续费 1 个月会员（30天）" : "开通 1 个月会员（30天）"}</button>
     ${Number(state.config?.membershipMonthlyPoints || 0) > 0 ? `<button type="button" class="secondary" style="width:100%;margin-top:10px" data-action="memberPoints">使用 ${Number(state.config.membershipMonthlyPoints)} 积分开通 30 天</button>` : ""}
   `;
@@ -509,7 +510,7 @@ function refundView(state) {
 }
 
 function pointsExchangeView(state) {
-  return `<section class="notice"><strong>纯积分兑换专区</strong><p>无需会员，不展示现金补差入口；积分不足直接提示。</p></section><div class="product-grid" style="margin-top:12px">${productCards(state.exchangeProducts || [], "points")}</div>`;
+  return `<section class="notice"><strong>纯积分兑换专区</strong><p>需先开通会员，不展示现金补差入口；积分不足直接提示。</p></section><div class="product-grid" style="margin-top:12px">${productCards(state.exchangeProducts || [], "points")}</div>`;
 }
 
 function ticketActionView(state, type, title, text, button) {
@@ -680,7 +681,7 @@ function productMetaLine(product, isPure = product.purePointsOnly) {
 }
 
 function productServiceTags(product, isPure = product.purePointsOnly) {
-  return product.serviceTags || (isPure ? ["无需会员", "不支持现金补差"] : ["会员现金购", "自建配送"]);
+  return product.serviceTags || (isPure ? ["需先开通会员", "不支持现金补差"] : ["会员现金购", "自建配送"]);
 }
 
 function lineTotalText(item) {

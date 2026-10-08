@@ -1110,6 +1110,7 @@ function readProductForm(form) {
     barcode: String(fields.get("barcode") || ""), locationCode: String(fields.get("locationCode") || ""), backupLocation: String(fields.get("backupLocation") || ""),
     storageType: String(fields.get("storageType") || "ambient"), pickSequence: Number(fields.get("pickSequence") || 0),
     cashPrice: purePointsOnly ? null : Number(fields.get("cashPrice") || 0), pointsPrice: Number(fields.get("pointsPrice") || 0),
+    regularPrice: purePointsOnly ? null : Number(fields.get("regularPrice") || 0),
     stock: existing ? existing.stock : Number(fields.get("stock") || 0), purePointsOnly, supportsCash: !purePointsOnly,
     supportsPoints: purePointsOnly || fields.get("supportsPoints") === "on", reason: String(fields.get("reason") || "")
   };
@@ -1157,6 +1158,7 @@ document.body.addEventListener("change", async event => {
   if (event.target.name === "productType") {
     const pure = event.target.value === "pure";
     form.querySelector('[name="cashPrice"]').disabled = pure;
+    form.querySelector('[name="regularPrice"]').disabled = pure;
     const points = form.querySelector('[name="supportsPoints"]');
     points.disabled = pure;
     if (pure) points.checked = true;

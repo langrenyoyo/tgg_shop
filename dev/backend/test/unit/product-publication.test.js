@@ -7,7 +7,7 @@ const catalog = require("../../src/services/catalog-service");
 const { createOrder } = require("../../src/domain/rules");
 const { loadSQLiteState, saveSQLiteState } = require("../../src/data/sqlite-store");
 const actor = state => ({ role: state.roles.find(item => item.id === "product_admin") });
-const valid = { name: "闭环测试商品", category: "水果", image: "/assets/apple.jpg", stock: 10, pointsPrice: 10, cashPrice: 1.5, unit: "500g / 盒", description: "冷藏保存\n开封即食", reason: "商品上架测试" };
+const valid = { name: "闭环测试商品", category: "水果", image: "/assets/apple.jpg", stock: 10, pointsPrice: 10, cashPrice: 1.5, regularPrice: 2.5, unit: "500g / 盒", description: "冷藏保存\n开封即食", reason: "商品上架测试" };
 
 test("draft -> edit -> publish -> purchase -> unpublish closes catalog and stock flow", () => {
   const state = createSeed();
@@ -73,7 +73,7 @@ test("pure points publishing and product details survive SQLite reload", () => {
   assert.equal(product.revision, 1);
   assert.ok(product.publishedAt);
   assert.equal(admin.updateProduct(restored, product.id, { status: "off", expectedRevision: 0, reason: "过期编辑" }, actor(restored)).status, 409);
-  const order = createOrder(restored, "u_1002", { paymentMode: "pure_points", fulfillmentType: "pickup", items: [{ productId: product.id, quantity: 1 }] });
+  const order = createOrder(restored, "u_1001", { paymentMode: "pure_points", fulfillmentType: "pickup", items: [{ productId: product.id, quantity: 1 }] });
   assert.equal(order.ok, true);
 });
 

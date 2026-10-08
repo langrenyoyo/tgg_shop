@@ -22,6 +22,7 @@ function calcDeliveryDate(config, createdAt = new Date()) {
 
 function assertCanCreateOrder(state, user, payload) {
   if (!user) return { ok: false, error: "用户不存在" };
+  if (!isMember(user)) return { ok: false, error: "下单需要先购买月会员，会员到期请先续费" };
   if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
     return { ok: false, error: "请选择商品" };
   }

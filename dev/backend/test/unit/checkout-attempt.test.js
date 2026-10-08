@@ -35,7 +35,7 @@ test("uncertain checkout reopens with exact original payload and ignores changed
       Page: value => { page = value; }, wx,
       require: name => name.endsWith("cart") ? cart : { request: async (url, options) => {
         if (options) { attempts.push(structuredClone(options.data)); if (!succeed) throw new Error("response lost"); return { id: "order1" }; }
-        return { "/api/me": { id: "alice", points: 100 }, "/api/config": { deliveryEnabled: true, deliveryTimeSlots: ["09:00-11:00", "14:00-16:00"] }, "/api/pickup-sites": [], "/api/products": [{ id: "apple", supportsPoints: true, pointsPrice: 10 }] }[url];
+        return { "/api/me": { id: "alice", points: 100, isMember: true }, "/api/config": { deliveryEnabled: true, deliveryTimeSlots: ["09:00-11:00", "14:00-16:00"] }, "/api/pickup-sites": [], "/api/products": [{ id: "apple", supportsPoints: true, pointsPrice: 10 }] }[url];
       } }
     });
     page.setData = (value, callback) => { Object.assign(page.data, value); callback?.(); };

@@ -7,10 +7,11 @@ export function productEditor(product, { escapeHtml: e, can }) {
     <p class="muted-text">填写资料 → 保存草稿或预览 → 校验上架。已上架商品须先下架后修改资料；库存可单独调整。</p>
     <form class="admin-form" data-product-create-form data-product-id="${e(product.id || "")}" data-revision="${product.revision || 0}"><fieldset class="editor-fields" ${editable ? "" : "disabled"}>
       <div class="editor-grid">${field("商品名称", "name", product.name, "text", 'required maxlength="120"')}
-        <label>销售类型<select name="productType" ${existing ? "disabled" : ""}><option value="cash" ${pure ? "" : "selected"}>会员现金商品</option><option value="pure" ${pure ? "selected" : ""} ${can("points_product:write") ? "" : "disabled"}>纯积分兑换（无需会员）</option></select></label>
+        <label>销售类型<select name="productType" ${existing ? "disabled" : ""}><option value="cash" ${pure ? "" : "selected"}>会员现金商品</option><option value="pure" ${pure ? "selected" : ""} ${can("points_product:write") ? "" : "disabled"}>纯积分兑换（需先开通会员）</option></select></label>
         ${field("商品分类", "category", product.category, "text", 'list="product-categories" maxlength="40"')}
         ${field("规格 / 单位", "unit", product.unit, "text", 'placeholder="例如：500g / 盒" maxlength="40"')}
-        ${field("现金价（元）", "cashPrice", product.cashPrice ?? 0, "number", `min="0" max="100000000" step="0.01" ${pure ? "disabled" : ""}`)}
+        ${field("会员价（元，实际结算价）", "cashPrice", product.cashPrice ?? 0, "number", `min="0" max="100000000" step="0.01" ${pure ? "disabled" : ""}`)}
+        ${field("普通价（元，仅展示）", "regularPrice", product.regularPrice ?? "", "number", `min="0" max="100000000" step="0.01" ${pure ? "disabled" : ""}`)}
         <label class="check"><input name="supportsPoints" type="checkbox" ${product.supportsPoints !== false ? "checked" : ""} ${pure ? "disabled" : ""}>支持积分兑换 / 积分补差（纯积分商品禁止补差）</label>
         ${field("积分价", "pointsPrice", product.pointsPrice || 0, "number", 'min="0" max="100000000" step="1"')}
         ${existing ? `<label>可售库存<strong>${product.stock ?? 0}</strong><span>请使用列表中的“调整库存”</span></label>` : field("初始可售库存", "stock", product.stock || 0, "number", `min="0" max="100000000" step="1" ${can("stock:write") ? "" : "disabled"}`)}
@@ -36,6 +37,7 @@ export function productPreview(product, e) {
     ${product.image ? `<img src="${e(product.image)}" alt="${e(product.name || "商品主图")}">` : '<p class="muted-text">尚未设置主图</p>'}
     <h2>${e(product.name || "未填写商品名称")}</h2><p>${e(product.category || "未填写分类")} · ${e(product.unit || "未填写规格")}</p><p>${e(product.tag || "")}</p>
     <strong>${product.purePointsOnly ? `${product.pointsPrice || 0} 积分` : `会员价 ¥${Number(product.cashPrice || 0).toFixed(2)}`}</strong>
-    <p>${product.purePointsOnly ? "无需会员 · 不支持现金补差" : "现金购买需要月会员"} · 库存 ${product.stock || 0}</p>
+    ${!product.purePointsOnly ? `<p>普通价 ¥${Number(product.regularPrice || 0).toFixed(2)}（仅展示）</p>` : ""}
+    <p>${product.purePointsOnly ? "需先开通会员 · 不支持现金补差" : "下单需要月会员"} · 库存 ${product.stock || 0}</p>
     <p class="product-description">${e(product.description || "暂无商品介绍")}</p><p class="muted-text">预览不会保存或上架商品。</p></dialog>`;
 }

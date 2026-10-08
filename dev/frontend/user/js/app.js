@@ -117,8 +117,8 @@ function hasCashItems(items = []) {
   return items.some((item) => !item.purePointsOnly);
 }
 
-function ensureMemberForCash(items = [], message = "现金商品需要开通月会员后购买") {
-  if (!hasCashItems(items) || isMemberUser()) return true;
+function ensureMemberForCash(items = [], message = "下单需要先购买月会员") {
+  if (!items.length || isMemberUser()) return true;
   toast(message);
   state.page = "membership";
   renderPage(state);
@@ -134,7 +134,7 @@ function getDeliveryAddressText() {
 async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
   if (!items.length) return toast("请先选择商品");
   if (!paymentMode) return toast("纯积分商品请单独结算，避免出现现金补差入口");
-  if (!ensureMemberForCash(items, "现金商品需要先开通月会员，纯积分兑换无需会员")) return;
+  if (!ensureMemberForCash(items, "下单需要先购买月会员")) return;
   const payload = {
     paymentMode,
     fulfillmentType,

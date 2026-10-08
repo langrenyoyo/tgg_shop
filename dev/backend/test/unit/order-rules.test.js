@@ -13,7 +13,7 @@ test("delivery cutoff uses Asia/Shanghai and rolls over at the configured hour",
 });
 
 test("delivery time slot must be one of the configured slots", () => {
-  const invalid = createOrder(createSeed(), "u_1002", {
+  const invalid = createOrder(createSeed(), "u_1001", {
     paymentMode: "pure_points",
     fulfillmentType: "delivery",
     deliveryAddress: "师大东门宿舍 3 栋",
@@ -23,7 +23,7 @@ test("delivery time slot must be one of the configured slots", () => {
   assert.equal(invalid.ok, false);
   assert.match(invalid.error, /配送时间段无效/);
 
-  const valid = createOrder(createSeed(), "u_1002", {
+  const valid = createOrder(createSeed(), "u_1001", {
     paymentMode: "pure_points",
     fulfillmentType: "delivery",
     deliveryAddress: "师大东门宿舍 3 栋",
@@ -43,11 +43,12 @@ test("normal user cannot create cash order", () => {
   });
 
   assert.equal(result.ok, false);
-  assert.match(result.error, /现金购物需要先开通月会员/);
+  assert.match(result.error, /下单需要先购买月会员/);
 });
 
-test("normal user can create pure-points pickup order without cash", () => {
+test("member can create pure-points pickup order without cash", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const before = state.users.find((user) => user.id === "u_1002").points;
   const result = createOrder(state, "u_1002", {
     paymentMode: "pure_points",
@@ -66,6 +67,7 @@ test("normal user can create pure-points pickup order without cash", () => {
 
 test("pure-points delivery order never creates cash amount", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const result = createOrder(state, "u_1002", {
     paymentMode: "pure_points",
     fulfillmentType: "delivery",
@@ -81,6 +83,7 @@ test("pure-points delivery order never creates cash amount", () => {
 
 test("pure-points order rejects insufficient points without cash top-up", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const result = createOrder(state, "u_1002", {
     paymentMode: "pure_points",
     fulfillmentType: "pickup",
@@ -93,6 +96,7 @@ test("pure-points order rejects insufficient points without cash top-up", () => 
 
 test("member cash order starts pending payment and can be paid once", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const created = createOrder(state, "u_1001", {
     paymentMode: "cash",
     fulfillmentType: "pickup",
@@ -117,6 +121,7 @@ test("member cash order starts pending payment and can be paid once", () => {
 
 test("points plus cash uses user points once across the whole order", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   // This scenario uses mixed-payment products, not the pure-points catalog.
   for (const product of state.products.filter(item => ["p_banana", "p_bokchoy"].includes(item.id))) product.purePointsOnly = false;
   const user = state.users.find((item) => item.id === "u_1001");
@@ -139,6 +144,7 @@ test("points plus cash uses user points once across the whole order", () => {
 
 test("pure-points products cannot be purchased using cash shortfall", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const product = state.products.find(item => item.purePointsOnly);
   const result = createOrder(state, "u_1001", { paymentMode: "points_plus_cash", items: [{ productId: product.id, quantity: 1 }] });
   assert.equal(result.ok, false);
@@ -147,6 +153,7 @@ test("pure-points products cannot be purchased using cash shortfall", () => {
 
 test("checkout retries do not deduct stock or points twice", () => {
   const state = createSeed();
+  state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();
   const payload = { idempotencyKey: "checkout-test", paymentMode: "pure_points", items: [{ productId: "p_banana", quantity: 1 }] };
   const first = createOrder(state, "u_1002", payload);
   assert.equal(first.ok, true);
@@ -160,7 +167,7 @@ test("checkout retries do not deduct stock or points twice", () => {
 
 test("invalid quantities and duplicate product lines cannot bypass stock checks", () => {
   for (const quantity of [0, -1, 0.5, "invalid"]) {
-    assert.equal(createOrder(createSeed(), "u_1002", { items: [{ productId: "p_banana", quantity }] }).ok, false);
+    assert.equal(createOrder(createSeed(), "u_1001", { items: [{ productId: "p_banana", quantity }] }).ok, false);
   }
-  assert.equal(createOrder(createSeed(), "u_1002", { items: [{ productId: "p_banana", quantity: 1 }, { productId: "p_banana", quantity: 1 }] }).ok, false);
+  assert.equal(createOrder(createSeed(), "u_1001", { items: [{ productId: "p_banana", quantity: 1 }, { productId: "p_banana", quantity: 1 }] }).ok, false);
 });

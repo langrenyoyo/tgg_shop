@@ -39,7 +39,7 @@ const titles = {
   stateMachine: ["订单状态机", "支付、扣分、履约、退款、关闭的边界"],
   deliveryTeam: ["自建配送团队", "配送团队与履约能力配置"],
   products: ["商品与分类管理", "现金商品、积分商品、库存和上下架"],
-  pointsExchange: ["纯积分兑换", "无需会员、无现金补差入口"],
+  pointsExchange: ["纯积分兑换", "需先开通会员、无现金补差入口"],
   homeOps: ["首页运营配置", "Banner、服务承诺和活动入口"],
   users: ["用户/会员管理", "用户状态、积分与会员权益"],
   addressBook: ["用户地址管理", "配送地址、默认地址和服务范围"],
@@ -266,7 +266,7 @@ function products(state) {
     <section class="table-panel">${simpleTable("商品上架与销售设置", ["商品", "分类", "价格", "库存", "状态", "操作"], rows.map((item) => [
       `${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${item.id}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`,
       escapeHtml(item.category || "-"),
-      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `¥${Number(item.cashPrice || 0).toFixed(2)}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
+      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `会员价 ¥${Number(item.cashPrice || 0).toFixed(2)} / 普通价 ${item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
       item.stock ?? 0,
       badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)
@@ -284,7 +284,7 @@ function products(state) {
 
 function pointsExchange(state) {
   const products = (state.products || []).filter((item) => item.purePointsOnly);
-  return `<section class="table-panel"><div class="panel-head"><p>纯积分商品无需会员，不支持现金补差。</p>${gatedAction("points_product:write", '<button class="action" data-product-new-pure>新增纯积分商品</button>')}</div>${simpleTable("纯积分兑换设置", ["商品", "积分价", "库存", "状态", "操作"], products.map((item) => [escapeHtml(item.name || item.id), item.pointsPrice || 0, item.stock ?? 0, badge(item.status), productActionButtons(item)]))}</section>`;
+  return `<section class="table-panel"><div class="panel-head"><p>纯积分商品需先开通会员，不支持现金补差。</p>${gatedAction("points_product:write", '<button class="action" data-product-new-pure>新增纯积分商品</button>')}</div>${simpleTable("纯积分兑换设置", ["商品", "积分价", "库存", "状态", "操作"], products.map((item) => [escapeHtml(item.name || item.id), item.pointsPrice || 0, item.stock ?? 0, badge(item.status), productActionButtons(item)]))}</section>`;
 }
 
 function homeOps(state) {

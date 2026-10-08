@@ -6,6 +6,7 @@ const path = require("node:path");
 
 for (const scenario of [
   { name: "no fulfillment enabled", config: {}, sites: [], blocked: true },
+  { name: "nonmember cannot checkout", config: { pickupEnabled: true }, sites: [{ id: "site-1" }], nonmember: true, type: "pickup" },
   { name: "pickup enabled without sites", config: { pickupEnabled: true }, sites: [], blocked: true },
   { name: "missing pickup sites falls back to delivery", config: { pickupEnabled: true, deliveryEnabled: true, deliveryTimeSlots: ["09:00-11:00"] }, sites: [], type: "delivery" },
   { name: "delivery without slots is blocked", config: { deliveryEnabled: true, deliveryTimeSlots: [] }, sites: [], blocked: true },
@@ -15,7 +16,7 @@ for (const scenario of [
     let page;
     const writes = [];
     const resources = {
-      "/api/me": { id: "alice", points: 1000 },
+      "/api/me": { id: "alice", points: 1000, isMember: !scenario.nonmember },
       "/api/config": scenario.config,
       "/api/pickup-sites": scenario.sites,
       "/api/products": [{ id: "apple", supportsPoints: true, pointsPrice: 10 }]
@@ -29,7 +30,7 @@ for (const scenario of [
         readCheckout: () => [{ productId: "apple", quantity: 1 }],
         read: () => [], write() {}, clearCheckout() {}, checkoutIdempotencyKey: () => "checkout-test", completeCheckout() {}, readCheckoutAttempt: () => null, writeCheckoutAttempt() {}
       },
-      wx: { showToast() {}, redirectTo() {}, getStorageSync: () => ({ id: "alice" }) }
+      wx: { showToast() {}, redirectTo() {}, navigateTo({ url }) { assert.equal(url, "/pages/membership/index"); }, getStorageSync: () => ({ id: "alice" }) }
     });
     page.setData = (data, callback) => { Object.assign(page.data, data); callback?.(); };
     page.ownerId = "alice";
@@ -39,7 +40,8 @@ for (const scenario of [
     if (scenario.type) assert.equal(page.data.fulfillmentType, scenario.type);
     page.data.deliveryAddress = "收货人 电话 地址";
     await page.submit();
-    assert.equal(writes.length, scenario.blocked ? 0 : 1);
+    assert.equal(writes.length, scenario.blocked || scenario.nonmember ? 0 : 1);
+    if (scenario.nonmember) assert.equal(page.data.modes.length, 0);
     if (writes.length) assert.equal(writes[0].fulfillmentType, scenario.type);
   });
 }

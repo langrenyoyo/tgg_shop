@@ -1937,6 +1937,11 @@ paths:
                 cashPrice:
                   type: number
                   nullable: true
+                  description: 会员价，现金订单实际结算单价
+                regularPrice:
+                  type: number
+                  nullable: true
+                  description: 普通价，仅展示；现金商品上架必须大于零
                 pointsPrice:
                   type: integer
                 stock:
@@ -2016,6 +2021,11 @@ paths:
                 cashPrice:
                   type: number
                   nullable: true
+                  description: 会员价，现金订单实际结算单价
+                regularPrice:
+                  type: number
+                  nullable: true
+                  description: 普通价，仅展示；现金商品上架必须大于零
                 pointsPrice:
                   type: integer
                 supportsPoints:

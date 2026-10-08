@@ -6,7 +6,7 @@ const vm = require("node:vm");
 function setup() {
   let page;
   const pending = [], navigation = [], drafts = [], adds = [];
-  const storage = { tgg_token: "token" };
+  const storage = { tgg_token: "token", tgg_user: { isMember: true } };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/product/index.js"), "utf8"), {
     Page: value => { page = value; },
     require: name => name.endsWith("cart") ? { add: value => adds.push(value), writeCheckout: value => drafts.push(value) } : { request: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) },
@@ -17,6 +17,15 @@ function setup() {
   return { page, pending, navigation, drafts, adds, storage };
 }
 const product = { id: "apple", stock: 3, status: "on" };
+
+test("nonmember purchase opens membership without creating checkout", async () => {
+  const { page, pending, drafts, navigation, storage } = setup();
+  storage.tgg_user.isMember = false;
+  const load = page.load(); pending[0].resolve(product); await load;
+  page.buy();
+  assert.equal(drafts.length, 0);
+  assert.equal(navigation[0].url, "/pages/membership/index");
+});
 test("failed and stale product fetches cannot enable unavailable purchases", async () => {
   const { page, pending, drafts, adds } = setup();
   const old = page.load(), latest = page.load();

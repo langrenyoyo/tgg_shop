@@ -9,7 +9,7 @@ const adminService = require("../../src/services/admin-service");
 
 test("pickup order requires correct pickup code and completes order", () => {
   const state = createSeed();
-  const created = createOrder(state, "u_1002", {
+  const created = createOrder(state, "u_1001", {
     paymentMode: "pure_points",
     fulfillmentType: "pickup",
     items: [{ productId: "p_banana", quantity: 1 }]
@@ -33,7 +33,7 @@ test("pickup order requires correct pickup code and completes order", () => {
 
 test("delivery dispatch creates exception when staff is unavailable", () => {
   const state = createSeed();
-  const created = createOrder(state, "u_1002", {
+  const created = createOrder(state, "u_1001", {
     paymentMode: "pure_points",
     fulfillmentType: "delivery",
     deliveryAddress: "师大东门宿舍 3 栋",
@@ -52,7 +52,7 @@ test("delivery dispatch creates exception when staff is unavailable", () => {
 
 test("delivery timeout scan creates exception for stale shipping order", () => {
   const state = createSeed();
-  const created = createOrder(state, "u_1002", {
+  const created = createOrder(state, "u_1001", {
     paymentMode: "pure_points",
     fulfillmentType: "delivery",
     deliveryAddress: "师大东门宿舍 3 栋",
@@ -75,7 +75,7 @@ test("delivery timeout scan creates exception for stale shipping order", () => {
 
 test("delivery order flows pending_ship to shipping to delivered", () => {
   const state = createSeed();
-  const created = createOrder(state, "u_1002", {
+  const created = createOrder(state, "u_1001", {
     paymentMode: "pure_points",
     fulfillmentType: "delivery",
     deliveryAddress: "师大东门宿舍 3 栋",
@@ -110,7 +110,7 @@ test("delivery order flows pending_ship to shipping to delivered", () => {
 
 test("pickup endpoint rejects delivery order", () => {
   const state = createSeed();
-  const created = createOrder(state, "u_1002", {
+  const created = createOrder(state, "u_1001", {
     paymentMode: "pure_points",
     fulfillmentType: "delivery",
     deliveryAddress: "师大东门宿舍 3 栋",
@@ -126,7 +126,7 @@ test("refunding and refunded orders cannot be dispatched, delivered or collected
   for (const status of ["refunding", "refunded", "cancelled", "pending_payment"]) {
     for (const fulfillmentType of ["pickup", "delivery"]) {
       const state = createSeed();
-      const { order } = createOrder(state, "u_1002", { paymentMode: "pure_points", fulfillmentType, deliveryAddress: "测试配送地址", items: [{ productId: "p_bokchoy", quantity: 1 }] });
+      const { order } = createOrder(state, "u_1001", { paymentMode: "pure_points", fulfillmentType, deliveryAddress: "测试配送地址", items: [{ productId: "p_bokchoy", quantity: 1 }] });
       order.status = status;
       const before = JSON.stringify(state);
       if (fulfillmentType === "pickup") assert.equal(verifyPickup(state, order.id, order.pickupCode).ok, false);
@@ -142,7 +142,7 @@ test("refunding and refunded orders cannot be dispatched, delivered or collected
 test("inconsistent completed state requires reconciliation before fulfillment", () => {
   for (const fulfillmentType of ["pickup", "delivery"]) {
     const state = createSeed();
-    const { order } = createOrder(state, "u_1002", { paymentMode: "pure_points", fulfillmentType, deliveryAddress: "测试配送地址", items: [{ productId: "p_bokchoy", quantity: 1 }] });
+    const { order } = createOrder(state, "u_1001", { paymentMode: "pure_points", fulfillmentType, deliveryAddress: "测试配送地址", items: [{ productId: "p_bokchoy", quantity: 1 }] });
     order.status = "completed";
     const before = JSON.stringify(state);
     assert.equal((fulfillmentType === "pickup" ? verifyPickup(state, order.id, order.pickupCode) : shipOrder(state, order.id, "staff_001")).status, 409);

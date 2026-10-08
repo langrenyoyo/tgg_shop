@@ -4,7 +4,7 @@ const inventory = require("../repositories/inventory-repository");
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const fail = (status, error) => ({ ok: false, status, error });
 const allowed = (actor, permission) => (actor.role?.permissions || []).some(value => value === "*" || value === permission);
-const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "pointsPrice", "supportsCash", "supportsPoints", "barcode", "locationCode", "backupLocation", "storageType", "pickSequence"];
+const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "regularPrice", "pointsPrice", "supportsCash", "supportsPoints", "barcode", "locationCode", "backupLocation", "storageType", "pickSequence"];
 
 function imageUrlValid(value) {
   if (!value || /[<>"'\\\s]/.test(value)) return false;
@@ -13,7 +13,7 @@ function imageUrlValid(value) {
 }
 
 function prepareProduct(input, previous = {}) {
-  const product = { name: "", category: "", tag: "", image: "", unit: "", description: "", barcode: "", locationCode: "", backupLocation: "", storageType: "ambient", pickSequence: 0, cashPrice: 0, pointsPrice: 0, stock: 0, status: "off", supportsCash: true, supportsPoints: true, purePointsOnly: false, ...previous };
+  const product = { name: "", category: "", tag: "", image: "", unit: "", description: "", barcode: "", locationCode: "", backupLocation: "", storageType: "ambient", pickSequence: 0, cashPrice: 0, regularPrice: null, pointsPrice: 0, stock: 0, status: "off", supportsCash: true, supportsPoints: true, purePointsOnly: false, ...previous };
   for (const [key, limit] of Object.entries({ name: 120, category: 40, tag: 80, image: 2000, description: 5000, unit: 40 })) {
     if (!own(input, key)) continue;
     if (typeof input[key] !== "string" || input[key].trim().length > limit) return fail(400, `${key} 字段格式或长度不正确`);
@@ -43,25 +43,27 @@ function prepareProduct(input, previous = {}) {
     if (!["on", "off"].includes(input.status)) return fail(400, "上下架状态无效");
     product.status = input.status;
   }
-  for (const key of ["stock", "pointsPrice", "cashPrice"]) {
+  for (const key of ["stock", "pointsPrice", "cashPrice", "regularPrice"]) {
     if (!own(input, key)) continue;
-    if (key === "cashPrice" && product.purePointsOnly) continue;
+    const money = ["cashPrice", "regularPrice"].includes(key);
+    if (money && product.purePointsOnly) continue;
     const value = input[key];
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100000000
-      || (key !== "cashPrice" && !Number.isSafeInteger(value)) || (key === "cashPrice" && Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)) {
-      return fail(400, key === "cashPrice" ? "现金价格须为非负金额，最多两位小数" : "库存和积分价须为非负整数");
+      || (!money && !Number.isSafeInteger(value)) || (money && Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)) {
+      return fail(400, money ? "会员价和普通价须为非负金额，最多两位小数" : "库存和积分价须为非负整数");
     }
     product[key] = value;
   }
   if (!product.name) return fail(400, "请填写商品名称");
   if (product.image && !imageUrlValid(product.image)) return fail(400, "请使用有效商品图片地址或上传图片");
-  if (product.purePointsOnly) Object.assign(product, { cashPrice: null, supportsCash: false, supportsPoints: true });
+  if (product.purePointsOnly) Object.assign(product, { cashPrice: null, regularPrice: null, supportsCash: false, supportsPoints: true });
   if (product.status === "on") {
     const missing = [];
     if (!product.category) missing.push("商品分类");
     if (!product.image) missing.push("商品主图");
     if (product.stock <= 0) missing.push("可售库存（大于 0）");
-    if (!product.purePointsOnly && (!product.supportsCash || !(product.cashPrice > 0))) missing.push("现金售价（大于 0）");
+    if (!product.purePointsOnly && (!product.supportsCash || !(product.cashPrice > 0))) missing.push("会员价（大于 0）");
+    if (!product.purePointsOnly && !(product.regularPrice > 0)) missing.push("普通价（大于 0）");
     if (product.supportsPoints && !(product.pointsPrice > 0)) missing.push("积分价（大于 0）");
     if (missing.length) return fail(400, `暂不能上架，请完善：${missing.join("、")}`);
   }
