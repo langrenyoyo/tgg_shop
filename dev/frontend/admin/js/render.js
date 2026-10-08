@@ -666,7 +666,7 @@ function productActionButtons(item) {
   const writable = can("product:write") && (!item.purePointsOnly || can("points_product:write"));
   return `<div class="table-actions">
     <button class="action muted-action" data-product-preview="${escapeAttr(item.id)}">预览</button>
-    <button class="action" data-product-edit="${escapeAttr(item.id)}" ${writable && item.status !== "on" ? "" : "disabled"} title="已上架商品请先下架后编辑">编辑</button>
+    <button class="action" data-product-edit="${escapeAttr(item.id)}" ${writable ? "" : "disabled"} title="打开商品资料；已上架商品需先下架后保存修改">编辑</button>
     <button class="action" data-product-action="${escapeAttr(item.id)}" data-status="${nextStatus}" ${writable ? "" : "disabled"}>${item.status === "on" ? "下架" : "上架"}</button>
     ${gatedAction("stock:write", `<button class="action" data-product-stock="${escapeAttr(item.id)}">调整库存</button>`, "无库存权限")}
   </div>`;

@@ -65,10 +65,17 @@ const state = {
 };
 
 async function loadDashboard() {
+  const identity = await safeApi("/api/admin/auth/me", null);
+  state.identity = identity.ok ? identity.data : null;
+  if (!state.identity) {
+    state.loading = false;
+    state.loginError = identity.error?.message || "请重新登录";
+    renderAdminPage(state);
+    return;
+  }
   const summaryPath = buildSummaryPath();
   const monthlyRewardPath = buildMonthlyRewardPath();
-  const [identity, summary, orders, products, inventoryLedger, ledger, roles, adminUsers, refunds, exceptions, config, monthlyPointRewardOverview, pickupSites, deliveryTeams, withdrawals, users, addresses, invites, tickets, ranking, approvalRequests, orderStatusLogs, operationLogs, taskSubmissions, dashboardViews, permissionCatalog] = await Promise.all([
-    safeApi("/api/admin/auth/me", null),
+  const [summary, orders, products, inventoryLedger, ledger, roles, adminUsers, refunds, exceptions, config, monthlyPointRewardOverview, pickupSites, deliveryTeams, withdrawals, users, addresses, invites, tickets, ranking, approvalRequests, orderStatusLogs, operationLogs, taskSubmissions, dashboardViews, permissionCatalog] = await Promise.all([
     safeApi(summaryPath, {}),
     safeApi("/api/admin/orders", []),
     safeApi("/api/admin/products", []),
@@ -96,7 +103,6 @@ async function loadDashboard() {
     safeApi("/api/admin/permissions/catalog", [])
   ]);
 
-  state.identity = identity.ok ? identity.data : null;
   if (!state.identity) {
     state.loading = false;
     renderAdminPage(state);
@@ -1359,6 +1365,12 @@ function exportDashboardCsv() {
 }
 
 renderAdminPage(state);
+window.addEventListener("tgg-admin-auth-expired", () => {
+  state.identity = null;
+  state.loading = false;
+  state.loginError = "登录已失效，请重新登录";
+  renderAdminPage(state);
+});
 document.querySelector("#adminLogout").addEventListener("click", async () => {
   await logoutAdmin();
   window.location.reload();

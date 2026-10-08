@@ -2,7 +2,12 @@ const ADMIN_TOKEN_KEY = "tggAdminToken";
 const ADMIN_REFRESH_TOKEN_KEY = "tggAdminRefreshToken";
 const ADMIN_ROLE_KEY = "tggAdminRole";
 let refreshPromise;
-const DEMO_PASSWORD = "123456";
+function expireAdminSession() {
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+  localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("tgg-admin-auth-expired"));
+  return Object.assign(new Error("登录已失效，请重新登录"), { statusCode: 401 });
+}
 
 export async function api(path, options = {}) {
   const token = ["/api/admin/auth/login", "/api/admin/auth/refresh"].includes(path) ? "" : await ensureAdminToken();
@@ -28,12 +33,10 @@ export async function api(path, options = {}) {
     }
   });
   const data = await res.json();
-  if (res.status === 401 && !["/api/admin/auth/login", "/api/admin/auth/refresh"].includes(path) && !options.__retried) {
-    const refreshed = await refreshAdminToken();
-    if (refreshed) return api(path, { ...options, __retried: true });
-    localStorage.removeItem(ADMIN_TOKEN_KEY);
-    localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);
-    throw Object.assign(new Error("登录已失效，请重新登录"), { statusCode: 401 });
+  if (res.status === 401 && !["/api/admin/auth/login", "/api/admin/auth/refresh"].includes(path)) {
+    const current = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!options.__retried && ((current && current !== token) || await refreshAdminToken())) return api(path, { ...options, __retried: true });
+    throw expireAdminSession();
   }
   const intent = options.__approvalIntent;
   if (intent && (res.ok || [400, 409].includes(res.status)) && localStorage.getItem(intent.key) === intent.value) localStorage.removeItem(intent.key);
@@ -105,10 +108,7 @@ async function ensureAdminToken() {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) return token;
   if (await refreshAdminToken()) return localStorage.getItem(ADMIN_TOKEN_KEY);
-  // Keep the development console compatible with the seeded administrator.
-  // Production deployments should set a different password and use the login form.
-  const result = await loginAdmin(getAdminRole(), DEMO_PASSWORD);
-  return result.token;
+  throw expireAdminSession();
 }
 
 function refreshAdminToken() {

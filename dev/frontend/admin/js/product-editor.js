@@ -5,6 +5,7 @@ export function productEditor(product, { escapeHtml: e, can }) {
   const field = (label, name, value = "", type = "text", attributes = "") => `<label>${label}<input name="${name}" type="${type}" value="${e(value ?? "")}" ${attributes}></label>`;
   return `<section class="panel product-editor" id="product-editor"><div class="panel-head"><h2>${existing ? "编辑商品" : "新增商品"}</h2>${existing ? '<button class="action muted-action" type="button" data-product-edit-cancel>取消编辑</button>' : ""}</div>
     <p class="muted-text">填写资料 → 保存草稿或预览 → 校验上架。已上架商品须先下架后修改资料；库存可单独调整。</p>
+    ${product.status === "on" && can("product:write") && (!pure || can("points_product:write")) ? `<div class="note" role="status">该商品正在销售，当前资料只读。下架后即可修改价格及商品资料。<button type="button" class="action" data-product-action="${e(product.id)}" data-status="off">下架并开始编辑</button></div>` : ""}
     <form class="admin-form" data-product-create-form data-product-id="${e(product.id || "")}" data-revision="${product.revision || 0}"><fieldset class="editor-fields" ${editable ? "" : "disabled"}>
       <div class="editor-grid">${field("商品名称", "name", product.name, "text", 'required maxlength="120"')}
         <label>销售类型<select name="productType" ${existing ? "disabled" : ""}><option value="cash" ${pure ? "" : "selected"}>会员现金商品</option><option value="pure" ${pure ? "selected" : ""} ${can("points_product:write") ? "" : "disabled"}>纯积分兑换（需先开通会员）</option></select></label>
