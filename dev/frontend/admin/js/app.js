@@ -938,8 +938,12 @@ document.body.addEventListener("submit", (event) => {
     loginAdmin(fields.get("username"), fields.get("password")).then(() => {
       state.loginError = "";
       if (isAdminLoginPage()) {
-        window.location.replace("/admin");
-        return;
+        if (typeof window.history?.replaceState === "function") {
+          window.history.replaceState(null, "", "/admin");
+        } else {
+          window.location.replace("/admin");
+          return;
+        }
       }
       return loadDashboard();
     })

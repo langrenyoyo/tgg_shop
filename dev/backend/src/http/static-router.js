@@ -8,6 +8,7 @@ const ADMIN_DIR = path.join(ROOT, "frontend", "admin");
 const STATION_DIR = path.join(ROOT, "frontend", "station");
 const ASSETS_DIR = path.resolve(ROOT, "..", "ui", "v17", "assets");
 const UPLOADS_DIR = path.join(ROOT, "backend", "data", "uploads");
+const ADMIN_STATIC_HEADERS = { "Cache-Control": "no-store" };
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -24,24 +25,24 @@ const contentTypes = {
 
 function routeStatic(req, res, url) {
   if (url.pathname === "/" || url.pathname === "/user" || url.pathname === "/user/") return serveFile(res, path.join(USER_DIR, "index.html"));
-  if (url.pathname === "/admin" || url.pathname === "/admin/") return serveFile(res, path.join(ADMIN_DIR, "index.html"));
-  if (url.pathname === "/admin/login" || url.pathname === "/admin/login/") return serveFile(res, path.join(ADMIN_DIR, "index.html"));
+  if (url.pathname === "/admin" || url.pathname === "/admin/") return serveFile(res, path.join(ADMIN_DIR, "index.html"), false, ADMIN_STATIC_HEADERS);
+  if (url.pathname === "/admin/login" || url.pathname === "/admin/login/") return serveFile(res, path.join(ADMIN_DIR, "index.html"), false, ADMIN_STATIC_HEADERS);
   if (url.pathname === "/station" || url.pathname === "/station/") return serveFile(res, path.join(STATION_DIR, "index.html"));
   if (url.pathname.startsWith("/user/")) return serveFile(res, path.join(USER_DIR, url.pathname.replace("/user/", "")));
-  if (url.pathname.startsWith("/admin/")) return serveFile(res, path.join(ADMIN_DIR, url.pathname.replace("/admin/", "")));
+  if (url.pathname.startsWith("/admin/")) return serveFile(res, path.join(ADMIN_DIR, url.pathname.replace("/admin/", "")), false, ADMIN_STATIC_HEADERS);
   if (url.pathname.startsWith("/station/")) return serveFile(res, path.join(STATION_DIR, url.pathname.replace("/station/", "")));
   if (url.pathname.startsWith("/assets/")) return serveFile(res, path.join(ASSETS_DIR, url.pathname.replace("/assets/", "")));
   if (url.pathname.startsWith("/uploads/")) return serveFile(res, path.join(UPLOADS_DIR, url.pathname.replace("/uploads/", "")), true);
   return false;
 }
 
-function serveFile(res, filePath, uploaded = false) {
+function serveFile(res, filePath, uploaded = false, headers = {}) {
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     return send(res, 404, { error: "Not found" });
   }
   const ext = path.extname(filePath).toLowerCase();
-  if (uploaded && ![".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(ext)) return send(res, 200, fs.readFileSync(filePath), { "Content-Type": "application/octet-stream", "Content-Disposition": "attachment", "X-Content-Type-Options": "nosniff" });
-  return send(res, 200, fs.readFileSync(filePath), { "Content-Type": contentTypes[ext] || "application/octet-stream" });
+  if (uploaded && ![".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(ext)) return send(res, 200, fs.readFileSync(filePath), { "Content-Type": "application/octet-stream", "Content-Disposition": "attachment", "X-Content-Type-Options": "nosniff", ...headers });
+  return send(res, 200, fs.readFileSync(filePath), { "Content-Type": contentTypes[ext] || "application/octet-stream", ...headers });
 }
 
 module.exports = {
