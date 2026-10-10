@@ -9,6 +9,10 @@ export function isAdminLoginPage() {
   return pathname === ADMIN_LOGIN_PATH || pathname === `${ADMIN_LOGIN_PATH}/`;
 }
 
+export function hasAdminSession() {
+  return Boolean(localStorage.getItem(ADMIN_TOKEN_KEY) || localStorage.getItem(ADMIN_REFRESH_TOKEN_KEY));
+}
+
 function expireAdminSession() {
   localStorage.removeItem(ADMIN_TOKEN_KEY);
   localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);

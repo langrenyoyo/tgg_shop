@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
 const { issueToken, requireAdminPermission, resolveUser } = require("../../src/domain/auth");
 const authService = require("../../src/services/auth-service");
+const { handleAdminRoutes } = require("../../src/routes/admin-routes");
 
 function reqWithRole(state, roleId) {
   const token = tokenWithSession(state, { type: "admin", roleId });
@@ -31,6 +32,24 @@ test("super admin has all permissions", () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.role.id, "super_admin");
+});
+
+test("admin ranking uses the admin permission boundary", async () => {
+  const state = createSeed();
+  let status;
+  let payload;
+  await handleAdminRoutes({
+    state,
+    req: { ...reqWithRole(state, "super_admin"), method: "GET" },
+    url: new URL("http://localhost/api/admin/ranking"),
+    send: (_, code, body) => {
+      status = code;
+      payload = body;
+    }
+  });
+  assert.equal(status, 200);
+  assert.equal(Array.isArray(payload.rows), true);
+  assert.equal(payload.currentUser, null);
 });
 
 test("customer service can read orders", () => {

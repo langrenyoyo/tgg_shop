@@ -3,6 +3,7 @@ const paymentService = require("../services/payment-service");
 const withdrawalService = require("../services/withdrawal-service");
 const refundReturns = require("../services/refund-return-service");
 const taskReconciliation = require("../services/task-reconciliation-service");
+const accountService = require("../services/account-service");
 
 async function handleAdminRoutes(ctx) {
   const { req, url, state, send } = ctx;
@@ -62,6 +63,7 @@ async function handleAdminRoutes(ctx) {
     "/api/admin/operation-logs": "role:read",
     "/api/admin/approval-requests": "approval:request",
     "/api/admin/task-submissions": "task:review",
+    "/api/admin/ranking": "ranking:read",
     "/api/admin/users": "customer:read",
     "/api/admin/addresses": "customer:read",
     "/api/admin/invites": "customer:read",
@@ -76,6 +78,10 @@ async function handleAdminRoutes(ctx) {
 
   if (req.method === "GET" && url.pathname === "/api/admin/summary") {
     return send(ctx.res, 200, adminService.getSummary(state, Object.fromEntries(url.searchParams.entries())));
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/ranking") {
+    return send(ctx.res, 200, accountService.getRanking(state, null));
   }
 
   if (req.method === "GET" && url.pathname === "/api/admin/dashboard-views") {

@@ -1,4 +1,4 @@
-import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin, isAdminLoginPage } from "./api.js";
+import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin, isAdminLoginPage, hasAdminSession } from "./api.js";
 import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
@@ -65,6 +65,13 @@ const state = {
 };
 
 async function loadDashboard() {
+  if (isAdminLoginPage() && !hasAdminSession()) {
+    state.identity = null;
+    state.loading = false;
+    state.loginError = "";
+    renderAdminPage(state);
+    return false;
+  }
   const identity = await safeApi("/api/admin/auth/me", null);
   state.identity = identity.ok ? identity.data : null;
   if (!state.identity) {
@@ -94,7 +101,7 @@ async function loadDashboard() {
     safeApi("/api/admin/addresses", []),
     safeApi("/api/admin/invites", []),
     safeApi("/api/admin/tickets", []),
-    safeApi("/api/ranking", null),
+    safeApi("/api/admin/ranking", null),
     safeApi("/api/admin/approval-requests", []),
     safeApi("/api/admin/order-status-logs", []),
     safeApi("/api/admin/operation-logs", []),

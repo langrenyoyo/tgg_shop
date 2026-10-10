@@ -34,6 +34,12 @@ test("expired session on the login page does not redirect repeatedly", async () 
   assert.deepEqual(replacements, []);
   assert.deepEqual(events, ["tgg-admin-auth-expired"]);
 });
+test("login page can distinguish a fresh visit from an expired admin session", () => {
+  const { context, storage } = setup([]);
+  assert.equal(context.hasAdminSession(), false);
+  storage.set("tggAdminRefreshToken", "refresh");
+  assert.equal(context.hasAdminSession(), true);
+});
 test("admin login view is isolated from the backend shell and keeps errors inline", () => {
   const toggles = [];
   const elements = {
@@ -68,6 +74,8 @@ test("admin login success verifies the session before replacing the login URL", 
   assert.match(loginBlock, /const authenticated = await loadDashboard\(\);/);
   assert.match(loginBlock, /if \(authenticated && isAdminLoginPage\(\)\)/);
   assert.ok(loginBlock.indexOf("const authenticated = await loadDashboard();") < loginBlock.indexOf("window.history.replaceState"));
+  assert.match(appSource, /safeApi\("\/api\/admin\/ranking", null\)/);
+  assert.match(appSource, /isAdminLoginPage\(\) && !hasAdminSession\(\)/);
 });
 test("successful refresh retries protected request with renewed credentials", async () => {
   const calls=[];
