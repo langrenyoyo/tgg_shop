@@ -1,4 +1,4 @@
-import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin } from "./api.js";
+import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin, isAdminLoginPage } from "./api.js";
 import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
@@ -935,7 +935,14 @@ document.body.addEventListener("submit", (event) => {
     if (button.disabled) return;
     button.disabled = true;
     const fields = new FormData(loginForm);
-    loginAdmin(fields.get("username"), fields.get("password")).then(() => { state.loginError = ""; return loadDashboard(); })
+    loginAdmin(fields.get("username"), fields.get("password")).then(() => {
+      state.loginError = "";
+      if (isAdminLoginPage()) {
+        window.location.replace("/admin");
+        return;
+      }
+      return loadDashboard();
+    })
       .catch(error => { state.loginError = error.message; renderAdminPage(state); }).finally(() => { button.disabled = false; });
     return;
   }

@@ -8,6 +8,7 @@
     "start": "node server.js",
     "config:init": "node scripts/production-config.js --init",
     "config:check": "node scripts/production-config.js --check",
+    "pospal:check": "node scripts/check-pospal.js",
     "api:check": "node scripts/check-openapi.js",
     "db:check": "node scripts/check-migrations.js",
     "test:unit": "node --no-warnings --test test/unit/*.test.js test/audit/*.test.js",

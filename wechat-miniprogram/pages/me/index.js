@@ -2,7 +2,7 @@ const { request, clearSession, resolveAssetUrl } = require("../../utils/api");
 
 Page({
   data: {
-    user: {}, avatarPreview: "", error: "", authNotice: "", loading: false, loggingOut: false, loggedIn: false
+    user: {}, avatarPreview: "", error: "", authNotice: "", loading: false, loggingOut: false, loggedIn: false, orderEntries: [{ label: "待支付", filter: 1, icon: "member" }, { label: "待自提", filter: 2, icon: "shop" }, { label: "配送中", filter: 4, icon: "cart" }, { label: "退款中", filter: 6, icon: "gift" }, { label: "全部订单", filter: 0, icon: "orders" }]
   },
 
   onShow() {
@@ -40,9 +40,7 @@ Page({
   },
   editProfile() { wx.navigateTo({ url: "/pages/login/index?edit=1" }); },
 
-  goOrders() {
-    wx.navigateTo({ url: "/pages/orders/index" });
-  },
+  openProfile() { if (this.data.user.id) this.editProfile(); else this.goLogin(); }, goSignin() { wx.navigateTo({ url: "/pages/signin/index" }); }, goTasks() { wx.switchTab({ url: "/pages/tasks/index" }); }, goOrders(e) { const filter = Number(e?.currentTarget?.dataset?.filter || 0); wx.navigateTo({ url: "/pages/orders/index?filter=" + filter }); },
 
   goPoints() {
     wx.navigateTo({ url: "/pages/points/index" });

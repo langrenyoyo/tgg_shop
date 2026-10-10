@@ -9,7 +9,7 @@ function setup() {
   const storage = { tgg_token: "token", tgg_user: { isMember: true } };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/product/index.js"), "utf8"), {
     Page: value => { page = value; },
-    require: name => name.endsWith("cart") ? { add: value => adds.push(value), writeCheckout: value => drafts.push(value) } : { request: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) },
+    require: name => name.endsWith("product-cart") ? { quantities: () => ({}), change: (_, product) => adds.push(product) } : name.endsWith("cart") ? { add: value => adds.push(value), writeCheckout: value => drafts.push(value) } : { request: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) },
     wx: { getStorageSync: key => storage[key], navigateTo: value => navigation.push(value), showToast() {} }
   });
   page.setData = value => Object.assign(page.data, value);

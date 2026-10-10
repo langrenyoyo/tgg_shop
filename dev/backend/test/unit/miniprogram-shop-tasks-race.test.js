@@ -4,7 +4,7 @@ const fs = require("node:fs"), path = require("node:path"), vm = require("node:v
 
 function page(name, responses) {
   let definition; const pending = [];
-  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, `../../../../wechat-miniprogram/pages/${name}/index.js`), "utf8"), { Page: value => { definition = value; }, wx: { getStorageSync: () => null }, require: () => ({ request: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) }) });
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, `../../../../wechat-miniprogram/pages/${name}/index.js`), "utf8"), { Page: value => { definition = value; }, wx: { getStorageSync: () => null }, require: name => name.endsWith("product-cart") ? { quantities: () => ({}) } : ({ request: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) }) });
   definition.setData = (value, cb) => { Object.assign(definition.data, value); cb?.(); };
   return { definition, pending };
 }

@@ -1,11 +1,21 @@
 const ADMIN_TOKEN_KEY = "tggAdminToken";
 const ADMIN_REFRESH_TOKEN_KEY = "tggAdminRefreshToken";
 const ADMIN_ROLE_KEY = "tggAdminRole";
+export const ADMIN_LOGIN_PATH = "/admin/login";
 let refreshPromise;
+
+export function isAdminLoginPage() {
+  const pathname = typeof window !== "undefined" ? window.location?.pathname : "";
+  return pathname === ADMIN_LOGIN_PATH || pathname === `${ADMIN_LOGIN_PATH}/`;
+}
+
 function expireAdminSession() {
   localStorage.removeItem(ADMIN_TOKEN_KEY);
   localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);
   if (typeof window !== "undefined") window.dispatchEvent(new Event("tgg-admin-auth-expired"));
+  if (typeof window !== "undefined" && !isAdminLoginPage() && typeof window.location?.replace === "function") {
+    window.location.replace(ADMIN_LOGIN_PATH);
+  }
   return Object.assign(new Error("登录已失效，请重新登录"), { statusCode: 401 });
 }
 

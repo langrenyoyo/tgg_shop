@@ -2,12 +2,14 @@ const productApi = require("../../utils/api");
 const { request } = productApi;
 const resolveAssetUrl = productApi.resolveAssetUrl || (value => value);
 const cart = require("../../utils/cart");
+const productCart = require("../../utils/product-cart");
 Page({
   data: { product: null, error: "", loading: false, navigating: false, isMember: false },
   onLoad(query) { this.id = query.id; },
   onShow() { this.disposed = false; this.setData({ navigating: false }); this.load(); },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
   async load() {
+    this.setData({ cartQuantities: productCart.quantities() });
     const version = this.version = (this.version || 0) + 1;
     this.setData({ product: null, error: "", loading: false, isMember: Boolean(wx.getStorageSync("tgg_user")?.isMember) });
     if (!this.id) { this.setData({ error: "缺少商品编号，请从商城重新进入" }); return; }
@@ -31,10 +33,9 @@ Page({
   },
   add() {
     if (!this.canPurchase()) return;
-    if (!this.data.isMember) return this.open("/pages/membership/index");
-    try { cart.add(this.data.product); wx.showToast({ title: "已加入购物车" }); }
-    catch (error) { wx.showToast({ title: error.message, icon: "none" }); }
+    productCart.change(this, this.data.product, 1);
   },
+  changeCart(e) { productCart.change(this, this.data.product, Number(e.currentTarget.dataset.delta)); },
   buy() {
     if (!this.canPurchase()) return;
     if (!wx.getStorageSync("tgg_token")) return this.open("/pages/login/index");

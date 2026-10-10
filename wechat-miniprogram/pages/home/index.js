@@ -1,4 +1,5 @@
 const homeApi = require("../../utils/api");
+const productCart = require("../../utils/product-cart");
 const { request } = homeApi;
 const resolveAssetUrl = homeApi.resolveAssetUrl || (value => value);
 
@@ -8,6 +9,7 @@ Page({
   },
 
   onShow() {
+    this.setData({ cartQuantities: productCart.quantities() });
     this.load();
   },
   onUnload() { this.version = (this.version || 0) + 1; },
@@ -28,6 +30,9 @@ Page({
 
   goLogin() {
     wx.navigateTo({ url: "/pages/login/index" });
+  },
+  changeCart(e) {
+    productCart.change(this, this.data.home.recommendProducts.find(item => item.id === e.currentTarget.dataset.id), Number(e.currentTarget.dataset.delta));
   },
   goShop() { wx.switchTab({ url: "/pages/shop/index" }); },
   openBanner() {

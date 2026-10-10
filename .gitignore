@@ -12,6 +12,8 @@ node_modules/
 dev/backend/node_modules/
 
 # Environment and local config
+shouyin.md
+server.txt
 .env
 .env.*
 app/js/config.js

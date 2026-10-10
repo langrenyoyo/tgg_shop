@@ -5,6 +5,41 @@ const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
 const { createPospalClient, md5 } = require("../../src/integrations/pospal/pospal-client");
 const { syncResources, pushOrderToPospal, getStatus } = require("../../src/services/pospal-sync-service");
+const { checkPospal } = require("../../scripts/check-pospal");
+
+test("POSPAL quota failure stays actionable in sync status and stops live checks", async () => {
+  const client = createPospalClient({
+    config: { appId: "app", appKey: "key", account: "store" },
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ status: "error", errorCode: 4021, messages: ["Token余额不足"] }) })
+  });
+  const state = createSeed();
+  const result = await syncResources(state, ["products"], { client });
+  assert.equal(result.ok, false);
+  assert.equal(result.results[0].errorCode, 4021);
+  assert.equal(getStatus(state).lastError.errorCode, 4021);
+  assert.equal(state.config.pospalIntegration.cursors.products, undefined);
+  const reports = [];
+  assert.equal(await checkPospal(client, row => reports.push(row)), false);
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].errorCode, 4021);
+});
+
+test("POSPAL live check uses only read methods and reports no customer data", async () => {
+  const calls = [];
+  const client = { config: { baseUrl: "https://platform.pospal.cn", appId: "app", appKey: "secret", account: "store" } };
+  for (const method of ["queryProducts", "queryStores", "queryInventory", "queryCustomers", "queryTickets", "queryProductOrders", "queryPaymentMethods"]) {
+    client[method] = async body => {
+      calls.push(method);
+      assert.equal(body.limit, 1);
+      return { result: { list: [{ phone: "private-phone" }], hasMore: false } };
+    };
+  }
+  const reports = [];
+  assert.equal(await checkPospal(client, row => reports.push(row)), true);
+  assert.equal(calls.length, 7);
+  assert.equal(reports.every(row => row.count === 1), true);
+  assert.equal(JSON.stringify(reports).includes("private-phone"), false);
+});
 
 test("POSPAL client signs requests and always sends the configured account", async () => {
   let captured;

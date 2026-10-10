@@ -18,7 +18,7 @@
         <image wx:if="{{item.image}}" class="product-photo" src="{{item.image}}" mode="aspectFill"/><view wx:else class="product-photo photo-empty">商品图片待更新</view>
         <view class="product-info"><view class="product-name">{{item.name}}</view><view class="product-meta">{{item.tag || item.category}}</view>
           <view wx:if="{{!item.purePointsOnly && item.regularPrice > 0}}" class="regular-price">零售价 <text>¥{{item.regularPrice}}</text></view>
-          <view class="product-bottom"><view class="product-price {{item.purePointsOnly ? 'points-price' : 'member-highlight'}}"><text class="price-label">{{item.purePointsOnly ? '纯积分兑换' : '会员价'}}</text>{{item.purePointsOnly ? item.pointsPrice + ' 积分' : '¥' + item.cashPrice}}</view><view class="product-arrow">›</view></view>
+          <view class="product-bottom"><view class="product-price {{item.purePointsOnly ? 'points-price' : 'member-highlight'}}"><text class="price-label">{{item.purePointsOnly ? '纯积分兑换' : '会员价'}}</text>{{item.purePointsOnly ? item.pointsPrice + ' 积分' : '¥' + item.cashPrice}}</view><view class="product-stepper"><button wx:if="{{cartQuantities[item.id] > 0}}" class="step-minus" catchtap="changeCart" data-id="{{item.id}}" data-delta="-1" aria-label="减少一件">−</button><text wx:if="{{cartQuantities[item.id] > 0}}" class="step-count">{{cartQuantities[item.id]}}</text><button class="step-plus" catchtap="changeCart" data-id="{{item.id}}" data-delta="1" disabled="{{item.status !== 'on' || item.stock <= 0 || cartQuantities[item.id] >= item.stock}}" aria-label="加入购物车">+</button></view></view>
         </view>
       </view></view>
     </view>

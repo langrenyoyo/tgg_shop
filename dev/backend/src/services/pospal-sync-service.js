@@ -18,7 +18,7 @@ const DEFAULT_INTEGRATION = {
 function integrationState(state) {
   state.config ||= {};
   const current = state.config.pospalIntegration || {};
-  state.config.pospalIntegration = {
+  state.config.pospalIntegration = Object.assign(current, {
     ...DEFAULT_INTEGRATION,
     ...current,
     cursors: { ...(current.cursors || {}) },
@@ -28,7 +28,7 @@ function integrationState(state) {
     externalOrders: Array.isArray(current.externalOrders) ? current.externalOrders : [],
     callbackEvents: Array.isArray(current.callbackEvents) ? current.callbackEvents : [],
     syncRuns: Array.isArray(current.syncRuns) ? current.syncRuns : []
-  };
+  });
   return state.config.pospalIntegration;
 }
 
@@ -318,8 +318,8 @@ async function syncResources(state, resources, options = {}) {
         : { resource, skipped: true, error: "不支持的同步资源" };
       results.push(result);
     } catch (error) {
-      integration.lastError = { resource, code: error.code || "POSPAL_SYNC_ERROR", message: error.message, at: new Date().toISOString() };
-      results.push({ resource, ok: false, error: error.message, code: error.code || "POSPAL_SYNC_ERROR" });
+      integration.lastError = { resource, code: error.code || "POSPAL_SYNC_ERROR", errorCode: error.errorCode, message: error.message, at: new Date().toISOString() };
+      results.push({ resource, ok: false, error: error.message, code: error.code || "POSPAL_SYNC_ERROR", errorCode: error.errorCode });
     }
   }
   const run = { id: nextId("pospal_sync"), resources: selected, results, createdAt: new Date().toISOString() };

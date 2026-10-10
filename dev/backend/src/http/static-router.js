@@ -25,6 +25,7 @@ const contentTypes = {
 function routeStatic(req, res, url) {
   if (url.pathname === "/" || url.pathname === "/user" || url.pathname === "/user/") return serveFile(res, path.join(USER_DIR, "index.html"));
   if (url.pathname === "/admin" || url.pathname === "/admin/") return serveFile(res, path.join(ADMIN_DIR, "index.html"));
+  if (url.pathname === "/admin/login" || url.pathname === "/admin/login/") return serveFile(res, path.join(ADMIN_DIR, "index.html"));
   if (url.pathname === "/station" || url.pathname === "/station/") return serveFile(res, path.join(STATION_DIR, "index.html"));
   if (url.pathname.startsWith("/user/")) return serveFile(res, path.join(USER_DIR, url.pathname.replace("/user/", "")));
   if (url.pathname.startsWith("/admin/")) return serveFile(res, path.join(ADMIN_DIR, url.pathname.replace("/admin/", "")));

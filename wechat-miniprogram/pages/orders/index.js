@@ -13,7 +13,7 @@ Page({
     ]
   },
 
-  onShow() {
+  onLoad(query) { const filterIndex = Number(query.filter || 0); if (Number.isInteger(filterIndex) && this.data.filters[filterIndex]) this.setData({ filterIndex }); },  onShow() {
     this.load();
   },
   open(e) { if (!this.ownerId || this.ownerId !== wx.getStorageSync("tgg_user")?.id) return; wx.navigateTo({ url: "/pages/order-detail/index?id=" + encodeURIComponent(e.currentTarget.dataset.id) }); },
