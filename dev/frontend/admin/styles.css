@@ -30,6 +30,32 @@ body {
   background: var(--bg);
 }
 
+body.admin-login-mode {
+  grid-template-columns: minmax(0, 1fr);
+  background: #eef4f7;
+}
+
+body.admin-login-mode .side,
+body.admin-login-mode .header {
+  display: none;
+}
+
+body.admin-login-mode .main,
+body.admin-login-mode #adminScreen {
+  min-height: 100vh;
+}
+
+body.admin-login-mode .main {
+  display: grid;
+  padding: 0;
+}
+
+body.admin-login-mode #adminScreen {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
 button,
 input,
 select {
@@ -201,6 +227,90 @@ button {
 
 #adminScreen {
   padding: 0 36px;
+}
+
+.admin-login-panel {
+  width: min(420px, 100%);
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 20px 48px rgb(16 24 40 / 12%);
+}
+
+.admin-login-brand {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  column-gap: 12px;
+  row-gap: 2px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.admin-login-brand span {
+  grid-row: 1 / span 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--green);
+}
+
+.admin-login-brand strong {
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.admin-login-brand small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-login-panel h2 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.admin-login-hint,
+.admin-login-error {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.admin-login-hint {
+  color: var(--muted);
+}
+
+.admin-login-error {
+  padding: 10px 12px;
+  border: 1px solid rgb(240 68 56 / 22%);
+  border-radius: 8px;
+  color: #b42318;
+  background: #fff7f7;
+}
+
+.admin-login-form {
+  gap: 14px;
+}
+
+.admin-login-form input {
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.admin-login-form input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgb(18 183 106 / 14%);
+  outline: 0;
+}
+
+.admin-login-form .action {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
 }
 
 .dashboard-screen {

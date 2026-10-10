@@ -140,6 +140,7 @@ const labelMaps = {
 
 export function renderAdminPage(state) {
   currentAdminState = state || {};
+  document.body?.classList?.toggle("admin-login-mode", !state.identity);
   document.querySelector("#adminIdentity").textContent = state.identity?.admin?.name || "未登录";
   document.querySelector("#adminLogout").hidden = !state.identity;
   const [title, subtitle] = titles[state.view] || titles.dashboard;
@@ -157,7 +158,10 @@ export function renderAdminPage(state) {
     return;
   }
   if (!state.identity) {
-    document.querySelector("#adminScreen").innerHTML = `<section class="panel"><h2>管理员登录</h2><p role="alert">${escapeHtml(state.loginError || "请输入管理员账号和密码")}</p><form class="admin-form" data-admin-login><label>账号<input name="username" autocomplete="username" required></label><label>密码<input name="password" type="password" autocomplete="current-password" required></label><button class="action" type="submit">登录</button></form></section>`;
+    const message = state.loginError
+      ? `<p class="admin-login-error" role="alert">${escapeHtml(state.loginError)}</p>`
+      : '<p class="admin-login-hint">请输入管理员账号和密码</p>';
+    document.querySelector("#adminScreen").innerHTML = `<section class="admin-login-panel" aria-labelledby="adminLoginTitle"><div class="admin-login-brand"><span></span><strong>TGG Shop</strong><small>运营后台</small></div><h2 id="adminLoginTitle">管理员登录</h2>${message}<form class="admin-form admin-login-form" data-admin-login><label>账号<input name="username" autocomplete="username" required></label><label>密码<input name="password" type="password" autocomplete="current-password" required></label><button class="action" type="submit">登录</button></form></section>`;
     return;
   }
 

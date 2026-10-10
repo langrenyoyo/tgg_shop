@@ -71,7 +71,7 @@ async function loadDashboard() {
     state.loading = false;
     state.loginError = identity.error?.message || "请重新登录";
     renderAdminPage(state);
-    return;
+    return false;
   }
   const summaryPath = buildSummaryPath();
   const monthlyRewardPath = buildMonthlyRewardPath();
@@ -106,7 +106,7 @@ async function loadDashboard() {
   if (!state.identity) {
     state.loading = false;
     renderAdminPage(state);
-    return;
+    return false;
   }
   state.summary = summary.ok ? summary.data : { role: state.role };
   const printing = await safeApi("/api/admin/printing", null);
@@ -146,6 +146,7 @@ async function loadDashboard() {
   state.dashboardViews = dashboardViews.ok ? dashboardViews.data : [];
   state.loading = false;
   renderAdminPage(state);
+  return true;
 }
 
 function paymentLedgerPath() {
@@ -935,9 +936,10 @@ document.body.addEventListener("submit", (event) => {
     if (button.disabled) return;
     button.disabled = true;
     const fields = new FormData(loginForm);
-    loginAdmin(fields.get("username"), fields.get("password")).then(() => {
+    loginAdmin(fields.get("username"), fields.get("password")).then(async () => {
       state.loginError = "";
-      if (isAdminLoginPage()) {
+      const authenticated = await loadDashboard();
+      if (authenticated && isAdminLoginPage()) {
         if (typeof window.history?.replaceState === "function") {
           window.history.replaceState(null, "", "/admin");
         } else {
@@ -945,7 +947,6 @@ document.body.addEventListener("submit", (event) => {
           return;
         }
       }
-      return loadDashboard();
     })
       .catch(error => { state.loginError = error.message; renderAdminPage(state); }).finally(() => { button.disabled = false; });
     return;
