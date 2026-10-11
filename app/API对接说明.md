@@ -53,27 +53,14 @@ sign = MD5( Ymd + appid + key ).toLowerCase()
 │   ├── 提交任务 ← task_register + upload
 │   ├── 我的提交 ← get_examine_list
 │   └── 我的邀请码 ← invite/info + invite/list（§4.5）
-└── 签到（TGG 自有逻辑）
-    ├── 签满30天奖励文案（后台配置）
-    ├── 随机 N 组广告（每组 1 激 + 1 插，N 在 min–max 间随机）
-    ├── 看完 → 抽奖券 ×1
-    └── 转盘抽奖（奖品/权重后台配置）← signin API（§4.6）
 ```
 
 ---
 
-## 9. TGG 签到 API
+## 9. 广告模块下线
 
-> 实现：`app/js/signin-api.js`
-
-| 接口 | URI | 用途 |
-|------|-----|------|
-| 签到状态 | `api/signin/status` | 今日组数、连续天数、是否可抽奖 |
-| 开始签到 | `api/signin/start` | 生成/恢复当日广告任务 |
-| 广告完成 | `api/signin/ad_complete` | 上报激/插看完（ad_type: ji/cha） |
-| 抽奖 | `api/signin/lottery_spin` | 消耗抽奖券，权重随机出奖 |
-
-**广告组示例**：后台 3–5 组，今日随机 4 → 用户看 4 激 + 4 插 → 获得抽奖券 → 转盘随机奖励。
+2026-10-11：旧广告播放、签到抽奖和模拟发奖代码已删除，后续单独对接微信小程序广告。
+原 `/api/signin/status`、`/api/signin/start`、`/api/signin/ad_complete`、`/api/signin/lottery_spin` 返回 HTTP 410，不再创建会话、消费抽奖券或发放积分。历史数据保留。
 
 ---
 

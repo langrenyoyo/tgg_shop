@@ -155,7 +155,6 @@ function getPointLedger(state, userId, filters = {}) {
     else if (refund) source = { type: "order", id: refund.orderId };
     else if (submission) source = { type: "submission", id: submission.id };
     else if (["invite_reward", "invite_commission"].includes(item.changeType)) source = { type: "invite" };
-    else if (["signin", "signin_streak", "lottery"].includes(item.changeType)) source = { type: "signin" };
     return { ...item, source };
   }), total: rows.length, page, count };
 }

@@ -1,5 +1,7 @@
 # TGG Shop Dev
 
+2026-10-11: Removed the advertising playback, splash screen, ad sign-in/lottery flow and admin ad settings. Legacy sign-in endpoints return HTTP 410 without changing historical balances or sessions. A future WeChat mini-program advertising integration is separate work. Older feature and verification snapshots below are historical.
+
 This directory contains the runnable development MVP for TGG Shop. It is intended for requirement validation, UI flow testing, backend rule verification, and handoff into production engineering.
 
 ## Current Stage

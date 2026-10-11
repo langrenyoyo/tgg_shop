@@ -10,7 +10,6 @@
     <view class="hero-art"><image src="{{home.bannerImage || home.bannerProduct.image || '/assets/fresh-strawberry.jpg'}}" mode="aspectFill"/><view class="hero-stamp">今日份新鲜</view></view>
   </view>
   <view class="quick-actions">
-    <view class="quick-item" bindtap="goSignin"><view class="quick-icon amber"><image src="/assets/icons/calendar.png"/></view><view>每日签到</view><text>积攒小确幸</text></view>
     <view class="quick-item" bindtap="goTasks"><view class="quick-icon mint"><image src="/assets/icons/tasks-active.png"/></view><view>做任务</view><text>积分慢慢攒</text></view>
     <view class="quick-item" bindtap="goInvite"><view class="quick-icon peach"><image src="/assets/icons/gift.png"/></view><view>邀请好友</view><text>一起享好物</text></view>
     <view class="quick-item" bindtap="goMembership"><view class="quick-icon cream"><image src="/assets/icons/member.png"/></view><view>会员权益</view><text>查看专属权益</text></view>

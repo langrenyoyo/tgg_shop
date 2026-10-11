@@ -79,46 +79,6 @@ button {
   -webkit-overflow-scrolling: touch;
 }
 
-.splash {
-  position: absolute;
-  inset: 0;
-  z-index: 80;
-  display: grid;
-  place-items: center;
-  padding: 44px;
-  background: #101923;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-}
-
-.splash[hidden] {
-  display: none;
-}
-
-.splash-card {
-  width: 100%;
-  min-height: 460px;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 12px;
-  border-radius: 18px;
-  color: #fff;
-  background: var(--green);
-  text-align: center;
-}
-
-.splash-card h1 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.splash-card p,
-.splash-card span {
-  margin: 0;
-  color: rgb(255 255 255 / 82%);
-}
-
-.splash-card button,
 .primary,
 .pill-button {
   min-height: 42px;
@@ -127,12 +87,6 @@ button {
   color: #fff;
   background: var(--green);
   font-weight: 800;
-}
-
-.splash-card button {
-  margin-top: 92px;
-  color: var(--green-dark);
-  background: #fff;
 }
 
 .top-card,
@@ -239,7 +193,7 @@ button {
 
 .quick {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }

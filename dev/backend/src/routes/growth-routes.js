@@ -1,8 +1,7 @@
 const growthService = require("../services/growth-service");
-const { saveState } = require("../data/store");
 
 async function handleGrowthRoutes(ctx) {
-  const { req, url, state, user, send, readBody } = ctx;
+  const { req, url, state, user, send } = ctx;
 
   if ((req.method === "GET" || req.method === "POST") && url.pathname === "/api/invite/info") {
     return send(ctx.res, 200, growthService.getInviteInfo(state, user));
@@ -20,27 +19,9 @@ async function handleGrowthRoutes(ctx) {
     return send(ctx.res, 200, growthService.getInviteStats(state, user));
   }
 
-  if ((req.method === "GET" || req.method === "POST") && url.pathname === "/api/signin/status") {
-    return send(ctx.res, 200, growthService.getSigninStatus(state, user));
-  }
-
-  if (req.method === "POST" && url.pathname === "/api/signin/start") {
-    const result = growthService.startSignin(state, user);
-    await saveState();
-    return send(ctx.res, 200, result);
-  }
-
-  if (req.method === "POST" && url.pathname === "/api/signin/ad_complete") {
-    const body = await readBody(req);
-    const result = growthService.completeSigninAd(state, user, body.sessionId, body.adType, body.completionToken);
-    if (result.ok) await saveState();
-    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.result : { error: result.error });
-  }
-
-  if (req.method === "POST" && url.pathname === "/api/signin/lottery_spin") {
-    const result = growthService.spinLottery(state, user);
-    if (result.ok) await saveState();
-    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.prize : { error: result.error });
+  // Retire old clients without consuming tickets or changing historical balances.
+  if (["/api/signin/status", "/api/signin/start", "/api/signin/ad_complete", "/api/signin/lottery_spin"].includes(url.pathname)) {
+    return send(ctx.res, 410, { error: "广告签到功能已下线", code: "AD_FEATURE_REMOVED" });
   }
 
   return false;

@@ -44,7 +44,6 @@ Page({
     const page = e.currentTarget.dataset.page;
     if (page === "membership") return this.goMembership();
     if (page === "pointsExchange") return this.goExchange();
-    if (page === "signin") return this.goSignin();
     if (page === "invite") return this.goInvite();
     if (page === "earn") return this.goTasks();
     this.goShop();
@@ -58,7 +57,6 @@ Page({
   },
   search(e) { wx.setStorageSync("tgg_shop_entry", { category: "全部", search: e.detail.value }); this.goShop(); },
   goMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
-  goSignin() { wx.navigateTo({ url: "/pages/signin/index" }); },
   goInvite() { wx.navigateTo({ url: "/pages/invite/index" }); },
 
   goTasks() {

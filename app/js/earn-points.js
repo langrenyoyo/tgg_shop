@@ -15,16 +15,6 @@
     currentTask: null,
     uploadedImages: [],
     examineStatus: "All",
-    signinGroups: 4,
-    signinGroupMin: 3,
-    signinGroupMax: 5,
-    signinCurrentGroup: 1,
-    signinCurrentStep: "ji",
-    signinSessionId: "",
-    signinAdsDone: 0,
-    signinAdsTotal: 8,
-    signinPrizes: [],
-    signinSpinning: false,
   };
 
   function toast(msg) {
@@ -72,10 +62,10 @@
     state.mainTab = tab;
     $$(".main-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     $$(".panel").forEach((p) => p.classList.remove("active"));
-    $(tab === "tasks" ? "#panelTasks" : "#panelSignin").classList.add("active");
+    $("#panelTasks").classList.add("active");
     $("#btnMyTasks").hidden = tab !== "tasks";
     if (tab === "tasks") showTaskView("list");
-    else setTitle("赚积分 · 签到");
+
   }
 
   // —— 做任务：分类 ——
@@ -401,197 +391,6 @@
       .join("");
   }
 
-  // —— 签到（激+插成组 → 抽奖券 → 转盘）——
-  async function initSignin() {
-    try {
-      const status = await SigninApi.getSigninStatus();
-      state.signinSessionId = status.sessionId || state.signinSessionId;
-      state.signinGroups = status.group_count || 4;
-      state.signinGroupMin = status.group_min || 3;
-      state.signinGroupMax = status.group_max || 5;
-      state.signinPrizes = status.prizes || [];
-      state.signinAdsTotal = state.signinGroups * 2;
-
-      $("#signinRewardText").textContent = status.streak_reward_text || "签满 30 天送 100 积分";
-      $("#signinDays").textContent = status.streak_days ?? 12;
-      $("#adGroupCount").textContent = state.signinGroups;
-      $("#totalGroups").textContent = state.signinGroups;
-      $("#adTotal").textContent = state.signinAdsTotal;
-
-      if (status.signed_today && status.lottery_available) {
-        $("#btnStartSignin").disabled = true;
-        $("#btnStartSignin").textContent = "今日广告已完成";
-        $("#lotteryCard").hidden = false;
-        drawWheel(state.signinPrizes);
-        $("#btnSpin").onclick = () => spinLottery();
-      } else if (status.signed_today) {
-        $("#btnStartSignin").disabled = true;
-        $("#btnStartSignin").textContent = "今日已签到";
-      }
-    } catch (e) {
-      toast(e.message);
-    }
-
-    $("#btnStartSignin").onclick = () => startSigninFlow();
-  }
-
-  async function startSigninFlow() {
-    try {
-      const data = await SigninApi.startSignin();
-      state.signinGroups = data.group_count || state.signinGroups;
-      state.signinSessionId = data.sessionId || "";
-      state.signinCurrentGroup = data.current_group || 1;
-      state.signinCurrentStep = data.current_step || "ji";
-      state.signinAdsDone = 0;
-      state.signinAdsTotal = state.signinGroups * 2;
-
-      $("#adProgressCard").hidden = false;
-      $("#lotteryCard").hidden = true;
-      $("#totalGroups").textContent = state.signinGroups;
-      $("#adTotal").textContent = state.signinAdsTotal;
-      updateAdProgressUI();
-      simulateNextAd();
-    } catch (e) {
-      toast(e.message);
-    }
-  }
-
-  function updateAdProgressUI() {
-    $("#currentGroup").textContent = state.signinCurrentGroup;
-    $("#currentAdType").textContent = SigninApi.AD_LABELS[state.signinCurrentStep] || state.signinCurrentStep;
-    $("#adDone").textContent = state.signinAdsDone;
-    $("#adProgress").style.width = `${(state.signinAdsDone / state.signinAdsTotal) * 100}%`;
-    $("#adStepHint").textContent =
-      state.signinCurrentStep === "ji"
-        ? "当前：激励视频 → 接下来插屏广告"
-        : "当前：插屏广告 → 完成后进入下一组";
-  }
-
-  function simulateNextAd() {
-    const group = state.signinCurrentGroup;
-    const step = state.signinCurrentStep;
-    const stepLabel = SigninApi.AD_LABELS[step] || step;
-    toast(`第 ${group} 组 · ${stepLabel}（模拟跳转广告页）`);
-
-    setTimeout(async () => {
-      try {
-        const res = await SigninApi.reportAdComplete({
-          sessionId: state.signinSessionId,
-          group_index: step === "cha" ? group : group,
-          ad_type: step,
-        });
-        state.signinAdsDone++;
-        if (step === "cha" && group < state.signinGroups) {
-          // 一组完成，进入下一组
-        }
-        if (res.finished) {
-          state.signinAdsDone = state.signinAdsTotal;
-          updateAdProgressUI();
-          $("#signinDays").textContent = res.streak_days ?? Number($("#signinDays").textContent) + 1;
-          $("#btnStartSignin").disabled = true;
-          $("#btnStartSignin").textContent = "今日广告已完成";
-          $("#lotteryCard").hidden = false;
-          const status = await SigninApi.getSigninStatus();
-          state.signinPrizes = status.prizes || [];
-          drawWheel(state.signinPrizes);
-          $("#btnSpin").onclick = () => spinLottery();
-          toast("获得抽奖券 ×1，快去抽奖吧！");
-          return;
-        }
-        state.signinCurrentGroup = res.current_group || state.signinCurrentGroup;
-        state.signinCurrentStep = res.current_step || "ji";
-        updateAdProgressUI();
-        simulateNextAd();
-      } catch (e) {
-        toast(e.message);
-      }
-    }, 900);
-  }
-
-  function drawWheel(prizes) {
-    const canvas = $("#lotteryWheel");
-    if (!canvas || !prizes.length) return;
-    const ctx = canvas.getContext("2d");
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const r = cx - 6;
-    const n = prizes.length;
-    const colors = ["#52C41A", "#1890FF", "#FAAD14", "#FF7A45", "#722ED1", "#EB2F96", "#13C2C2", "#F5222D"];
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < n; i++) {
-      const start = (i / n) * Math.PI * 2 - Math.PI / 2;
-      const end = ((i + 1) / n) * Math.PI * 2 - Math.PI / 2;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, start, end);
-      ctx.closePath();
-      ctx.fillStyle = colors[i % colors.length];
-      ctx.fill();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(start + (end - start) / 2);
-      ctx.textAlign = "right";
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 12px sans-serif";
-      ctx.fillText(prizes[i].label, r - 10, 4);
-      ctx.restore();
-    }
-    ctx.beginPath();
-    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-    ctx.strokeStyle = "#ddd";
-    ctx.stroke();
-  }
-
-  async function spinLottery() {
-    if (state.signinSpinning) return;
-    state.signinSpinning = true;
-    $("#btnSpin").disabled = true;
-
-    try {
-      const res = await SigninApi.spinLottery();
-      const prizes = res.prizes || state.signinPrizes;
-      const idx = prizes.findIndex((p) => p.id === res.prize_id);
-      const n = prizes.length || 6;
-      const targetIdx = idx >= 0 ? idx : 0;
-
-      const canvas = $("#lotteryWheel");
-      let rotation = 0;
-      const segment = (Math.PI * 2) / n;
-      const targetAngle = Math.PI * 2 * 5 - (targetIdx + 0.5) * segment;
-      const duration = 4000;
-      const start = performance.now();
-
-      function animate(now) {
-        const t = Math.min((now - start) / duration, 1);
-        const ease = 1 - Math.pow(1 - t, 3);
-        rotation = targetAngle * ease;
-        canvas.style.transform = `rotate(${rotation}rad)`;
-        if (t < 1) requestAnimationFrame(animate);
-        else {
-          state.signinSpinning = false;
-          const msg =
-            res.prize_value > 0
-              ? `恭喜获得：${res.prize_label}！已发放至账户`
-              : `${res.prize_label}，明天再来～`;
-          $("#lotteryResult").textContent = msg;
-          toast(msg);
-        }
-      }
-      requestAnimationFrame(animate);
-    } catch (e) {
-      state.signinSpinning = false;
-      $("#btnSpin").disabled = false;
-      toast(e.message);
-    }
-  }
-
   function esc(s) {
     if (!s) return "";
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -647,5 +446,4 @@
   switchMainTab("tasks");
   loadCategories();
   loadTasks(true);
-  initSignin();
 })();

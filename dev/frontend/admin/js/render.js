@@ -22,7 +22,6 @@ const viewPermissions = {
   agentsPickup: "pickup_site:write",
   stationStaff: "admin:manage",
   taskReview: "task:review",
-  signinAds: "signin:config",
   financeRefund: "refund:approve",
   ledger: "ledger:read",
   ranking: "ranking:read",
@@ -48,7 +47,6 @@ const titles = {
   agentsPickup: ["代理与自提点", "自提点启用、隐藏和核销"],
   stationStaff: ["站点工作人员", "人员账号、站点授权与微信绑定管理"],
   taskReview: ["悬赏任务审核", "任务提交审核与积分入账"],
-  signinAds: ["签到广告配置", "连续签到奖励与广告组配置"],
   financeRefund: ["支付 / 积分 / 提现流水", "财务审批、退款和提现"],
   ledger: ["财务流水", "现金、积分、幂等键和业务单号"],
   ranking: ["积分排行榜", "排行榜刷新与展示配置"],
@@ -181,7 +179,6 @@ export function renderAdminPage(state) {
     agentsPickup,
     stationStaff: value => stationAccountsView(value),
     taskReview,
-    signinAds,
     financeRefund,
     ledger,
     ranking,
@@ -335,7 +332,7 @@ function homeCategoryShortcutEditor(item = {}) {
 }
 
 export function promotionEditor(item = {}) {
-  const pages = [["category", "商品分类"], ["membership", "会员中心"], ["pointsExchange", "纯积分兑换"], ["signin", "签到"], ["earn", "赚积分"], ["invite", "邀请好友"]];
+  const pages = [["category", "商品分类"], ["membership", "会员中心"], ["pointsExchange", "纯积分兑换"], ["earn", "赚积分"], ["invite", "邀请好友"]];
   if (item.page && !pages.some(([page]) => page === item.page)) pages.push([item.page, item.page]);
   return `<div class="promotion-editor" data-promotion-row>
     <label>入口标题<input name="promotionTitle" value="${escapeAttr(item.title || "")}" required></label>
@@ -384,11 +381,6 @@ function taskReview(state) {
       : pending ? `<button class="action" data-task-review="${id}" data-review-action="approve">通过</button><button class="action danger-action" data-task-review="${id}" data-review-action="reject">拒绝</button>` : "-";
     return [id, escapeHtml(item.userId), escapeHtml(item.taskTitle || item.taskId || "-"), badge(item.status, pending ? "orange" : ""), item.taskSnapshot?.rewardPoints ?? item.rewardPoints ?? 0, gatedAction("task:review", action, "无审核权限")];
   }))}</section>`;
-}
-
-function signinAds(state) {
-  const ads = state.config?.signinAdMaterials || [];
-  return `<section class="table-panel">${simpleTable("广告组规则", ["名称", "类型", "位置", "状态"], ads.map((item) => [item.name, item.type, item.position || "-", badge(item.enabled === false ? "停用" : "启用", item.enabled === false ? "orange" : "")]))}</section>`;
 }
 
 function financeRefund(state) {
@@ -562,15 +554,10 @@ function settings(state) {
         <label>积分抵扣现金（元/积分）<input name="membershipPointCashRate" type="number" min="0" step="0.001" value="${config.membershipPointCashRate ?? 0.01}"></label>
         </fieldset>
         <fieldset class="settings-group" id="settings-growth">
-        <legend>邀请、签到与榜单</legend>
+        <legend>邀请与榜单</legend>
         <label>邀请奖励（积分）<input name="inviteRewardPoints" type="number" value="${config.inviteRewardPoints ?? 0}"></label>
         <label>邀请提成（%）<input name="inviteCommissionRatePercent" type="number" value="${Math.round(Number(config.inviteCommissionRate || 0) * 100)}"></label>
-        <label>签到广告最少（次）<input name="signinAdGroupMin" type="number" value="${config.signinAdGroupMin ?? 0}"></label>
-        <label>签到广告最多（次）<input name="signinAdGroupMax" type="number" value="${config.signinAdGroupMax ?? 0}"></label>
-        <label>连续签到天数<input name="signinStreakDays" type="number" value="${config.signinStreakDays ?? 7}"></label>
-        <label>抽奖每日上限（次）<input name="lotteryDailyLimit" type="number" value="${config.lotteryDailyLimit ?? 1}"></label>
         <label>榜单刷新间隔（分钟）<input name="rankingRefreshMinutes" type="number" value="${config.rankingRefreshMinutes ?? 5}"></label>
-        <label class="wide">连续签到文案<input name="signinStreakRewardText" value="${escapeAttr(config.signinStreakRewardText || "")}"></label>
         </fieldset>
         <fieldset class="settings-group" id="settings-rewards">
         <legend>月度阶梯奖励</legend>
@@ -579,7 +566,7 @@ function settings(state) {
         <label>月结分钟（0–59）<input name="monthlyPointRewardSettlementMinute" type="number" min="0" max="59" value="${config.monthlyPointRewardSettlementMinute ?? 10}"></label>
         <label class="wide">月度奖励规则 JSON<textarea name="monthlyPointRewardRulesJson" rows="7" spellcheck="false">${escapeHtml(rulesJson)}</textarea><small>threshold 为达标积分，rewardPoints 为奖励积分；请保留 JSON 数组格式。</small></label>
         </fieldset>
-        <div class="settings-save"><span>统一保存会员、邀请、签到、榜单及月度奖励设置</span><button class="action" type="submit">保存积分配置</button></div>
+        <div class="settings-save"><span>统一保存会员、邀请、榜单及月度奖励设置</span><button class="action" type="submit">保存积分配置</button></div>
       </form>
     </section>
     </div>

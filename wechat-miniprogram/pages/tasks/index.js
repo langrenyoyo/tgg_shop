@@ -53,6 +53,5 @@ Page({
   filterRecords(e) { this.appendNext = false; this.setData({ recordStatus: e.currentTarget.dataset.id, submissions: [], visibleSubmissions: [], page: 1 }, () => this.load()); },
   updateRecords() { this.setData({ visibleSubmissions: this.data.submissions.filter(item => !this.data.recordStatus || item.status === this.data.recordStatus) }); },
   openTask(e) { wx.navigateTo({ url: "/pages/task-detail/index?id=" + encodeURIComponent(e.currentTarget.dataset.id) }); },
-  openSignin() { wx.navigateTo({ url: "/pages/signin/index" }); },
   openInvite() { wx.navigateTo({ url: "/pages/invite/index" }); }
 });

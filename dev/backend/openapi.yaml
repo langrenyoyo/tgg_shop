@@ -1549,69 +1549,50 @@ paths:
   /api/signin/status:
     get:
       tags: [Growth]
-      summary: Get current sign-in ad progress and streak
-      description: Includes sessionId, completionToken, prize, adRewardsAvailable, unavailableReason, totalAds, completedAds, signedToday, lotteryTicket, lotteryUsed and streak reward values. Production adRewardsAvailable is false until server verification exists. The client nonce is not proof of playback.
+      summary: Retired advertising sign-in endpoint
+      deprecated: true
+      description: Always returns 410. Historical balances and sessions remain unchanged.
       responses:
-        "200":
-          description: Sign-in status
+        "410":
+          description: Advertising sign-in removed
     post:
       tags: [Growth]
-      summary: Get current sign-in ad progress and streak
+      summary: Retired advertising sign-in endpoint
+      deprecated: true
+      description: Always returns 410. Historical balances and sessions remain unchanged.
       responses:
-        "200":
-          description: Sign-in status
+        "410":
+          description: Advertising sign-in removed
 
   /api/signin/start:
     post:
       tags: [Growth]
-      summary: Start sign-in ad session
+      summary: Retired advertising sign-in endpoint
+      deprecated: true
+      description: Always returns 410. Historical balances and sessions remain unchanged.
       responses:
-        "200":
-          description: Sign-in session
+        "410":
+          description: Advertising sign-in removed
 
   /api/signin/ad_complete:
     post:
       tags: [Growth]
-      summary: Report one completed ad in a development sign-in session
-      description: Ad types alternate reward_video and interstitial. Production returns 503 until trusted provider verification is implemented. Refresh status after an uncertain response to recover the next nonce.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [sessionId, adType, completionToken]
-              properties:
-                sessionId:
-                  type: string
-                adType:
-                  type: string
-                  enum: [reward_video, interstitial]
-                completionToken:
-                  type: string
-                  description: One-time nonce from the latest session status or completion response.
+      summary: Retired advertising sign-in endpoint
+      deprecated: true
+      description: Always returns 410. Historical balances and sessions remain unchanged.
       responses:
-        "200":
-          description: Ad completion result
-        "400":
-          description: Wrong ad order or stale completion token
-        "404":
-          description: No matching session for this user and Shanghai calendar day
-        "503":
-          description: Production provider verification is unavailable
+        "410":
+          description: Advertising sign-in removed
 
   /api/signin/lottery_spin:
     post:
       tags: [Growth]
-      summary: Spin lottery after sign-in ads
-      description: Repeated successful calls return the saved prize without consuming another ticket or crediting again. Invalid prize configuration does not consume the ticket.
+      summary: Retired advertising sign-in endpoint
+      deprecated: true
+      description: Always returns 410. Historical balances and sessions remain unchanged.
       responses:
-        "200":
-          description: Prize result
-        "400":
-          description: No available ticket
-        "503":
-          description: Prize configuration or point account cannot be settled
+        "410":
+          description: Advertising sign-in removed
 
   /api/pickup-sites:
     get:

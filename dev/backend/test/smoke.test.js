@@ -277,23 +277,10 @@ async function run() {
     const inviteStats = await request("/api/invite/stats");
     assert(inviteStats.res.status === 200 && inviteStats.body.totalInvited >= 1, "invite stats API failed");
 
-    const signinStatus = await request("/api/signin/status");
-    assert(signinStatus.res.status === 200 && signinStatus.body.streakRewardText.includes("30"), "signin status API failed");
-
-    const signinStart = await request("/api/signin/start", { method: "POST", body: "{}" });
-    let adComplete;
-    let signinSession = signinStart.body;
-    for (let index = 0; index < signinStart.body.adGroups * 2; index += 1) {
-      adComplete = await request("/api/signin/ad_complete", {
-        method: "POST",
-        body: JSON.stringify({ sessionId: signinSession.sessionId, adType: signinSession.currentAdType, completionToken: signinSession.completionToken })
-      });
-      signinSession = adComplete.body;
+    for (const endpoint of ["status", "start", "ad_complete", "lottery_spin"]) {
+      const removed = await request("/api/signin/" + endpoint, { method: "POST", body: "{}" });
+      assert(removed.res.status === 410 && removed.body.code === "AD_FEATURE_REMOVED", "retired ad endpoint must not issue rewards");
     }
-    assert(adComplete.res.status === 200 && adComplete.body.lotteryAvailable, "signin ad_complete API failed");
-
-    const lotterySpin = await request("/api/signin/lottery_spin", { method: "POST", body: JSON.stringify({ sessionId: signinStart.body.sessionId }) });
-    assert(lotterySpin.res.status === 200 && lotterySpin.body.label, "signin lottery API failed");
 
     const pickupSites = await request("/api/pickup-sites");
     assert(pickupSites.res.status === 200 && pickupSites.body[0].address.includes("师大"), "pickup site API failed");
@@ -577,11 +564,10 @@ async function run() {
         homeBannerTitle: "巡检首页标题",
         homeServiceBadges: ["自建配送", "巡检服务"],
         homePromotionEntries: [{ title: "巡检入口", text: "首页可配", tone: "green", page: "category" }],
-        signinAdMaterials: [{ id: "ad_smoke", name: "巡检激励视频", type: "reward_video", enabled: true, position: "签到巡检" }]
       })
     });
     assert(patchedConfig.res.status === 200 && patchedConfig.body.deliveryFee === 4.5 && patchedConfig.body.purePointsNoCashTopup === true, "admin config patch failed");
-    assert(patchedConfig.body.homeBannerTitle === "巡检首页标题" && patchedConfig.body.signinAdMaterials[0].name === "巡检激励视频", "admin ops config patch failed");
+    assert(patchedConfig.body.homeBannerTitle === "巡检首页标题", "admin ops config patch failed");
 
     const updatedHome = await request("/api/home");
     assert(updatedHome.body.banners[0].title === "巡检首页标题" && updatedHome.body.serviceBadges.includes("巡检服务"), "home API did not reflect admin ops config");
@@ -589,7 +575,7 @@ async function run() {
     const createdProduct = await request("/api/admin/products", {
       method: "POST",
       headers: { "x-admin-role": "product_admin" },
-      body: JSON.stringify({ name: "测试新品蓝莓", category: "水果", cashPrice: 16.8, pointsPrice: 288, stock: 60, tag: "新品", image: "/assets/apple.jpg", status: "on", reason: "新品发布" })
+      body: JSON.stringify({ name: "测试新品蓝莓", category: "水果", cashPrice: 16.8, regularPrice: 20, pointsPrice: 288, stock: 60, tag: "新品", image: "/assets/apple.jpg", status: "on", reason: "新品发布" })
     });
     assert(createdProduct.res.status === 201 && createdProduct.body.id && createdProduct.body.status === "on" && createdProduct.body.supportsCash === true, "admin product create failed");
 

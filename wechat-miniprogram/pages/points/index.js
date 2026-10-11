@@ -46,7 +46,7 @@ Page({
     if (this.ownerId !== wx.getStorageSync("tgg_user")?.id) { this.load(); return; }
     const source = this.data.ledger[e.currentTarget.dataset.index]?.source;
     if (!source) return;
-    const pages = { order: "order-detail", submission: "submission", invite: "invite", signin: "signin" };
+    const pages = { order: "order-detail", submission: "submission", invite: "invite" };
     if (pages[source.type]) wx.navigateTo({ url: `/pages/${pages[source.type]}/index${source.id ? '?id=' + encodeURIComponent(source.id) : ''}` });
   }
 });

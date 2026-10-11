@@ -210,6 +210,49 @@ test("user and admin frontends support core click flows", async (t) => {
   }
 });
 
+test("advertising removal leaves user and admin navigation usable", async t => {
+  const chromePath = findChrome();
+  if (!chromePath) return t.skip("Chrome executable not found");
+  const server = startServer();
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-no-ads-cdp-"));
+  const chrome = spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--remote-allow-origins=*", `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${userDataDir}`, "about:blank"], { stdio: "ignore", windowsHide: true });
+  let userPage, adminPage;
+  try {
+    await waitForJson(`${BASE}/api/health`);
+    await waitForJson(`http://127.0.0.1:${CDP_PORT}/json/version`);
+    userPage = await CDPPage.create(`${BASE}/user`);
+    await userPage.waitForText("热门推荐");
+    await userPage.waitForExpression(`Boolean(document.querySelector('.banner img')) && Array.from(document.querySelectorAll('#screen img')).every(img => img.complete && img.naturalWidth > 0)`);
+    for (const viewport of [{ width: 390, height: 844, mobile: true }, { width: 1440, height: 900, mobile: false }]) {
+      await userPage.send("Emulation.setDeviceMetricsOverride", { ...viewport, deviceScaleFactor: 1 });
+      assert.equal(await userPage.evaluate(`document.querySelector('#splash, [data-page="signin"], [data-action="signin"]') === null`), true);
+      assert.equal(await userPage.evaluate(`document.documentElement.scrollWidth <= innerWidth`), true);
+      const shot = await userPage.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+      fs.writeFileSync(path.join(os.tmpdir(), `tgg-no-ads-${viewport.width}.png`), Buffer.from(shot.data, "base64"));
+    }
+    await userPage.click('button[data-tab="earn"]');
+    await userPage.waitForText("做任务");
+    await userPage.waitForExpression(`Boolean(document.querySelector('[data-task]'))`);
+    assert.equal(await userPage.evaluate(`document.querySelector('[data-page="signin"]') === null && Boolean(document.querySelector('[data-task]'))`), true);
+    adminPage = await CDPPage.create(`${BASE}/admin/login`);
+    await adminPage.waitForExpression(`Boolean(document.querySelector('[data-admin-login]'))`);
+    await adminPage.fillFormAndSubmit('[data-admin-login]', { username: "super_admin", password: "123456" });
+    await adminPage.waitForText("最近订单");
+    assert.equal(await adminPage.evaluate(`document.querySelector('[data-view="signinAds"]') === null`), true);
+    await adminPage.click('[data-view="settings"]');
+    await adminPage.waitForText("会员与支付设置");
+    assert.equal(await adminPage.evaluate(`document.querySelector('[name="signinAdGroupMin"], [name="lotteryDailyLimit"]') === null`), true);
+    assert.deepEqual(userPage.runtimeErrors(), []);
+    assert.deepEqual(adminPage.runtimeErrors(), []);
+  } finally {
+    if (userPage) await userPage.close();
+    if (adminPage) await adminPage.close();
+    await stopProcess(server);
+    await stopProcess(chrome);
+    removeDirBestEffort(userDataDir);
+  }
+});
+
 test("station browser locates split packages before explicit handover", async t => {
   const chromePath = findChrome();
   if (!chromePath) return t.skip("Chrome executable not found");
@@ -537,7 +580,6 @@ async function runAdminConsistencyPatrol(adminPage) {
     ["customerTickets", "客服/反馈/合作/招聘工单"],
     ["agentsPickup", "自提点与代理"],
     ["taskReview", "任务提交审核"],
-    ["signinAds", "广告组规则"],
     ["financeRefund", "提现审批"],
     ["ledger", "支付单流水"],
     ["ranking", "月榜规则"],
@@ -614,10 +656,7 @@ async function runUserFlowPatrol(userPage) {
 
   await userPage.click('button[data-tab="home"]');
   await userPage.waitForText("热门推荐");
-  await userPage.click('[data-page="signin"]');
-  await userPage.waitForText("今日任务");
-  await userPage.click('[data-action="signin"]');
-  await userPage.waitForText("抽奖结果");
+  assert.equal(await userPage.evaluate(`document.querySelector('[data-page="signin"]') === null && document.querySelector('#splash') === null`), true);
 
   await userPage.click('button[data-tab="earn"]');
   await userPage.waitForText("做任务");

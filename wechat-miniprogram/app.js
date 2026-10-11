@@ -1,3 +1,5 @@
+const cart = require("./utils/cart");
+
 App({
   globalData: {
     token: "",
@@ -17,9 +19,13 @@ App({
     this.globalData.config = config;
     this.globalData.stationToken = wx.getStorageSync("tgg_station_token") || "";
     this.globalData.station = wx.getStorageSync("tgg_station") || null;
+    cart.syncTabBarBadge();
   },
 
-  onShow(options = {}) { this.captureInvite(options); },
+  onShow(options = {}) {
+    this.captureInvite(options);
+    cart.syncTabBarBadge();
+  },
   captureInvite(options) {
     if (options.query?.inviteCode) wx.setStorageSync("tgg_pending_invite", options.query.inviteCode);
   }

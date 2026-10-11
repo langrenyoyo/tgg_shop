@@ -1097,11 +1097,10 @@ document.body.addEventListener("submit", (event) => {
     member: ["确认保存会员支付", "月会员价格和支付超时将立即影响用户下单。"],
     delivery: ["确认保存履约配送", "自提、送货上门、配送费和配送时段将立即影响用户下单。"],
     stationPicking: ["确认保存站点拣货", "库位排序、扫码复核和提货位规则将立即影响站点工作人员。"],
-    points: ["确认保存积分任务", "邀请、签到、抽奖和排行榜配置将立即影响用户增长玩法。"],
-    finance: ["确认保存财务展示", "提现金额、手续费和展示广告配置将立即生效。"],
+    points: ["确认保存积分任务", "邀请和排行榜配置将立即影响用户增长玩法。"],
+    finance: ["确认保存财务展示", "提现金额和手续费配置将立即生效。"],
     dashboard: ["确认保存仪表盘阈值", "预警阈值会立即影响大屏提示。"],
     home: ["确认保存首页运营", "首页 Banner、服务承诺和活动入口将立即展示给用户。"],
-    ads: ["确认保存广告素材", "签到广告素材启停和位置将同步到签到广告配置。"]
   };
   const [title, message] = titles[group] || ["确认保存系统设置", "系统配置将立即生效。"];
   const confirmation = requestSensitiveReason(title, message, `后台保存${title.replace("确认保存", "")}`);
@@ -1242,18 +1241,12 @@ function buildConfigPayload(group, formData) {
       monthlyPointRewardSettlementHour: Number(formData.get("monthlyPointRewardSettlementHour")),
       monthlyPointRewardSettlementMinute: Number(formData.get("monthlyPointRewardSettlementMinute")),
       monthlyPointRewardRulesJson: String(formData.get("monthlyPointRewardRulesJson") || ""),
-      signinAdGroupMin: Number(formData.get("signinAdGroupMin")),
-      signinAdGroupMax: Number(formData.get("signinAdGroupMax")),
-      signinStreakDays: Number(formData.get("signinStreakDays")),
-      lotteryDailyLimit: Number(formData.get("lotteryDailyLimit")),
       rankingRefreshMinutes: Number(formData.get("rankingRefreshMinutes")),
-      signinStreakRewardText: String(formData.get("signinStreakRewardText") || ""),
       purePointsNoCashTopup: true
     }),
     finance: () => ({
       withdrawMinAmount: Number(formData.get("withdrawMinAmount")),
       withdrawFeeRate: Number(formData.get("withdrawFeeRatePercent")) / 100,
-      splashAdEnabled: formData.get("splashAdEnabled") === "on",
       purePointsNoCashTopup: true
     }),
     dashboard: () => ({
@@ -1289,10 +1282,6 @@ function buildConfigPayload(group, formData) {
       homePromotionEntries: parsePromotions(formData),
       purePointsNoCashTopup: true
     }),
-    ads: () => ({
-      signinAdMaterials: parseSigninAds(formData),
-      purePointsNoCashTopup: true
-    })
   };
   return (payloads[group] || (() => ({ purePointsNoCashTopup: true })))();
 }
@@ -1317,21 +1306,6 @@ function parsePromotions(formData) {
       tone: String(tones[index] || "green").trim()
     }))
     .filter((item) => item.title);
-}
-
-function parseSigninAds(formData) {
-  const names = formData.getAll("adName");
-  const types = formData.getAll("adType");
-  const positions = formData.getAll("adPosition");
-  return names
-    .map((name, index) => ({
-      id: `ad_${index + 1}`,
-      name: String(name || "").trim(),
-      type: String(types[index] || "reward_video").trim(),
-      enabled: formData.get(`adEnabled${index}`) === "on",
-      position: String(positions[index] || "").trim()
-    }))
-    .filter((item) => item.name);
 }
 
 function exportDashboardSnapshot() {

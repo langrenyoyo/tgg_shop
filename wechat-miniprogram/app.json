@@ -12,7 +12,6 @@
     "pages/tasks/index",
     "pages/task-detail/index",
     "pages/task-submit/index",
-    "pages/signin/index",
     "pages/invite/index",
     "pages/me/index",
     "pages/orders/index",

@@ -131,21 +131,12 @@ body {
 .status-1 { color: var(--green); }
 .status-2 { color: #ff4d4f; }
 
-.signin-banner {
-  margin: 16px; padding: 20px; border-radius: var(--radius);
-  background: linear-gradient(135deg, #FFF7E6, #fff);
-  border: 1px solid #FFE7BA;
-}
-.signin-reward { font-size: 18px; font-weight: 700; color: var(--orange); }
-.signin-days { font-size: 14px; color: var(--sub); margin-top: 8px; }
 .card {
   background: #fff; border-radius: var(--radius); margin: 0 16px 12px; padding: 16px;
 }
 .card h3 { font-size: 16px; margin-bottom: 8px; }
 .hint { font-size: 13px; color: var(--sub); line-height: 1.5; }
 .hint.muted { margin-top: 8px; font-size: 12px; }
-.progress-bar { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; margin: 12px 0; }
-.progress-fill { height: 100%; background: var(--green); width: 0; transition: width .3s; }
 
 .invite-entry {
   display: flex; align-items: center; gap: 12px;
@@ -203,24 +194,6 @@ body {
 .invite-item .title { font-size: 15px; font-weight: 500; }
 .invite-item .meta { font-size: 12px; color: var(--sub); margin-top: 2px; }
 .invite-item .contrib { font-size: 14px; color: var(--orange); font-weight: 600; }
-
-.ad-group-info { font-size: 14px; margin-bottom: 10px; color: #333; }
-.lottery-card { text-align: center; }
-.wheel-wrap {
-  position: relative; width: 260px; margin: 16px auto;
-}
-.wheel-pointer {
-  position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
-  font-size: 22px; color: var(--orange); z-index: 2;
-}
-#lotteryWheel {
-  display: block; margin: 0 auto; border-radius: 50%;
-  box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  transition: transform 0.1s linear;
-}
-#btnSpin { margin-top: 12px; }
-#btnSpin:disabled { opacity: 0.6; }
-#btnStartSignin:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .tabbar {
   position: absolute; bottom: 0; left: 0; right: 0; height: 56px;

@@ -760,6 +760,8 @@ function updateTicket(state, ticketId, input = {}, actor = {}) {
 }
 
 function updateConfig(state, input, actor = {}) {
+  const { activeConfig, retiredAdKeys } = require("../config/active-config");
+  if (Object.keys(input).some(key => retiredAdKeys.has(key))) return { ok: false, status: 410, error: "广告配置已下线" };
   if (Object.prototype.hasOwnProperty.call(input, "deliveryTimeSlots")) {
     const slots = input.deliveryTimeSlots;
     if (!Array.isArray(slots) || !slots.length || slots.length > 12 || slots.some(slot => typeof slot !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/.test(slot.trim()) || slot.trim().slice(0, 5) >= slot.trim().slice(6))) {
@@ -779,7 +781,7 @@ function updateConfig(state, input, actor = {}) {
     if (!valid) return { ok: false, status: 400, error: "首页分类至少需要 1 项，最多 8 项，且名称、分类、Logo 和标识必须有效" };
   }
   const before = { ...state.config };
-  const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "splashAdEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
+  const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
   const numberKeys = [
     "membershipMonthlyPrice",
     "membershipMonthlyPoints",
@@ -791,16 +793,12 @@ function updateConfig(state, input, actor = {}) {
     "inviteCommissionRate",
     "monthlyPointRewardSettlementHour",
     "monthlyPointRewardSettlementMinute",
-    "signinAdGroupMin",
-    "signinAdGroupMax",
-    "signinStreakDays",
-    "lotteryDailyLimit",
     "withdrawMinAmount",
     "withdrawFeeRate",
     "paymentTimeoutMinutes",
     "stationPickupHoldHours"
   ];
-  const textKeys = ["signinStreakRewardText", "homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "stationSortMode", "stationShelfPrefix"];
+  const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "stationSortMode", "stationShelfPrefix"];
 
   for (const key of booleanKeys) {
     if (Object.prototype.hasOwnProperty.call(input, key)) state.config[key] = Boolean(input[key]);
@@ -867,7 +865,7 @@ function updateConfig(state, input, actor = {}) {
         tone: String(item.tone || "green").trim(),
         page: String(item.page || "category").trim()
       }))
-      .filter((item) => item.title);
+      .filter((item) => item.title && item.page !== "signin");
   }
   if (typeof input.monthlyPointRewardRulesJson === "string") {
     state.config.monthlyPointRewardRules = normalizeMonthlyPointRewardRules(parseJsonArray(input.monthlyPointRewardRulesJson, state.config.monthlyPointRewardRules));
@@ -884,17 +882,6 @@ function updateConfig(state, input, actor = {}) {
       ...Object.fromEntries(Object.entries(input.homeDeliveryPromise).map(([key, value]) => [key, String(value || "").trim()]))
     };
   }
-  if (Array.isArray(input.signinAdMaterials)) {
-    state.config.signinAdMaterials = input.signinAdMaterials
-      .map((item, index) => ({
-        id: String(item.id || `ad_${index + 1}`).trim(),
-        name: String(item.name || "").trim(),
-        type: String(item.type || "reward_video").trim(),
-        enabled: item.enabled !== false,
-        position: String(item.position || "").trim()
-      }))
-      .filter((item) => item.name);
-  }
   if (input.dashboardAlertThresholds && typeof input.dashboardAlertThresholds === "object") {
     state.config.dashboardAlertThresholds = normalizeDashboardAlertThresholds(input.dashboardAlertThresholds);
   }
@@ -902,7 +889,7 @@ function updateConfig(state, input, actor = {}) {
 
   logOperation(state, actor, "config.update", "config", "system", { before, after: state.config, reason: cleanReason(input.reason) });
   saveState();
-  return state.config;
+  return activeConfig(state.config);
 }
 
 function parseJsonArray(value, fallback = []) {

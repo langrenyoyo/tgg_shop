@@ -40,7 +40,7 @@ Page({
   },
   editProfile() { wx.navigateTo({ url: "/pages/login/index?edit=1" }); },
 
-  openProfile() { if (this.data.user.id) this.editProfile(); else this.goLogin(); }, goSignin() { wx.navigateTo({ url: "/pages/signin/index" }); }, goTasks() { wx.switchTab({ url: "/pages/tasks/index" }); }, goOrders(e) { const filter = Number(e?.currentTarget?.dataset?.filter || 0); wx.navigateTo({ url: "/pages/orders/index?filter=" + filter }); },
+  openProfile() { if (this.data.user.id) this.editProfile(); else this.goLogin(); }, goTasks() { wx.switchTab({ url: "/pages/tasks/index" }); }, goOrders(e) { const filter = Number(e?.currentTarget?.dataset?.filter || 0); wx.navigateTo({ url: "/pages/orders/index?filter=" + filter }); },
 
   goPoints() {
     wx.navigateTo({ url: "/pages/points/index" });

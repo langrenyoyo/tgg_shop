@@ -1,6 +1,22 @@
 function key() { return "tgg_cart_" + (wx.getStorageSync("tgg_user")?.id || "guest"); }
 function read() { return wx.getStorageSync(key()) || []; }
-function write(items) { wx.setStorageSync(key(), items); }
+function write(items) { wx.setStorageSync(key(), items); syncTabBarBadge(); }
+function count(items = read()) {
+  return items.reduce((total, item) => {
+    const quantity = Number(item?.quantity || 0);
+    return total + (Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 0);
+  }, 0);
+}
+function syncTabBarBadge() {
+  const total = count();
+  try {
+    if (total > 0 && typeof wx.setTabBarBadge === "function") {
+      wx.setTabBarBadge({ index: 3, text: total > 99 ? "99+" : String(total), fail() {} });
+    } else if (typeof wx.removeTabBarBadge === "function") {
+      wx.removeTabBarBadge({ index: 3, fail() {} });
+    }
+  } catch { /* TabBar may not be ready during app launch. */ }
+}
 function checkoutKey() { return "tgg_checkout_" + (wx.getStorageSync("tgg_user")?.id || "guest"); }
 function readCheckout() {
   const draft = wx.getStorageSync(checkoutKey());
@@ -59,4 +75,4 @@ function add(product, quantity = 1) {
   if (existing) existing.quantity = count; else items.push({ productId: product.id, quantity: count, selected: true });
   write(items);
 }
-module.exports = { read, write, add, readCheckout, writeCheckout, clearCheckout, mergeGuestCart, checkoutIdempotencyKey, completeCheckout, readCheckoutAttempt, writeCheckoutAttempt };
+module.exports = { read, write, count, syncTabBarBadge, add, readCheckout, writeCheckout, clearCheckout, mergeGuestCart, checkoutIdempotencyKey, completeCheckout, readCheckoutAttempt, writeCheckoutAttempt };

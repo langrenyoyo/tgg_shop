@@ -17,7 +17,6 @@ const state = {
   pickupSites: [],
   deliveryTeams: [],
   addresses: [],
-  signinStatus: null,
   pointLedger: [],
   payments: [],
   ranking: null,
@@ -43,7 +42,7 @@ async function safeApi(path, fallback, options) {
 }
 
 async function loadInitialData() {
-  const [home, config, exchangeProducts, taskTypes, tasks, submissions, orders, invite, pickupSites, deliveryTeams, addresses, signinStatus, pointLedger, payments, ranking, withdrawals, supportTickets, catalogProducts] = await Promise.all([
+  const [home, config, exchangeProducts, taskTypes, tasks, submissions, orders, invite, pickupSites, deliveryTeams, addresses, pointLedger, payments, ranking, withdrawals, supportTickets, catalogProducts] = await Promise.all([
     safeApi("/api/home", {}),
     safeApi("/api/config", {}),
     safeApi("/api/points-exchange", []),
@@ -55,7 +54,6 @@ async function loadInitialData() {
     safeApi("/api/pickup-sites", []),
     safeApi("/api/delivery/teams", []),
     safeApi("/api/addresses", []),
-    safeApi("/api/signin/status", null),
     safeApi("/api/points-ledger", []),
     safeApi("/api/payments", []),
     safeApi("/api/ranking", null),
@@ -79,7 +77,6 @@ async function loadInitialData() {
   state.pickupSites = pickupSites;
   state.deliveryTeams = deliveryTeams;
   state.addresses = addresses;
-  state.signinStatus = signinStatus;
   state.pointLedger = pointLedger;
   state.payments = payments;
   state.ranking = ranking;
@@ -164,19 +161,6 @@ async function createOrder(productId, paymentMode, fulfillmentType = "pickup") {
   if (!product) return toast("商品不存在");
   if (!ensureMemberForCash([product], "开通月会员后可使用现金购买该商品")) return;
   return submitOrder([{ ...product, quantity: 1 }], paymentMode, fulfillmentType);
-}
-
-async function startSignin() {
-  const session = await api("/api/signin/start", { method: "POST", body: "{}" });
-  let progress = session;
-  const totalAds = session.adGroups * 2;
-  for (let index = session.completedAds || 0; index < totalAds; index += 1) {
-    progress = await api("/api/signin/ad_complete", { method: "POST", body: JSON.stringify({ sessionId: session.sessionId, adType: progress.currentAdType, completionToken: progress.completionToken }) });
-  }
-  const prize = await api("/api/signin/lottery_spin", { method: "POST", body: JSON.stringify({ sessionId: session.sessionId }) });
-  await refreshUser();
-  toast(`已完成 ${progress.completedGroups} 组广告，抽奖结果：${prize.label}`);
-  renderPage(state);
 }
 
 async function subscribeMember(paymentMode = "cash") {
@@ -332,10 +316,6 @@ function bindTabs() {
 }
 
 function bindGlobalActions() {
-  document.querySelector("#enterApp")?.addEventListener("click", () => {
-    hideSplash();
-  });
-
   document.body.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-tab]")?.dataset.tab;
     if (tab) {
@@ -448,7 +428,6 @@ function bindGlobalActions() {
     if (refundButton) requestRefund(refundButton.dataset.refund).catch((error) => toast(error.message));
 
     const action = event.target.closest("[data-action]")?.dataset.action;
-    if (action === "signin") startSignin().catch((error) => toast(error.message));
     if (action === "member" || action === "memberCash") subscribeMember("cash").catch((error) => toast(error.message));
     if (action === "memberPoints") subscribeMember("pure_points").catch((error) => toast(error.message));
     if (action === "withdraw") requestWithdrawal().catch((error) => toast(error.message));
@@ -475,15 +454,9 @@ function bindGlobalActions() {
   });
 }
 
-function hideSplash() {
-  const splash = document.querySelector("#splash");
-  if (splash) splash.hidden = true;
-}
-
 async function init() {
   bindTabs();
   bindGlobalActions();
-  if (new URLSearchParams(window.location.search).get("skipSplash") === "1") hideSplash();
   renderPage(state);
   await loadInitialData();
 }

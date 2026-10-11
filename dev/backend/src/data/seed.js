@@ -38,18 +38,6 @@ function createSeed() {
         { threshold: 3000, rewardPoints: 1500 },
         { threshold: 5000, rewardPoints: 3000 }
       ],
-      signinStreakRewardText: "签满 30 天送 100 积分",
-      signinAdGroupMin: 3,
-      signinAdGroupMax: 5,
-      signinStreakDays: 30,
-      signinStreakRewardPoints: 100,
-      lotteryDailyLimit: 1,
-      lotteryPrizes: [
-        { id: "lottery_5", label: "5 积分", value: 5, weight: 30 },
-        { id: "lottery_10", label: "10 积分", value: 10, weight: 25 },
-        { id: "lottery_20", label: "20 积分", value: 20, weight: 15 },
-        { id: "lottery_none", label: "谢谢参与", value: 0, weight: 30 }
-      ],
       homeBannerTitle: "时令鲜果季",
       homeBannerSubtitle: "新鲜到站，会员现金购物更优惠",
       homeBannerProductId: "p_strawberry",
@@ -73,14 +61,9 @@ function createSeed() {
         deliveryFeeText: "满 39 元免配送费",
         serviceAreaText: "当前地址在服务范围内"
       },
-      signinAdMaterials: [
-        { id: "ad_reward_video", name: "签到激励视频", type: "reward_video", enabled: true, position: "签到第 1 步" },
-        { id: "ad_interstitial", name: "签到插屏广告", type: "interstitial", enabled: true, position: "签到第 2 步" }
-      ],
       purePointsNoCashTopup: true,
       withdrawMinAmount: 1,
       withdrawFeeRate: 0.01,
-      splashAdEnabled: true,
       dashboardAlertThresholds: {
         refundRate: 0.1,
         exceptionRate: 0.08,
@@ -327,7 +310,7 @@ function createSeed() {
     authLoginAttempts: [],
     roles: [
       { id: "super_admin", name: "超级管理员", permissions: ["*"] },
-      { id: "operation_admin", name: "运营管理员", permissions: ["config:read", "config:write", "integration:read", "integration:write", "product:read", "ranking:read", "signin:config", "customer:read", "membership:manage"] },
+      { id: "operation_admin", name: "运营管理员", permissions: ["config:read", "config:write", "integration:read", "integration:write", "product:read", "ranking:read", "customer:read", "membership:manage"] },
       { id: "product_admin", name: "商品管理员", permissions: ["product:read", "product:write", "points_product:write", "stock:write"] },
       { id: "order_admin", name: "订单管理员", permissions: ["order:read", "order:fulfillment"] },
       { id: "delivery_dispatcher", name: "配送调度", permissions: ["order:read", "order:fulfillment", "delivery:dispatch"] },

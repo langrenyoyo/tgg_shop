@@ -8,7 +8,6 @@ export const pageTitles = {
   taskDetail: "任务详情",
   taskSubmit: "提交任务",
   submissions: "我的提交",
-  signin: "每日签到",
   invite: "邀请有礼",
   category: "商品分类",
   product: "商品详情",
@@ -71,7 +70,6 @@ function renderPageNow(state) {
     taskDetail: () => taskDetailView(state),
     taskSubmit: () => taskSubmitView(state),
     submissions: () => submissionsView(state),
-    signin: () => signinView(state),
     invite: () => inviteView(state),
     category: () => categoryView(state),
     product: () => productView(product, state),
@@ -154,7 +152,6 @@ function homeView(state) {
       ${promotions.map((item) => `<button type="button" class="promo-card ${homeEscape(item.tone || "green")}" data-page="${homeEscape(item.page || "category")}"><strong>${homeEscape(item.title)}</strong><span>${homeEscape(item.text)}</span></button>`).join("")}
     </section>
     <section class="quick">
-      <button type="button" data-page="signin">签到拿积分<span>连续签到奖励</span></button>
       <button type="button" data-page="earn">做任务拿积分<span>详情页展示奖励</span></button>
       <button type="button" data-page="invite">邀请好友<span>月卡奖励可配</span></button>
     </section>
@@ -175,7 +172,6 @@ function earnView(state) {
   return `
     <div class="subtabs">
       <button type="button" class="active">做任务</button>
-      <button type="button" data-page="signin">签到</button>
       <button type="button" data-page="submissions">提交记录</button>
     </div>
     <div class="search">搜索任务 / 平台 / 关键词</div>
@@ -230,22 +226,6 @@ function submissionsView(state) {
         ? state.submissions.map((item) => `<article class="list-card"><h3>${item.taskTitle || item.taskId}</h3><p>${statusLabel(item.status)} · ${formatDate(item.createdAt)}</p>${item.remarks ? `<p class="muted">${item.remarks}</p>` : ""}</article>`).join("")
         : `<div class="empty">暂无任务提交记录</div>`}
     </div>
-  `;
-}
-
-function signinView(state) {
-  const status = state.signinStatus || {};
-  const streakDays = status.streakDays ?? state.user?.signinStreak ?? 0;
-  const targetDays = status.streakTargetDays || 30;
-  const remainDays = Math.max(0, targetDays - streakDays);
-  return `
-    <section class="notice"><strong>${status.streakRewardText || "签满 30 天送 100 积分"}</strong><p>当前连续签到 ${streakDays} 天，距离满 ${targetDays} 天还差 ${remainDays} 天。</p></section>
-    <section class="field-card" style="margin-top:12px">
-      <h3>今日任务</h3>
-      <p>观看 ${status.adGroups || `${status.groupMin || 3}-${status.groupMax || 5}`} 组广告；每组包含激励视频和插屏广告。</p>
-    </section>
-    <section class="field-card"><h3>广告进度</h3><p>已完成 ${status.completedAds || 0}/${status.totalAds || 0} 条广告，完成后获得抽奖机会。</p></section>
-    <button type="button" class="primary" style="width:100%;margin-top:18px" data-action="signin">立即签到</button>
   `;
 }
 
