@@ -1,0 +1,29 @@
+[
+  {
+    "driver": "json",
+    "fixtureCorrection": "regularPrice=20, in-memory only",
+    "exitCode": 0,
+    "stdout": "{\"driver\":\"json\",\"assertions\":157,\"fixtureCorrection\":\"regularPrice=20\",\"passed\":true}\n",
+    "stderr": "",
+    "isolated": true,
+    "realPostgres": false
+  },
+  {
+    "driver": "sqlite",
+    "fixtureCorrection": "regularPrice=20, in-memory only",
+    "exitCode": 0,
+    "stdout": "{\"driver\":\"sqlite\",\"assertions\":157,\"fixtureCorrection\":\"regularPrice=20\",\"passed\":true}\n",
+    "stderr": "",
+    "isolated": true,
+    "realPostgres": false
+  },
+  {
+    "driver": "pg",
+    "fixtureCorrection": "regularPrice=20, in-memory only",
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": "error: pg-mem does not implement PG command end\n    at parseErrorMessage (/www/wwwroot/tgg_shop/dev/backend/node_modules/pg-protocol/dist/parser.js:306:11)\n    at Parser.handlePacket (/www/wwwroot/tgg_shop/dev/backend/node_modules/pg-protocol/dist/parser.js:143:27)\n    at Parser.parse (/www/wwwroot/tgg_shop/dev/backend/node_modules/pg-protocol/dist/parser.js:37:38)\n    at Socket.<anonymous> (/www/wwwroot/tgg_shop/dev/backend/node_modules/pg-protocol/dist/index.js:12:42)\n    at Socket.emit (node:events:509:28)\n    at addChunk (node:internal/streams/readable:563:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)\n    at Readable.push (node:internal/streams/readable:394:5)\n    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)\n",
+    "isolated": true,
+    "realPostgres": false
+  }
+]
