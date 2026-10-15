@@ -49,15 +49,16 @@ function ensureAdminUsers(state) {
       ...item,
       roleIds: Array.isArray(item.roleIds) ? item.roleIds : [item.roleId || item.id].filter(Boolean)
       };
-      if (isDefaultPasswordHash(normalized.passwordHash)) {
-        if (configuredHash) {
-          normalized.passwordHash = configuredHash;
-          normalized.status = "active";
-          delete normalized.securityLockReason;
-        } else if (mustProvision) {
-          normalized.status = "disabled";
-          normalized.securityLockReason = "admin password provisioning required";
-        }
+      const isProvisioningLocked = normalized.securityLockReason === "admin password provisioning required";
+      if (configuredHash && (isDefaultPasswordHash(normalized.passwordHash) || isProvisioningLocked)) {
+        normalized.passwordHash = configuredHash;
+        normalized.status = "active";
+        delete normalized.securityLockReason;
+      } else if (isDefaultPasswordHash(normalized.passwordHash) && mustProvision) {
+        // Do not leave a known development password hash in a production store.
+        normalized.passwordHash = hashAdminPassword(crypto.randomBytes(32).toString("hex"));
+        normalized.status = "disabled";
+        normalized.securityLockReason = "admin password provisioning required";
       }
       return normalized;
     });

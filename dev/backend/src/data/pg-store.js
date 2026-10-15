@@ -38,10 +38,26 @@ async function initPgState() {
       ? await client.query(`SELECT state_json FROM ${qualifiedTable("app_state")} WHERE state_id = ${sqlLiteral(DEFAULT_STATE_ID)}`)
       : await client.query(`SELECT state_json FROM ${qualifiedTable("app_state")} WHERE state_id = $1`, [DEFAULT_STATE_ID]);
     if (result.rowCount) {
-      expectedPayload = USE_LITERAL_SQL ? result.rows[0].state_json : JSON.stringify(parseStateJson(result.rows[0].state_json));
+      const storedState = parseStateJson(result.rows[0].state_json);
+      const storedPayload = USE_LITERAL_SQL ? result.rows[0].state_json : JSON.stringify(storedState);
+      const normalizedState = normalizeState(storedState);
+      const normalizedPayload = JSON.stringify(normalizedState);
+      expectedPayload = storedPayload;
+      if (normalizedPayload !== storedPayload) {
+        const normalizedResult = USE_LITERAL_SQL
+          ? await client.query(`UPDATE ${qualifiedTable("app_state")} SET state_json = ${sqlLiteral(normalizedPayload)}, updated_at = NOW() WHERE state_id = ${sqlLiteral(DEFAULT_STATE_ID)} AND state_json = ${sqlLiteral(storedPayload)}`)
+          : await client.query(`UPDATE ${qualifiedTable("app_state")} SET state_json = $2::jsonb, updated_at = NOW() WHERE state_id = $1 AND state_json = $3::jsonb`, [DEFAULT_STATE_ID, normalizedPayload, storedPayload]);
+        if (normalizedResult.rowCount !== 1) {
+          writeConflict = true;
+          const error = new Error("Stored state changed in another writer; reload and reconcile before retrying");
+          error.code = "STATE_WRITE_CONFLICT";
+          throw error;
+        }
+        expectedPayload = normalizedPayload;
+      }
       initialized = true;
       writeConflict = false;
-      return normalizeState(parseStateJson(result.rows[0].state_json));
+      return normalizedState;
     }
     const seed = createSeed();
     if (USE_LITERAL_SQL) {
