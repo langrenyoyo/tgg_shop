@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const { ensureAdminUsers, effectiveRole, publicAdmin, verifyAdminPassword, hashAdminPassword } = require("../domain/admin-accounts");
 const { publicStation } = require("../domain/station-accounts");
 const { nextId, saveState } = require("../data/store");
+const { productionLike } = require("../config/runtime-safety");
 const { getBearerToken, issueToken, publicRole, verifyToken } = require("../domain/auth");
 const { publicUser } = require("../http/http-utils");
 const userRepository = require("../repositories/user-repository");
@@ -305,7 +306,7 @@ function findAttempt(state, subjectType, subjectId) {
 function isValidPassword(password) {
   const passwordHash = process.env.TGG_DEMO_PASSWORD_HASH;
   const passwordText = String(password || "");
-  if (process.env.NODE_ENV === "production" && !passwordHash) return false;
+  if (productionLike() && !passwordHash) return false;
   if (passwordHash) return hashPassword(passwordText) === passwordHash;
   return passwordText === String(process.env.TGG_DEMO_PASSWORD || "123456");
 }

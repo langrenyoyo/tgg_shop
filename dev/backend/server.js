@@ -4,6 +4,7 @@ require("./src/config/env-file").loadEnv();
 
 // Validate before importing services that initialize storage or provider clients.
 const { validateRuntimeConfig } = require("./src/config/runtime-config");
+const { productionLike } = require("./src/config/runtime-safety");
 const runtimeConfig = validateRuntimeConfig();
 if (!runtimeConfig.ok) throw new Error(runtimeConfig.errors.join("; "));
 for (const warning of runtimeConfig.warnings) console.warn(warning);
@@ -30,7 +31,7 @@ const server = http.createServer(async (req, res) => {
     res.req = req;
     const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
     const enforceHttps = process.env.TGG_ENFORCE_HTTPS === "1"
-      || (process.env.NODE_ENV === "production" && process.env.TGG_ENFORCE_HTTPS !== "0");
+      || (productionLike() && process.env.TGG_ENFORCE_HTTPS !== "0");
     const isHttps = forwardedProto === "https" || Boolean(req.socket.encrypted);
     if (enforceHttps && !isHttps) {
       const configuredOrigin = String(process.env.TGG_PUBLIC_ORIGIN || process.env.TGG_CORS_ORIGIN || "").split(",")[0].trim().replace(/\/$/, "");

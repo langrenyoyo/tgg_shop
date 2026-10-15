@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const accounts = require("../../src/domain/admin-accounts");
+const auth = require("../../src/services/auth-service");
+const { createSeed } = require("../../src/data/seed");
 
 function withProductionAdminConfig(t, configuredHash = "") {
   const previous = {
@@ -46,4 +48,29 @@ test("malformed administrator hashes fail closed without throwing", () => {
     assert.doesNotThrow(() => accounts.verifyAdminPassword("password", hash));
     assert.equal(accounts.verifyAdminPassword("password", hash), false);
   }
+});
+
+test("PostgreSQL staging rejects the shared user password fallback", t => {
+  const previous = {
+    NODE_ENV: process.env.NODE_ENV,
+    TGG_STORE_DRIVER: process.env.TGG_STORE_DRIVER,
+    TGG_STORE_MODE: process.env.TGG_STORE_MODE,
+    TGG_DEMO_PASSWORD: process.env.TGG_DEMO_PASSWORD,
+    TGG_DEMO_PASSWORD_HASH: process.env.TGG_DEMO_PASSWORD_HASH
+  };
+  process.env.NODE_ENV = "staging";
+  process.env.TGG_STORE_DRIVER = "pg";
+  process.env.TGG_STORE_MODE = "memory";
+  delete process.env.TGG_DEMO_PASSWORD;
+  delete process.env.TGG_DEMO_PASSWORD_HASH;
+  t.after(() => {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  const state = createSeed();
+  const result = auth.login(state, { userId: state.users[0].id, password: "123456" });
+  assert.equal(result.ok, false);
 });

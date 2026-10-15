@@ -1,4 +1,5 @@
 const { isMember } = require("../domain/rules");
+const { productionLike } = require("../config/runtime-safety");
 
 function send(res, status, data, headers = {}) {
   const body = typeof data === "string" || Buffer.isBuffer(data) ? data : JSON.stringify(data, null, 2);
@@ -8,7 +9,7 @@ function send(res, status, data, headers = {}) {
     ? (requestOrigin && configuredOrigins.includes(requestOrigin)
       ? { "Access-Control-Allow-Origin": requestOrigin, Vary: "Origin" }
       : {})
-    : process.env.NODE_ENV === "production"
+    : productionLike()
       ? {}
       : { "Access-Control-Allow-Origin": "*" };
   res.writeHead(status, {
@@ -17,7 +18,7 @@ function send(res, status, data, headers = {}) {
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    ...(process.env.NODE_ENV === "production" ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
+    ...(productionLike() ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
     ...corsHeaders,
     ...headers
   });

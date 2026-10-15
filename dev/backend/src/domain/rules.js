@@ -5,7 +5,7 @@ const orderRepository = require("../repositories/order-repository");
 const ledgerRepository = require("../repositories/ledger-repository");
 const inventoryRepository = require("../repositories/inventory-repository");
 const { zonedTimeToUtc } = require("../time-zone");
-const { cashPaymentsEnabled } = require("../config/runtime-safety");
+const { cashPaymentsEnabled, productionLike } = require("../config/runtime-safety");
 
 function isMember(user) {
   return Boolean(user.memberUntil && new Date(user.memberUntil).getTime() > Date.now());
@@ -43,7 +43,7 @@ function assertCanCreateOrder(state, user, payload) {
     if (!savedAddress) return { ok: false, error: "配送地址不存在或不属于当前用户" };
     if (savedAddress.inServiceRange === false) return { ok: false, error: "当前地址不在配送服务范围内" };
   }
-  if (fulfillmentType === "delivery" && (state.config.deliveryRequireSavedAddress === true || process.env.NODE_ENV === "production") && !payload.addressId) {
+  if (fulfillmentType === "delivery" && (state.config.deliveryRequireSavedAddress === true || productionLike()) && !payload.addressId) {
     return { ok: false, error: "配送请先选择已保存且通过服务范围校验的收货地址" };
   }
   if (fulfillmentType === "delivery" && !String(payload.deliveryAddress || "").trim()) return { ok: false, error: "请填写配送地址" };

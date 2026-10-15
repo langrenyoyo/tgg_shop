@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const adminService = require("../services/admin-service");
 const { syncResources, pushOrderToPospal, getStatus, integrationState } = require("../services/pospal-sync-service");
 const { createPospalClient } = require("../integrations/pospal/pospal-client");
+const { productionLike } = require("../config/runtime-safety");
 
 function safeEqual(left, right) {
   const a = Buffer.from(String(left || ""));
@@ -45,7 +46,7 @@ async function handlePospalRoutes(ctx) {
   if (req.method === "POST" && url.pathname === "/api/pospal/callback") {
     const configuredToken = String(process.env.POSPAL_CALLBACK_TOKEN || "").trim();
     const providedToken = req.headers["x-pospal-callback-token"] || req.headers.authorization?.replace(/^Bearer\s+/i, "");
-    if ((configuredToken && !safeEqual(providedToken, configuredToken)) || (process.env.NODE_ENV === "production" && !configuredToken)) {
+    if ((configuredToken && !safeEqual(providedToken, configuredToken)) || (productionLike() && !configuredToken)) {
       return send(ctx.res, configuredToken ? 401 : 503, { error: configuredToken ? "POSPAL回调鉴权失败" : "POSPAL_CALLBACK_TOKEN未配置" });
     }
     const body = await readBody(req);
