@@ -4,6 +4,7 @@ const { verifyPickup, shipOrder, deliverOrder, createDeliveryException } = requi
 const { approveRefund } = require("../domain/refund-rules");
 const refundService = require("./refund-service");
 const { mockOperationsEnabled } = require("../config/runtime-safety");
+const huifu = require("./withdrawal-provider/huifu-bafang");
 const { handleTaskCallback } = require("../domain/task-callback-rules");
 const { nextId, saveState } = require("../data/store");
 const {
@@ -969,6 +970,12 @@ function approveWithdrawal(state, withdrawalId, actor = {}, reason = "") {
   const withdrawal = state.withdrawRequests.find((item) => item.id === withdrawalId);
   if (!withdrawal) return { ok: false, status: 404, error: "operation failed" };
   if (withdrawal.status !== "pending_review") return { ok: false, status: 400, error: "operation failed" };
+
+  if (String(process.env.TGG_STORE_DRIVER || "json") === "pg"
+    && process.env.TGG_TEST_BYPASS_ENABLED !== "1"
+    && !huifu.isConfigured()) {
+    return { ok: false, status: 503, error: "提现通道未配置，请联系管理员" };
+  }
 
   // Production approval authorizes provider submission; never post a payout
   // ledger before the provider reports a terminal success.

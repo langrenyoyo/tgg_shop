@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
 const { requestWithdrawal } = require("../../src/services/account-service");
-const { requestApproval, approveApprovalRequest } = require("../../src/services/admin-service");
+const { requestApproval, approveApprovalRequest, approveWithdrawal } = require("../../src/services/admin-service");
 const { handleCallback } = require("../../src/services/withdrawal-service");
 const withdrawalService = require("../../src/services/withdrawal-service");
 const huifu = require("../../src/services/withdrawal-provider/huifu-bafang");
@@ -33,6 +33,35 @@ test("live PostgreSQL rejects withdrawal before freezing funds when Huifu is unc
   assert.equal(state.withdrawRequests.length, 0);
   assert.equal(state.withdrawableLedger.length, 0);
   assert.equal(user.withdrawableBalance, 100);
+  assert.equal(JSON.stringify(state), before);
+});
+
+test("live PostgreSQL rejects approval before changing an old pending withdrawal when Huifu is unconfigured", t => {
+  const previousDriver = process.env.TGG_STORE_DRIVER;
+  process.env.TGG_STORE_DRIVER = "pg";
+  t.mock.method(huifu, "isConfigured", () => false);
+  t.after(() => {
+    if (previousDriver === undefined) delete process.env.TGG_STORE_DRIVER;
+    else process.env.TGG_STORE_DRIVER = previousDriver;
+  });
+
+  const state = createSeed();
+  const user = state.users.find(item => item.id === "u_1001");
+  const withdrawal = {
+    id: "wd-old-pending",
+    userId: user.id,
+    amount: 10,
+    arrivalAmount: 9.9,
+    fee: 0.1,
+    status: "pending_review",
+    provider: "huifu_bafang"
+  };
+  state.withdrawRequests.push(withdrawal);
+  const before = JSON.stringify(state);
+  const result = approveWithdrawal(state, withdrawal.id, { role: { id: "finance" } }, "审核");
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 503);
   assert.equal(JSON.stringify(state), before);
 });
 
