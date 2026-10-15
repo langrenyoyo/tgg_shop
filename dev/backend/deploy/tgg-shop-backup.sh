@@ -3,6 +3,7 @@ set -eu
 
 APP_ROOT=${TGG_APP_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
 ENV_FILE=${TGG_ENV_FILE:-"$APP_ROOT/.env"}
+SYSTEM_ENV_FILE=${TGG_SYSTEM_ENV_FILE:-/etc/tgg-shop/tgg-shop.env}
 BACKUP_ROOT=${TGG_BACKUP_ROOT:-/www/backup/tgg-shop/postgres}
 RETENTION_DAYS=${TGG_BACKUP_RETENTION_DAYS:-14}
 PG_DUMP_BIN=${TGG_PG_DUMP_BIN:-}
@@ -13,11 +14,20 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 set -a
-# shellcheck disable=SC1090
-. "$ENV_FILE"
+# systemd keeps the live PostgreSQL URL outside the application checkout.
+# Load it first, then let the explicitly selected application env override it.
+if [ -f "$SYSTEM_ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  . "$SYSTEM_ENV_FILE"
+fi
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+fi
 set +a
 
-if [ "${TGG_STORE_DRIVER:-}" != "pg" ] || [ -z "${TGG_PG_URL:-}" ]; then
+PG_URL=${TGG_PG_URL:-${DATABASE_URL:-}}
+if [ "${TGG_STORE_DRIVER:-}" != "pg" ] || [ -z "$PG_URL" ]; then
   echo "PostgreSQL storage is not configured" >&2
   exit 1
 fi
@@ -41,7 +51,7 @@ stamp=$(date -u +%Y%m%d_%H%M%S)
 target="$BACKUP_ROOT/tgg_shop_${stamp}.dump"
 temporary="$target.tmp"
 trap 'rm -f "$temporary"' EXIT
-"$PG_DUMP_BIN" --format=custom --no-owner --no-privileges "$TGG_PG_URL" > "$temporary"
+"$PG_DUMP_BIN" --format=custom --no-owner --no-privileges "$PG_URL" > "$temporary"
 if [ ! -s "$temporary" ]; then
   echo "pg_dump produced an empty archive" >&2
   exit 1
