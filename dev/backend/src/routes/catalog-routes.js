@@ -1,13 +1,14 @@
 const catalogService = require("../services/catalog-service");
 const { activeConfig } = require("../config/active-config");
-const { mockOperationsEnabled } = require("../config/runtime-safety");
+const { mockOperationsEnabled, cashPaymentsEnabled } = require("../config/runtime-safety");
 
 async function handleCatalogRoutes(ctx) {
   const { req, url, state, user, send, publicUser } = ctx;
 
   if (req.method === "GET" && url.pathname === "/api/config") return send(ctx.res, 200, {
     ...activeConfig(state.config),
-    testBypassEnabled: mockOperationsEnabled()
+    testBypassEnabled: mockOperationsEnabled(),
+    cashEnabled: cashPaymentsEnabled()
   });
 
   if (req.method === "GET" && url.pathname === "/api/home") {

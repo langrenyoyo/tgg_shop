@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { taskCallbackToken } = require("./runtime-safety");
 
 function isPlaceholder(value) {
   return /^(replace[-_ ]|your[-_ ]|wx-your|server-only-secret|changeme|secret$|test(?:[-_]|$)|smoke|tgg-shop-dev-auth-secret)/i.test(String(value || "").trim());
@@ -81,7 +82,10 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
     } catch { errors.push("TGG_PUBLIC_ORIGIN must be an HTTPS origin in production"); }
   }
 
-  const callbackToken = String(env.TGG_TASK_CALLBACK_TOKEN || "").trim();
+  const callbackToken = taskCallbackToken(env);
+  if (env.TGG_TASK_CALLBACK_TOKEN && env.TGG_TASK_CALLBACK_SECRET && env.TGG_TASK_CALLBACK_TOKEN !== env.TGG_TASK_CALLBACK_SECRET) {
+    errors.push("TGG_TASK_CALLBACK_TOKEN and TGG_TASK_CALLBACK_SECRET must match during migration");
+  }
   const taskKeys = ["TGG_TASK_PLATFORM_BASE_URL", "TGG_TASK_PLATFORM_APPID", "TGG_TASK_PLATFORM_KEY"];
   const taskConfigured = taskKeys.map(key => Boolean(String(env[key] || "").trim()));
   if (strict || taskConfigured.some(Boolean)) {

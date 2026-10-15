@@ -5,6 +5,7 @@ const orderRepository = require("../repositories/order-repository");
 const ledgerRepository = require("../repositories/ledger-repository");
 const inventoryRepository = require("../repositories/inventory-repository");
 const { zonedTimeToUtc } = require("../time-zone");
+const { cashPaymentsEnabled } = require("../config/runtime-safety");
 
 function isMember(user) {
   return Boolean(user.memberUntil && new Date(user.memberUntil).getTime() > Date.now());
@@ -29,6 +30,7 @@ function assertCanCreateOrder(state, user, payload) {
 
   const paymentMode = payload.paymentMode || "pure_points";
   const fulfillmentType = payload.fulfillmentType || "pickup";
+  if (!cashPaymentsEnabled() && paymentMode !== "pure_points") return { ok: false, error: "当前环境已关闭现金支付" };
   if (!["pure_points", "cash", "points_plus_cash"].includes(paymentMode)) return { ok: false, error: "支付方式无效" };
   if (paymentMode !== "pure_points" && !isMember(user)) return { ok: false, error: "下单需要先购买月会员，会员到期请先续费" };
   if (!["pickup", "delivery"].includes(fulfillmentType)) return { ok: false, error: "配送方式无效" };

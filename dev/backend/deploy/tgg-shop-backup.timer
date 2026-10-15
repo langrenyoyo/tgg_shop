@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TGG Shop PostgreSQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=10m
+Unit=tgg-shop-backup.service
+
+[Install]
+WantedBy=timers.target

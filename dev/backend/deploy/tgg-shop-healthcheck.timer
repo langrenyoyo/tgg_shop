@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TGG Shop health check every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=tgg-shop-healthcheck.service
+
+[Install]
+WantedBy=timers.target

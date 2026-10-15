@@ -36,6 +36,12 @@ test("production requires real storage, authentication and payment configuration
   assert.equal(validateRuntimeConfig({}, false).ok, true);
 });
 
+test("task callback secret alias remains compatible during deployment migration", () => {
+  const { TGG_TASK_CALLBACK_TOKEN, ...withoutCanonical } = valid;
+  assert.equal(validateRuntimeConfig({ ...withoutCanonical, TGG_TASK_CALLBACK_SECRET: "b".repeat(64) }).ok, true);
+  assert.equal(validateRuntimeConfig({ ...valid, TGG_TASK_CALLBACK_SECRET: "different" }).ok, false);
+});
+
 test("RSA production setup requires both signing and verification PEMs without exposing their contents", () => {
   const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
   const rsa = { ...valid, LFWIN_SIGN_TYPE: "RSA", LFWIN_RSA_PRIVATE_KEY: pair.privateKey.replace(/\n/g, "\\n"), LFWIN_RSA_PUBLIC_KEY: pair.publicKey.replace(/\n/g, "\\n") };
@@ -62,7 +68,7 @@ test("production initialization generates distinct secrets once and never prints
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-config-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const backend = path.join(temp, "dev/backend");
-  for (const file of ["scripts/production-config.js", "src/config/env-file.js", "src/config/runtime-config.js", ".env.example"]) {
+  for (const file of ["scripts/production-config.js", "src/config/env-file.js", "src/config/runtime-config.js", "src/config/runtime-safety.js", ".env.example"]) {
     const target = path.join(backend, file);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(path.resolve(__dirname, "../..", file), target);

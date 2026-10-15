@@ -10,7 +10,7 @@ const { publicUser } = require("../http/http-utils");
 const { createLfwinClient } = require("./lfwin-payment-client");
 const { exclusive, isBusy } = require("./operation-lock");
 const { releaseOrderPoints } = require("../domain/point-reservations");
-const { isolatedNonProduction } = require("../config/runtime-safety");
+const { isolatedNonProduction, cashPaymentsEnabled } = require("../config/runtime-safety");
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
@@ -20,6 +20,7 @@ function createGoodsPayment(state, orderId, input = {}) {
   if (!isolatedNonProduction() && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled outside an isolated test environment" };
   const order = orderRepository.findById(state, orderId);
   if (!order) return { ok: false, status: 404, error: "订单不存在" };
+  if (!cashPaymentsEnabled() && Number(order.cashAmount || 0) > 0) return { ok: false, status: 503, error: "当前环境已关闭现金支付" };
   if (isBusy(order)) return { ok: false, status: 409, error: "订单操作处理中" };
   if (order.status === "paid") {
     const existingPaid = state.paymentLedger.find((payment) => payment.orderId === order.id && payment.status === "paid" && payment.direction === "in");
@@ -61,6 +62,7 @@ function createMemberPayment(state, user, input = {}) {
   const price = Number(state.config.membershipMonthlyPrice || 19.9);
   const pointsRequired = Math.max(0, Math.floor(Number(state.config.membershipMonthlyPoints || 0) * months));
   const paymentMode = input.paymentMode || "cash";
+  if (!cashPaymentsEnabled() && paymentMode !== "pure_points") return { ok: false, status: 503, error: "当前环境已关闭现金支付" };
   const pointCashRate = Math.max(0, Number(state.config.membershipPointCashRate ?? 0.01));
   if (!["cash", "pure_points", "points_plus_cash"].includes(paymentMode)) return { ok: false, status: 400, error: "不支持的会员开通方式" };
   if (paymentMode === "pure_points" && (!pointsRequired || user.points < pointsRequired)) return { ok: false, status: 400, error: pointsRequired ? `积分不足，开通需要 ${pointsRequired} 积分` : "后台尚未配置积分开通会员" };
@@ -115,6 +117,7 @@ async function initiateLfwinPayment(state, payNo, input = {}, client = createLfw
 
 async function initiateLfwinLocked(state, payment, input, client) {
   if (payment.status !== "pending") return { ok: false, status: 400, error: "Payment is not pending" };
+  if (!cashPaymentsEnabled() && Number(payment.amount || 0) > 0) return { ok: false, status: 503, error: "当前环境已关闭现金支付" };
   if (payment.orderId && state.orders.find(order => order.id === payment.orderId)?.status !== "pending_payment") return { ok: false, status: 409, error: "订单状态已变更" };
 
   // A local configuration failure must not become an uncertain provider order.

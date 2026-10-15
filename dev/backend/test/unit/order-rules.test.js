@@ -46,6 +46,23 @@ test("normal user cannot create cash order", () => {
   assert.match(result.error, /下单需要先购买月会员/);
 });
 
+test("cash disable switch blocks cash and mixed-payment orders at the domain boundary", (t) => {
+  const previous = process.env.TGG_DISABLE_CASH;
+  t.after(() => {
+    if (previous === undefined) delete process.env.TGG_DISABLE_CASH;
+    else process.env.TGG_DISABLE_CASH = previous;
+  });
+  process.env.TGG_DISABLE_CASH = "1";
+  const state = createSeed();
+  const member = state.users.find(user => user.id === "u_1001");
+  const cash = createOrder(state, member.id, { paymentMode: "cash", items: [{ productId: "p_apple", quantity: 1 }] });
+  const mixed = createOrder(state, member.id, { paymentMode: "points_plus_cash", items: [{ productId: "p_apple", quantity: 1 }] });
+  const points = createOrder(state, member.id, { paymentMode: "pure_points", items: [{ productId: "p_banana", quantity: 1 }] });
+  assert.equal(cash.ok, false);
+  assert.equal(mixed.ok, false);
+  assert.equal(points.ok, true);
+});
+
 test("member can create pure-points pickup order without cash", () => {
   const state = createSeed();
   state.users.find(user => user.id === "u_1002").memberUntil = new Date(Date.now() + 86400000).toISOString();

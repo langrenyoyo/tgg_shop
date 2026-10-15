@@ -18,9 +18,21 @@ function productionLike(env = process.env) {
   return env.NODE_ENV === "production" || String(env.TGG_STORE_DRIVER || "json") === "pg";
 }
 
+function cashPaymentsEnabled(env = process.env) {
+  return String(env.TGG_DISABLE_CASH || "").trim() !== "1";
+}
+
+// Keep the old name readable during a rolling deployment while new config uses
+// TGG_TASK_CALLBACK_TOKEN.
+function taskCallbackToken(env = process.env) {
+  return String(env.TGG_TASK_CALLBACK_TOKEN || env.TGG_TASK_CALLBACK_SECRET || "").trim();
+}
+
 module.exports = {
   isIsolatedStore,
   mockOperationsEnabled,
   isolatedNonProduction,
-  productionLike
+  productionLike,
+  cashPaymentsEnabled,
+  taskCallbackToken
 };

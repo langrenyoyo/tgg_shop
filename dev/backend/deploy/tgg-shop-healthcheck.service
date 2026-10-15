@@ -1,0 +1,9 @@
+[Unit]
+Description=TGG Shop HTTPS and PostgreSQL health check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-healthcheck.sh
