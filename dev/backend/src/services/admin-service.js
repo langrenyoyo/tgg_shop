@@ -3,8 +3,9 @@ const { createException, resolveException } = require("../domain/exception-rules
 const { verifyPickup, shipOrder, deliverOrder, createDeliveryException } = require("../domain/fulfillment-rules");
 const { approveRefund } = require("../domain/refund-rules");
 const refundService = require("./refund-service");
-const { mockOperationsEnabled } = require("../config/runtime-safety");
+const { mockOperationsEnabled, productionLike } = require("../config/runtime-safety");
 const huifu = require("./withdrawal-provider/huifu-bafang");
+const taskPlatform = require("./task-platform-client");
 const { handleTaskCallback } = require("../domain/task-callback-rules");
 const { nextId, saveState } = require("../data/store");
 const {
@@ -958,6 +959,7 @@ function listTaskSubmissions(state) {
 }
 
 function reviewTaskSubmission(state, submissionId, status, remarks, actor = {}) {
+  if (productionLike() && !mockOperationsEnabled() && !taskPlatform.isConfigured()) return { ok: false, status: 503, error: "任务平台未配置，暂不能人工审核任务" };
   if (state.submissions.find(item => item.id === submissionId)?.platform === "bounty_platform") return { ok: false, status: 409, error: "平台交单请使用平台关联核对，以真实审核结果发奖" };
   const result = handleTaskCallback(state, { submissionId, status, remarks });
   if (!result.ok) return result;

@@ -3,10 +3,20 @@ const { isMember } = require("../domain/rules");
 const { handleTaskCallback } = require("../domain/task-callback-rules");
 const taskRepository = require("../repositories/task-repository");
 const taskPlatform = require("./task-platform-client");
+const { mockOperationsEnabled, productionLike } = require("../config/runtime-safety");
 const { createException } = require("../domain/exception-rules");
 const { resolveTaskAssociationExceptions } = require("./task-exception-service");
 
+function requiresConfiguredPlatform() {
+  return productionLike() && !mockOperationsEnabled() && !taskPlatform.isConfigured();
+}
+
+function assertConfiguredPlatform() {
+  if (requiresConfiguredPlatform()) throw Object.assign(new Error("任务平台未配置"), { status: 503 });
+}
+
 async function listTaskTypes(state) {
+  assertConfiguredPlatform();
   if (taskPlatform.isConfigured()) {
     const rows = await taskPlatform.post("index/index/task_type");
     return rows.map(taskPlatform.normalizeTaskType);
@@ -15,6 +25,7 @@ async function listTaskTypes(state) {
 }
 
 async function listTasksForUser(state, query = {}) {
+  assertConfiguredPlatform();
   if (taskPlatform.isConfigured()) {
     const rows = await taskPlatform.post("index/index/task_list", {
       page: query.page || 1,
@@ -28,6 +39,7 @@ async function listTasksForUser(state, query = {}) {
 }
 
 async function getTaskDetail(state, taskId) {
+  assertConfiguredPlatform();
   if (taskPlatform.isConfigured()) {
     try {
       const row = await taskPlatform.post("index/index/task_info", { id: taskId });
@@ -38,6 +50,7 @@ async function getTaskDetail(state, taskId) {
 }
 
 async function submitTask(state, user, taskId, payload) {
+  assertConfiguredPlatform();
   if (!isMember(user)) return { ok: false, status: 403, error: "做任务交单需要先开通月会员" };
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return { ok: false, status: 400, error: "交单内容格式错误" };
   if (payload.idempotencyKey !== undefined && (typeof payload.idempotencyKey !== "string" || !payload.idempotencyKey.trim() || payload.idempotencyKey.length > 128)) return { ok: false, status: 400, error: "提交标识格式错误" };
@@ -144,6 +157,7 @@ async function replaySubmission(submission, payload) {
 }
 
 async function listUserSubmissions(state, userId, query = {}) {
+  assertConfiguredPlatform();
   const status = ({ "0": "reviewing", "1": "approved", "2": "rejected" })[query.status] || query.status || "All";
   if (taskPlatform.isConfigured()) {
     const rows = await taskPlatform.post("index/index/get_examine_list", {
@@ -190,6 +204,7 @@ async function getSubmissionDetail(state, userId, submissionId) {
 }
 
 async function processTaskCallback(state, payload) {
+  assertConfiguredPlatform();
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return { ok: false, status: 400, error: "回调参数格式错误" };
   const callbackLog = {
     adminId: null, roleId: "task_platform",
@@ -286,7 +301,7 @@ async function reconcileCallback(state, payload) {
 
 function getPlatformStatus() {
   return {
-    mode: taskPlatform.isConfigured() ? "platform_proxy" : "local_mock",
+    mode: taskPlatform.isConfigured() ? "platform_proxy" : (requiresConfiguredPlatform() ? "unavailable" : "local_mock"),
     endpoints: [
       "index/index/task_type",
       "index/index/task_list",
