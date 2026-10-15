@@ -22,13 +22,20 @@ Page({
     if (this.data.binding || this.data.loading) return;
     if (!this.data.username.trim() || !this.data.password) return this.setData({ error: "请输入站点账号和密码" });
     this.setData({ binding: true, error: "" });
+    let sessionWasCreated = false;
     try {
       const login = await request("/api/station/auth/login", { method: "POST", data: { username: this.data.username.trim(), password: this.data.password }, retry: false });
       saveStationSession(login);
+      sessionWasCreated = true;
       await request("/api/station/auth/bind-wechat", { method: "POST", data: { code: await this.wxCode() }, retry: false });
       wx.reLaunch({ url: "/pages/station/index" });
     } catch (error) {
-      if (error.statusCode === 401 || error.statusCode === 403) clearStationSession();
+      // Password login creates a server session before WeChat binding. Revoke
+      // it on every later failure so a half-bound worker cannot remain active.
+      if (sessionWasCreated) {
+        try { await request("/api/station/auth/logout", { method: "POST", retry: false }); } catch {}
+      }
+      clearStationSession();
       this.setData({ error: error.message || "绑定失败" });
     } finally { this.setData({ binding: false }); }
   }

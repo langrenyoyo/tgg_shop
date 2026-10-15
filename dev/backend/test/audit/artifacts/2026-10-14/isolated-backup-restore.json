@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "version",
+    "head": "25d47fff2f2476b33c4324fb1f686c5f9e3f9405",
+    "worktree": "M dev/backend/.env.example"
+  },
+  {
+    "kind": "suite",
+    "name": "backup-restore",
+    "exitCode": 0,
+    "elapsedSeconds": 0.04,
+    "archiveBytes": 249083,
+    "stdout": "",
+    "stderr": "",
+    "restoredCounts": {
+      "stateRows": 1,
+      "users": 8,
+      "orders": 14,
+      "paymentLedger": 14,
+      "withdrawRequests": 2
+    }
+  },
+  {
+    "kind": "pg-cleanup",
+    "isolatedPostgresStopped": true,
+    "temporaryClusterRemoved": true
+  },
+  {
+    "kind": "cleanup",
+    "temporaryCheckoutRemoved": true
+  }
+]

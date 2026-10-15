@@ -1,0 +1,27 @@
+{"name":"login layout 1440","ok":true,"detail":{"isolated":true,"overflow":false,"navVisible":false,"screenshot":"C:\\Users\\Administrator\\AppData\\Local\\Temp\\tgg-server-browser-YLcrxf\\login-1440.png"}}
+{"name":"login layout 390","ok":true,"detail":{"isolated":true,"overflow":false,"navVisible":false,"screenshot":"C:\\Users\\Administrator\\AppData\\Local\\Temp\\tgg-server-browser-YLcrxf\\login-390.png"}}
+{"name":"unknown account displays inline error","ok":true}
+{"name":"admin dashboard","ok":true,"detail":{"rows":13,"overflow":false}}
+{"name":"admin orders","ok":true,"detail":{"rows":14,"overflow":false}}
+{"name":"admin printing","ok":true,"detail":{"rows":2,"overflow":false}}
+{"name":"admin stateMachine","ok":true,"detail":{"rows":31,"overflow":true}}
+{"name":"admin deliveryTeam","ok":true,"detail":{"rows":2,"overflow":false}}
+{"name":"admin products","ok":true,"detail":{"rows":28,"overflow":false}}
+{"name":"admin pointsExchange","ok":true,"detail":{"rows":3,"overflow":false}}
+{"name":"admin homeOps","ok":true,"detail":{"rows":0,"overflow":false}}
+{"name":"admin users","ok":true,"detail":{"rows":8,"overflow":false}}
+{"name":"admin addressBook","ok":true,"detail":{"rows":1,"overflow":false}}
+{"name":"admin inviteAudit","ok":true,"detail":{"rows":1,"overflow":false}}
+{"name":"admin customerTickets","ok":true,"detail":{"rows":3,"overflow":false}}
+{"name":"admin agentsPickup","ok":true,"detail":{"rows":2,"overflow":false}}
+{"name":"admin stationStaff","ok":true,"detail":{"rows":1,"overflow":false}}
+{"name":"admin taskReview","ok":true,"detail":{"rows":1,"overflow":false}}
+{"name":"admin financeRefund","ok":true,"detail":{"rows":13,"overflow":false}}
+{"name":"admin ledger","ok":true,"detail":{"rows":36,"overflow":false}}
+{"name":"admin ranking","ok":true,"detail":{"rows":8,"overflow":false}}
+{"name":"admin permissions","ok":true,"detail":{"rows":18,"overflow":false}}
+{"name":"admin exceptions","ok":true,"detail":{"rows":3,"overflow":false}}
+{"name":"admin settings","ok":true,"detail":{"rows":0,"overflow":false}}
+{"name":"admin monthlyReward","ok":true,"detail":{"rows":14,"overflow":false}}
+{"name":"logout revokes session and protected navigation returns to login","ok":true}
+{"total":26,"passed":26,"failed":0,"blocked":[],"httpFailures":[{"path":"/favicon.ico","status":404},{"path":"/api/admin/auth/login","status":401},{"path":"/api/admin/auth/me","status":401}]}

@@ -1,0 +1,42 @@
+用例编号,优先级,结果,执行环境,证据或实际表现,备注
+WXST-01,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少未绑定微信的 A1 测试账号和微信授权设备,无法验证首次绑定
+WXST-02,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少已绑定工作人员微信和真机,无法验证授权登录及账号隔离
+WXST-03,P0,阻塞,线上 https://shop.taoguoguo.cc,未登录访问站点接口返回 401 请先登录；空账号/错密码流程无法执行,仅完成匿名接口门槛检查
+WXST-04,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少研发模拟微信接口失败和绑定冲突的隔离环境,无法执行
+WXST-05,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少站点会话和研发注入过期令牌条件,无法执行
+WXST-06,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 A1 账号及后台撤权/禁用操作权限,无法执行
+WXST-07,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 R/P/E/V 角色账号；匿名站点接口均返回 401,无法验证角色按钮和后端授权
+WXST-08,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 A/B 站点测试订单和工作人员账号,无法执行跨站隔离
+WXST-09,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少站点登录和无订单站点数据,无法核对工作台计数与空列表
+WXST-10,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少多站员 M 及 T10 数据,无法执行汇总
+WXST-11,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T03 及 A1/A2 账号,无法执行领取释放
+WXST-12,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少两台真机、A1/A2 和 T03,无法执行并发领取
+WXST-13,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少配置后台和已有拣货任务,无法执行拣货开关
+WXST-14,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T01/T02 收货订单和站点账号,无法执行数量校验
+WXST-15,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少条码商品、摄像头和 stationScanRequired 配置控制,无法执行强制扫码
+WXST-16,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少 Android/iOS 真机及相机权限控制,无法执行
+WXST-17,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T01、储位配置及收货账号；匿名收货写入返回 401,无法执行
+WXST-18,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T02 多温区订单及储位数据,无法执行
+WXST-19,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少可写测试订单和站点会话,无法执行边界值
+WXST-20,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少储位占用数据和工作台账号,无法执行
+WXST-21,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T06 禁止履约订单；站点接口匿名访问返回 401,无法核验状态拦截
+WXST-22,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T02 和有效提货码,无法执行只读查货
+WXST-23,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少订单详情、提货码二维码和摄像头,无法执行三种入口
+WXST-24,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少站点登录和扫码设备,无法执行错误码/异常二维码
+WXST-25,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T07 重复取货码隔离数据,无法执行
+WXST-26,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T02 包裹数据和核销账号,无法执行包裹完整性
+WXST-27,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T01/T02、顾客账号、后台和真机,无法验证三端一致性
+WXST-28,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少双账号并发核销和可写订单,无法执行
+WXST-29,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少研发修改查货版本的隔离数据,无法执行
+WXST-30,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少 T04、异常权限账号和工单后台,无法执行异常登记
+WXST-31,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少异常工单及补货数据,无法执行异常恢复
+WXST-32,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少退款审批流程和已收货测试单；不得在生产环境写入,无法执行
+WXST-33,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少 T08 过期保管期订单和运营处理规则,无法执行
+WXST-34,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少测试代理/故障注入及收货幂等订单,无法执行响应丢失
+WXST-35,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少测试代理/故障注入及核销订单,无法执行响应丢失
+WXST-36,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少小程序运行环境和网络模拟工具,无法执行列表恢复
+WXST-37,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少站点会话、订单和小程序真机,无法执行中断重进
+WXST-38,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少领取中任务和工作人员账号,无法执行退出隔离
+WXST-39,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少多站账号及 A/B 订单,无法执行界面归属
+WXST-40,P1,阻塞,线上 https://shop.taoguoguo.cc,缺少 Android/iOS 真机及大字体/键盘场景,无法执行显示持续性
+WXST-41,P0,阻塞,线上 https://shop.taoguoguo.cc,缺少站点操作日志权限和隔离后端重启条件,无法执行持久化核对

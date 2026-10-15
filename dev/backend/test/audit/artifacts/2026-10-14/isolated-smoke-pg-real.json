@@ -1,0 +1,25 @@
+[
+  {
+    "kind": "version",
+    "head": "25d47fff2f2476b33c4324fb1f686c5f9e3f9405",
+    "worktree": "M dev/backend/.env.example"
+  },
+  {
+    "kind": "suite",
+    "name": "smoke-pg-real",
+    "exitCode": 0,
+    "timedOut": false,
+    "elapsedSeconds": 1.2,
+    "stdout": "Smoke tests passed (pg)\n",
+    "stderr": ""
+  },
+  {
+    "kind": "pg-cleanup",
+    "isolatedPostgresStopped": true,
+    "temporaryClusterRemoved": true
+  },
+  {
+    "kind": "cleanup",
+    "temporaryCheckoutRemoved": true
+  }
+]

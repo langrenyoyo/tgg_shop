@@ -1,0 +1,28 @@
+{"name":"admin incorrect password stays on isolated login with visible error","ok":true}
+{"name":"admin view dashboard","ok":true}
+{"name":"admin view orders","ok":true}
+{"name":"admin view printing","ok":true}
+{"name":"admin view stateMachine","ok":true}
+{"name":"admin view deliveryTeam","ok":true}
+{"name":"admin view products","ok":true}
+{"name":"admin view pointsExchange","ok":true}
+{"name":"admin view homeOps","ok":true}
+{"name":"admin view users","ok":true}
+{"name":"admin view addressBook","ok":true}
+{"name":"admin view inviteAudit","ok":true}
+{"name":"admin view customerTickets","ok":true}
+{"name":"admin view agentsPickup","ok":true}
+{"name":"admin view stationStaff","ok":true}
+{"name":"admin view taskReview","ok":true}
+{"name":"admin view financeRefund","ok":true}
+{"name":"admin view ledger","ok":true}
+{"name":"admin view ranking","ok":true}
+{"name":"admin view permissions","ok":true}
+{"name":"admin view exceptions","ok":true}
+{"name":"admin view settings","ok":true}
+{"name":"admin view monthlyReward","ok":true}
+{"name":"member user patrol: address, task, invite, delivery order, refund, withdrawal, support","ok":true}
+{"name":"admin address list shows saved receiver, phone and address","ok":false,"error":"Saved address fields absent from admin table"}
+{"name":"user feedback text is displayed without executing HTML","ok":false,"error":"Stored feedback HTML executed in the user page\n\ntrue !== false\n"}
+{"name":"expired admin session returns to isolated login","ok":true,"detail":"/admin/login"}
+{"total":27,"passed":25,"failed":2}

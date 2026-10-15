@@ -1,0 +1,832 @@
+{
+  "checkedAt": "2026-10-13T16:37:39.138Z",
+  "checks": [
+    {
+      "endpoint": "/api/admin/printing",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/station-accounts",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/integrations/pospal/status",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/health",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/auth/me",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/station/me",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/station/dashboard",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/station/orders",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/station/operation-logs",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/me",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/config",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/home",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 8
+    },
+    {
+      "endpoint": "/api/points-exchange",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 3
+    },
+    {
+      "endpoint": "/api/orders",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/payments",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/tasks",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 10
+    },
+    {
+      "endpoint": "/api/task-types",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 5
+    },
+    {
+      "endpoint": "/api/task-platform/status",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/submissions",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/invite/info",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/invite/list",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/invite/stats",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/signin/status",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/pickup-sites",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 2
+    },
+    {
+      "endpoint": "/api/delivery/teams",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 1
+    },
+    {
+      "endpoint": "/api/addresses",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/withdrawals",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/points-ledger",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/ranking",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/tickets",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/auth/me",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/summary",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/dashboard-views",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/orders",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/products",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/refund-returns",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/inventory-ledger",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/config",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/monthly-point-rewards",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/task-submissions",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/users",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/addresses",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/invites",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/tickets",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/pickup-sites",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/delivery-teams",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/withdrawals",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/order-status-logs",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/operation-logs",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/approval-requests",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/ledger",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/permissions",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/permissions/catalog",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/exceptions",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/refunds",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/admin-users",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/admin/ranking",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/withdrawals/audit-nonexistent",
+      "kind": "api",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 8
+    },
+    {
+      "endpoint": "/api/products/p_1791357672724_UYBL1R",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/p_1790074137046_YADOQ3",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/p_1790070251129_CRSYA1",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/p_apple",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/p_grapes",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/p_banana",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/p_bokchoy",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/p_strawberry",
+      "kind": "product-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/products/audit-nonexistent",
+      "kind": "missing-product",
+      "expected": 404,
+      "status": 404,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/station/orders/audit-nonexistent",
+      "kind": "anonymous-protection",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/orders/audit-nonexistent",
+      "kind": "anonymous-protection",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/refunds/audit-nonexistent",
+      "kind": "anonymous-protection",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/submissions/audit-nonexistent",
+      "kind": "anonymous-protection",
+      "expected": 401,
+      "status": 401,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/tasks?count=1&page=1",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8",
+      "count": 10
+    },
+    {
+      "endpoint": "/api/tasks/1389",
+      "kind": "task-detail",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/user",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "endpoint": "/admin",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "endpoint": "/admin/login",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "endpoint": "/station",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "endpoint": "/user/js/app.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/user/js/render.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/user/js/api.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/user/styles.css",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "text/css; charset=utf-8"
+    },
+    {
+      "endpoint": "/admin/js/app.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/admin/js/render.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/admin/js/api.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/admin/styles.css",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "text/css; charset=utf-8"
+    },
+    {
+      "endpoint": "/station/app.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/station/scanner.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/station/pickup-ui.js",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/javascript; charset=utf-8"
+    },
+    {
+      "endpoint": "/station/styles.css",
+      "kind": "page-or-asset",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "text/css; charset=utf-8"
+    },
+    {
+      "endpoint": "/api/home",
+      "kind": "api",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/assets/grapes.jpg",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "image/jpeg"
+    },
+    {
+      "endpoint": "/assets/icons/category-fruit.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 404,
+      "ok": false,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/assets/icons/category-vegetable.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 404,
+      "ok": false,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/assets/icons/category-daily.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 404,
+      "ok": false,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/assets/icons/category-snack.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 404,
+      "ok": false,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/assets/icons/category-drink.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 404,
+      "ok": false,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "endpoint": "/uploads/1791357618197-x4jef5-product.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "image/png"
+    },
+    {
+      "endpoint": "/uploads/1790069981296-46s4yv-product.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "image/png"
+    },
+    {
+      "endpoint": "/assets/apple.jpg",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "image/jpeg"
+    },
+    {
+      "endpoint": "/uploads/1791358064798-j1ewb0-home.png",
+      "kind": "home-image",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "contentType": "image/png"
+    }
+  ],
+  "total": 102,
+  "passed": 97,
+  "failed": 5
+}

@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-10-13T17:28:36.410Z",
+  "head": "25d47fff2f2476b33c4324fb1f686c5f9e3f9405",
+  "pages": 20,
+  "tabBarItems": 5,
+  "homeBanners": 1,
+  "recommendProducts": 4,
+  "categoryIcons": [
+    {
+      "path": "/assets/icons/category-fruit.png",
+      "miniPackageExists": true,
+      "webAssetExists": false
+    },
+    {
+      "path": "/assets/icons/category-vegetable.png",
+      "miniPackageExists": true,
+      "webAssetExists": false
+    },
+    {
+      "path": "/assets/icons/category-daily.png",
+      "miniPackageExists": true,
+      "webAssetExists": false
+    },
+    {
+      "path": "/assets/icons/category-snack.png",
+      "miniPackageExists": true,
+      "webAssetExists": false
+    },
+    {
+      "path": "/assets/icons/category-drink.png",
+      "miniPackageExists": true,
+      "webAssetExists": false
+    }
+  ],
+  "homeUsesNativeLocation": false,
+  "recruitingEntryInMe": false,
+  "miniCompilerReport": "C:/Users/Administrator/AppData/Local/Temp/tgg-mini-compile-RKQiwA/report.json"
+}

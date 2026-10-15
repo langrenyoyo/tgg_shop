@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-10-13T17:27:59.637Z",
+  "root": "D:\\AI\\tgg_shop-main\\wechat-miniprogram",
+  "pages": 20,
+  "templates": [
+    "pages/address/index.wxml",
+    "pages/cart/index.wxml",
+    "pages/checkout/index.wxml",
+    "pages/home/index.wxml",
+    "pages/invite/index.wxml",
+    "pages/login/index.wxml",
+    "pages/me/index.wxml",
+    "pages/membership/index.wxml",
+    "pages/order-detail/index.wxml",
+    "pages/orders/index.wxml",
+    "pages/points/index.wxml",
+    "pages/product/index.wxml",
+    "pages/service/index.wxml",
+    "pages/shop/index.wxml",
+    "pages/station-login/index.wxml",
+    "pages/station/index.wxml",
+    "pages/submission/index.wxml",
+    "pages/task-detail/index.wxml",
+    "pages/task-submit/index.wxml",
+    "pages/tasks/index.wxml"
+  ],
+  "styles": [
+    "app.wxss",
+    "pages/address/index.wxss",
+    "pages/cart/index.wxss",
+    "pages/home/index.wxss",
+    "pages/invite/index.wxss",
+    "pages/login/index.wxss",
+    "pages/me/index.wxss",
+    "pages/orders/index.wxss",
+    "pages/points/index.wxss",
+    "pages/service/index.wxss",
+    "pages/shop/index.wxss",
+    "pages/station-login/index.wxss",
+    "pages/station/index.wxss",
+    "pages/task-detail/index.wxss",
+    "pages/task-submit/index.wxss",
+    "pages/tasks/index.wxss"
+  ],
+  "wxml": {
+    "executable": "D:\\Program Files (x86)\\Tencent\\微信web开发者工具\\resources\\app.asar.unpacked\\node_modules\\wcc-exec\\wcc.exe",
+    "exitCode": 0,
+    "output": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tgg-mini-compile-RKQiwA\\wxml.js",
+    "bytes": 184371,
+    "diagnostics": ""
+  },
+  "wxss": {
+    "executable": "D:\\Program Files (x86)\\Tencent\\微信web开发者工具\\resources\\app.asar.unpacked\\node_modules\\wcc-exec\\wcsc.exe",
+    "exitCode": 0,
+    "output": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tgg-mini-compile-RKQiwA\\wxss.js",
+    "bytes": 49986,
+    "diagnostics": ""
+  },
+  "scope": "Template and stylesheet compiler checks only; does not verify simulator rendering, native SDK behavior or real-device payment."
+}

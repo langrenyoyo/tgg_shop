@@ -1,8 +1,10 @@
 // Only GET requests. Never log response bodies or user records.
 const fs = require("node:fs");
 const path = require("node:path");
-const root = path.resolve(__dirname, "artifacts");
-const inventory = require("./artifacts/server-comparison-2026-10-13.json");
+const root = process.env.TGG_AUDIT_OUTPUT_DIR || path.resolve(__dirname, "artifacts");
+const outputName = process.env.TGG_AUDIT_OUTPUT_DIR ? "public.json" : "server-public-2026-10-13.json";
+const contract = require("yaml").parse(fs.readFileSync(path.resolve(__dirname, "../../openapi.yaml"), "utf8"));
+const inventory = { serverOperations: Object.entries(contract.paths).flatMap(([endpoint, value]) => value.get ? [{ method: "GET", path: endpoint }] : []) };
 const base = "https://shop.taoguoguo.cc";
 const checks = [];
 const publicPaths = new Set(["/api/health", "/api/config", "/api/home", "/api/products", "/api/points-exchange", "/api/tasks", "/api/task-types", "/api/task-platform/status", "/api/pickup-sites", "/api/delivery/teams"]);
@@ -43,7 +45,8 @@ async function main() {
   visit(home);
   for (const asset of assets) await get(asset, 200, "home-image");
   const result = { checkedAt: new Date().toISOString(), checks, total: checks.length, passed: checks.filter(c => c.ok).length, failed: checks.filter(c => !c.ok).length };
-  fs.writeFileSync(path.join(root, "server-public-2026-10-13.json"), JSON.stringify(result, null, 2) + "\n");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, outputName), JSON.stringify(result, null, 2) + "\n");
   console.log(JSON.stringify({ total: result.total, passed: result.passed, failed: result.failed, failures: checks.filter(c => !c.ok), taskDetailChecked: checks.some(c => c.kind === "task-detail") }));
   if (result.failed) process.exitCode = 1;
 }

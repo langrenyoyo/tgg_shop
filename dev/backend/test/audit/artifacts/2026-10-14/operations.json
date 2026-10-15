@@ -1,0 +1,30 @@
+{
+  "service": "NRestarts=0\nActiveState=active\nSubState=running\n",
+  "cron": "17 3 * * * root /www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-backup.sh >>/var/log/tgg-shop-backup.log 2>&1\n*/5 * * * * root /www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-healthcheck.sh >>/var/log/tgg-shop-healthcheck.log 2>&1\n",
+  "scripts": {
+    "/www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-backup.sh": false,
+    "/www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-healthcheck.sh": false
+  },
+  "backupLogs": {
+    "tgg-shop-backup.log": [
+      "/bin/sh: line 1: /www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-backup.sh: No such file or directory"
+    ],
+    "tgg-shop-healthcheck.log": [
+      "/bin/sh: line 1: /www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-healthcheck.sh: No such file or directory"
+    ]
+  },
+  "manualBackup": {
+    "exists": true,
+    "bytes": 249083
+  },
+  "testPort": "State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess\n",
+  "temporaryDirs": [],
+  "codeHashes": {
+    "dev/backend/server.js": "5058e1483a92c7ad7b73e4b154c78781b0cdf8b744fe0f8c1d32e0db710e5f0d",
+    "dev/frontend/admin/js/render.js": "30a4c9009914f3ca16f9df6a75f954dc9645d019e51eca46bd675627ebd81d81",
+    "dev/frontend/user/js/render.js": "168437f5fee984dff6a4b41e3028e2f35eb74e7cbadfcddc427ab3a5af9994d7",
+    "dev/backend/src/routes/station-routes.js": "62672996fad05d78bce8bb991dd3c0ac6dae9fe2b8d9772434cea49a1de6d032",
+    "dev/backend/src/services/station-service.js": "4681c37263e8f6807030c759d2e58bda2de54774a87f520bb24a870f4b594e74",
+    "dev/backend/src/services/station-account-service.js": "eb9aee87ea7fbf7f4616f4b5cd64390745ff267e07556793ffdc99eec35a1be1"
+  }
+}

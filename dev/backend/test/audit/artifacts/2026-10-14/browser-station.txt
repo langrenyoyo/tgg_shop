@@ -1,0 +1,11 @@
+✔ advertising removal leaves user and admin navigation usable (3149.6001ms)
+✔ station browser locates split packages before explicit handover (1730.0625ms)
+✔ station worker configuration works through admin and station browser pages (3019.8124ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15737.889

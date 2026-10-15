@@ -1,0 +1,42 @@
+[
+  {
+    "file": "dev/backend/server.js",
+    "serverMatchesLocal": true
+  },
+  {
+    "file": "dev/frontend/admin/js/render.js",
+    "serverMatchesLocal": true
+  },
+  {
+    "file": "dev/frontend/user/js/render.js",
+    "serverMatchesLocal": true
+  },
+  {
+    "file": "dev/backend/src/routes/station-routes.js",
+    "serverMatchesLocal": true
+  },
+  {
+    "file": "dev/backend/src/services/station-service.js",
+    "serverMatchesLocal": true
+  },
+  {
+    "file": "dev/backend/src/services/station-account-service.js",
+    "serverMatchesLocal": true
+  },
+  {
+    "url": "http://shop.taoguoguo.cc/api/health",
+    "status": 200,
+    "redirect": null
+  },
+  {
+    "url": "https://shoptest.taoguoguo.cc/api/health",
+    "error": "ERR_TLS_CERT_ALTNAME_INVALID"
+  },
+  {
+    "url": "https://shop.taoguoguo.cc/api/config",
+    "status": 200,
+    "redirect": null,
+    "retiredFields": [],
+    "testBypassEnabled": true
+  }
+]
