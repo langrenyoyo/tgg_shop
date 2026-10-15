@@ -27,12 +27,15 @@ function login(state, input = {}) {
   const userId = typeof input === "string" ? input : input.userId;
   const password = typeof input === "string" ? "" : input.password;
   const nextUser = userRepository.findById(state, userId);
-  if (!nextUser) return { ok: false, status: 404, error: "用户不存在" };
+  // Do not disclose whether a user id exists. Production users must have an
+  // individual password hash or authenticate through WeChat; the shared demo
+  // password is retained only for isolated local test stores.
+  if (!nextUser) return { ok: false, status: 401, error: "账号或密码错误" };
 
   const locked = assertNotLocked(state, "user", nextUser.id);
   if (!locked.ok) return locked;
 
-  if (!isValidPassword(password)) {
+  if (!verifyUserPassword(nextUser, password)) {
     return recordFailedLogin(state, "user", nextUser.id);
   }
 
@@ -329,6 +332,11 @@ function isValidPassword(password) {
   if (productionLike() && !passwordHash) return false;
   if (passwordHash) return hashPassword(passwordText) === passwordHash;
   return passwordText === String(process.env.TGG_DEMO_PASSWORD || "123456");
+}
+
+function verifyUserPassword(user, password) {
+  if (user?.passwordHash) return verifyAdminPassword(password, user.passwordHash);
+  return !productionLike() && isValidPassword(password);
 }
 
 function hashPassword(password) {

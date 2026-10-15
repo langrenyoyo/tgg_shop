@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, hasUserSession, loginUser, logoutUser } from "./api.js";
 import { renderPage, toast } from "./render.js";
 
 const state = {
@@ -36,52 +36,67 @@ async function safeApi(path, fallback, options) {
   try {
     return await api(path, options);
   } catch (error) {
-    toast(error.message);
+    if (error.code !== "AUTH_REQUIRED") toast(error.message);
     return fallback;
   }
 }
 
 async function loadInitialData() {
-  const [home, config, exchangeProducts, taskTypes, tasks, submissions, orders, invite, pickupSites, deliveryTeams, addresses, pointLedger, payments, ranking, withdrawals, supportTickets, catalogProducts] = await Promise.all([
+  const [home, config, exchangeProducts, taskTypes, tasks, pickupSites, deliveryTeams, catalogProducts] = await Promise.all([
     safeApi("/api/home", {}),
     safeApi("/api/config", {}),
     safeApi("/api/points-exchange", []),
     safeApi("/api/task-types", []),
     safeApi("/api/tasks", []),
-    safeApi("/api/submissions", []),
-    safeApi("/api/orders", []),
-    safeApi("/api/invite/info", null),
     safeApi("/api/pickup-sites", []),
     safeApi("/api/delivery/teams", []),
-    safeApi("/api/addresses", []),
-    safeApi("/api/points-ledger", []),
-    safeApi("/api/payments", []),
-    safeApi("/api/ranking", null),
-    safeApi("/api/withdrawals", []),
-    safeApi("/api/tickets", []),
     safeApi("/api/products", [])
   ]);
+
+  let user = home.user || null;
+  const privateData = {
+    submissions: [], orders: [], invite: null, addresses: [], pointLedger: [],
+    payments: [], ranking: null, withdrawals: [], supportTickets: []
+  };
+  if (hasUserSession()) {
+    user = await safeApi("/api/me", null);
+    if (user) {
+      [privateData.submissions, privateData.orders, privateData.invite, privateData.addresses,
+        privateData.pointLedger, privateData.payments, privateData.ranking, privateData.withdrawals,
+        privateData.supportTickets] = await Promise.all([
+        safeApi("/api/submissions", []),
+        safeApi("/api/orders", []),
+        safeApi("/api/invite/info", null),
+        safeApi("/api/addresses", []),
+        safeApi("/api/points-ledger", []),
+        safeApi("/api/payments", []),
+        safeApi("/api/ranking", null),
+        safeApi("/api/withdrawals", []),
+        safeApi("/api/tickets", [])
+      ]);
+    }
+  }
 
   state.home = home;
   state.config = config;
   const configuredSlots = Array.isArray(config.deliveryTimeSlots) ? config.deliveryTimeSlots : [];
   state.selectedDeliverySlot = configuredSlots[0] || "";
-  state.user = home.user || (await safeApi("/api/me", null));
+  state.user = user;
   state.products = catalogProducts;
   state.exchangeProducts = exchangeProducts;
   state.taskTypes = taskTypes;
   state.tasks = tasks;
-  state.submissions = submissions;
-  state.orders = orders;
-  state.invite = invite;
+  state.submissions = privateData.submissions;
+  state.orders = privateData.orders;
+  state.invite = privateData.invite;
   state.pickupSites = pickupSites;
   state.deliveryTeams = deliveryTeams;
-  state.addresses = addresses;
-  state.pointLedger = pointLedger;
-  state.payments = payments;
-  state.ranking = ranking;
-  state.withdrawals = withdrawals;
-  state.supportTickets = supportTickets;
+  state.addresses = privateData.addresses;
+  state.pointLedger = privateData.pointLedger;
+  state.payments = privateData.payments;
+  state.ranking = privateData.ranking;
+  state.withdrawals = privateData.withdrawals;
+  state.supportTickets = privateData.supportTickets;
   renderPage(state);
 }
 
@@ -458,6 +473,24 @@ function bindGlobalActions() {
     if (refundButton) requestRefund(refundButton.dataset.refund).catch((error) => toast(error.message));
 
     const action = event.target.closest("[data-action]")?.dataset.action;
+    if (action === "logout") {
+      logoutUser().finally(() => {
+        state.user = null;
+        state.submissions = [];
+        state.orders = [];
+        state.invite = null;
+        state.addresses = [];
+        state.pointLedger = [];
+        state.payments = [];
+        state.ranking = null;
+        state.withdrawals = [];
+        state.supportTickets = [];
+        state.page = "profile";
+        state.activeTab = "profile";
+        renderPage(state);
+      });
+      return;
+    }
     if (action === "member" || action === "memberCash") subscribeMember("cash").catch((error) => toast(error.message));
     if (action === "memberPoints") subscribeMember("pure_points").catch((error) => toast(error.message));
     if (action === "withdraw") requestWithdrawal().catch((error) => toast(error.message));
@@ -472,6 +505,20 @@ function bindGlobalActions() {
 
   document.body.addEventListener("submit", (event) => {
     event.preventDefault();
+    const loginForm = event.target.closest("[data-user-login]");
+    if (loginForm) {
+      const fields = new FormData(loginForm);
+      loginUser(fields.get("userId"), fields.get("password"))
+        .then(async (result) => {
+          state.user = result.user || null;
+          await loadInitialData();
+          state.page = "profile";
+          state.activeTab = "profile";
+          renderPage(state);
+        })
+        .catch((error) => toast(error.message));
+      return;
+    }
     const taskForm = event.target.closest("[data-submit-task]");
     if (taskForm) {
       submitTask(taskForm).catch((error) => toast(error.message));

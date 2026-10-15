@@ -28,12 +28,21 @@ function routeStatic(req, res, url) {
   if (url.pathname === "/admin" || url.pathname === "/admin/") return serveFile(res, path.join(ADMIN_DIR, "index.html"), false, ADMIN_STATIC_HEADERS);
   if (url.pathname === "/admin/login" || url.pathname === "/admin/login/") return serveFile(res, path.join(ADMIN_DIR, "index.html"), false, ADMIN_STATIC_HEADERS);
   if (url.pathname === "/station" || url.pathname === "/station/") return serveFile(res, path.join(STATION_DIR, "index.html"));
-  if (url.pathname.startsWith("/user/")) return serveFile(res, path.join(USER_DIR, url.pathname.replace("/user/", "")));
-  if (url.pathname.startsWith("/admin/")) return serveFile(res, path.join(ADMIN_DIR, url.pathname.replace("/admin/", "")), false, ADMIN_STATIC_HEADERS);
-  if (url.pathname.startsWith("/station/")) return serveFile(res, path.join(STATION_DIR, url.pathname.replace("/station/", "")));
-  if (url.pathname.startsWith("/assets/")) return serveFile(res, path.join(ASSETS_DIR, url.pathname.replace("/assets/", "")));
-  if (url.pathname.startsWith("/uploads/")) return serveFile(res, path.join(UPLOADS_DIR, url.pathname.replace("/uploads/", "")), true);
+  if (url.pathname.startsWith("/user/")) return serveResolvedFile(res, USER_DIR, url.pathname.replace("/user/", ""));
+  if (url.pathname.startsWith("/admin/")) return serveResolvedFile(res, ADMIN_DIR, url.pathname.replace("/admin/", ""), false, ADMIN_STATIC_HEADERS);
+  if (url.pathname.startsWith("/station/")) return serveResolvedFile(res, STATION_DIR, url.pathname.replace("/station/", ""));
+  if (url.pathname.startsWith("/assets/")) return serveResolvedFile(res, ASSETS_DIR, url.pathname.replace("/assets/", ""));
+  if (url.pathname.startsWith("/uploads/")) return serveResolvedFile(res, UPLOADS_DIR, url.pathname.replace("/uploads/", ""), true);
   return false;
+}
+
+function serveResolvedFile(res, root, relativePath, uploaded = false, headers = {}) {
+  let decoded;
+  try { decoded = decodeURIComponent(relativePath); } catch { return send(res, 404, { error: "Not found" }); }
+  const rootPath = path.resolve(root);
+  const filePath = path.resolve(rootPath, decoded);
+  if (filePath !== rootPath && !filePath.startsWith(rootPath + path.sep)) return send(res, 404, { error: "Not found" });
+  return serveFile(res, filePath, uploaded, headers);
 }
 
 function serveFile(res, filePath, uploaded = false, headers = {}) {

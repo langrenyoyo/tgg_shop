@@ -17,6 +17,8 @@ function send(res, status, data, headers = {}) {
     "Access-Control-Allow-Headers": "Content-Type,Authorization",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     ...(productionLike() ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
     ...corsHeaders,
@@ -69,8 +71,9 @@ async function readBody(req) {
 
 function publicUser(user) {
   if (!user) return null;
+  const { passwordHash, ...safeUser } = user;
   return {
-    ...user,
+    ...safeUser,
     isMember: isMember(user),
     memberDaysLeft: user.memberUntil
       ? Math.max(0, Math.ceil((new Date(user.memberUntil).getTime() - Date.now()) / 86400000))

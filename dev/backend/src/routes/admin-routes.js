@@ -172,7 +172,7 @@ async function handleAdminRoutes(ctx) {
 
   const productMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
   if (req.method === "PATCH" && productMatch) {
-    const check = adminService.requirePermission(req, state, "product:read");
+    const check = adminService.requirePermission(req, state, "product:write");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
     const result = adminService.updateProduct(state, productMatch[1], await ctx.readBody(req), check);
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.product : { error: result.error });

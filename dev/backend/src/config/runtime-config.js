@@ -5,10 +5,17 @@ function isPlaceholder(value) {
   return /^(replace[-_ ]|your[-_ ]|wx-your|server-only-secret|changeme|secret$|test(?:[-_]|$)|smoke|tgg-shop-dev-auth-secret)/i.test(String(value || "").trim());
 }
 
-function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "production") {
+function validateRuntimeConfig(env = process.env, strict) {
   const errors = [];
   const warnings = [];
   const driver = String(env.TGG_STORE_DRIVER || "json");
+  // A PostgreSQL deployment is a shared/persistent environment even when an
+  // operator accidentally leaves NODE_ENV at staging. Treat it as production
+  // for safety checks so missing payment and credential configuration fails
+  // before the process starts.
+  const strictMode = strict === undefined
+    ? env.NODE_ENV === "production" || driver === "pg"
+    : strict;
 
   const port = Number(env.PORT || 5177);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -16,15 +23,15 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
   }
 
   const authSecret = String(env.TGG_AUTH_SECRET || "").trim();
-  if (strict && authSecret.length < 16) {
+  if (strictMode && authSecret.length < 16) {
     errors.push("TGG_AUTH_SECRET must be at least 16 characters in production");
   }
-  if (strict && isPlaceholder(authSecret)) {
+  if (strictMode && isPlaceholder(authSecret)) {
     errors.push("TGG_AUTH_SECRET must not use a default placeholder in production");
   }
-  if (strict && String(env.TGG_TEST_BYPASS_ENABLED || "") === "1") errors.push("TGG_TEST_BYPASS_ENABLED must be 0 or unset in production");
-  if ((strict || driver === "pg") && String(env.TGG_DEMO_PASSWORD || "").trim()) errors.push("TGG_DEMO_PASSWORD must not be configured with PostgreSQL; provision hashed administrator credentials");
-  if (strict && !String(env.TGG_ADMIN_PASSWORD_HASH || env.TGG_DEMO_PASSWORD_HASH || "").trim()) errors.push("TGG_ADMIN_PASSWORD_HASH or TGG_DEMO_PASSWORD_HASH is required in production");
+  if (strictMode && String(env.TGG_TEST_BYPASS_ENABLED || "") === "1") errors.push("TGG_TEST_BYPASS_ENABLED must be 0 or unset in production");
+  if ((strictMode || driver === "pg") && String(env.TGG_DEMO_PASSWORD || "").trim()) errors.push("TGG_DEMO_PASSWORD must not be configured with PostgreSQL; provision hashed administrator credentials");
+  if (strictMode && !String(env.TGG_ADMIN_PASSWORD_HASH || env.TGG_DEMO_PASSWORD_HASH || "").trim()) errors.push("TGG_ADMIN_PASSWORD_HASH or TGG_DEMO_PASSWORD_HASH is required in production");
 
   const ttlSeconds = Number(env.TGG_AUTH_TOKEN_TTL_SECONDS || 60 * 60 * 8);
   if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
@@ -52,7 +59,7 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
     } else {
       try {
         const url = new URL(pgUrl);
-        if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || url.pathname.length < 2 || (strict && /\.example$|\.invalid$/.test(url.hostname))) throw new Error();
+        if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || url.pathname.length < 2 || (strictMode && /\.example$|\.invalid$/.test(url.hostname))) throw new Error();
       } catch { errors.push("TGG_PG_URL or DATABASE_URL must be a PostgreSQL connection URL with a database name"); }
     }
     const schema = String(env.TGG_PG_SCHEMA || "public").trim();
@@ -61,21 +68,21 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
     }
   }
 
-  if (strict && driver !== "pg") {
+  if (strictMode && driver !== "pg") {
     errors.push("TGG_STORE_DRIVER must be pg in production");
   }
 
   const corsOrigins = String(env.TGG_CORS_ORIGIN || "").split(",").map(item => item.trim()).filter(Boolean);
-  if (strict && corsOrigins.length === 0) errors.push("TGG_CORS_ORIGIN must contain at least one HTTPS origin in production");
-  if (strict && corsOrigins.includes("*")) errors.push("TGG_CORS_ORIGIN must list explicit HTTPS origins in production");
+  if (strictMode && corsOrigins.length === 0) errors.push("TGG_CORS_ORIGIN must contain at least one HTTPS origin in production");
+  if (strictMode && corsOrigins.includes("*")) errors.push("TGG_CORS_ORIGIN must list explicit HTTPS origins in production");
   for (const origin of corsOrigins) {
     try {
       const url = new URL(origin);
       if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error();
     } catch { errors.push("TGG_CORS_ORIGIN must contain explicit HTTPS origins without paths or credentials"); break; }
   }
-  if (strict && String(env.TGG_ENFORCE_HTTPS || "1") !== "1") errors.push("TGG_ENFORCE_HTTPS must be 1 in production");
-  if (strict) {
+  if (strictMode && String(env.TGG_ENFORCE_HTTPS || "1") !== "1") errors.push("TGG_ENFORCE_HTTPS must be 1 in production");
+  if (strictMode) {
     try {
       const publicOrigin = new URL(String(env.TGG_PUBLIC_ORIGIN || corsOrigins[0] || ""));
       if (publicOrigin.protocol !== "https:" || publicOrigin.pathname !== "/" || publicOrigin.search || publicOrigin.hash) throw new Error();
@@ -88,7 +95,7 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
   }
   const taskKeys = ["TGG_TASK_PLATFORM_BASE_URL", "TGG_TASK_PLATFORM_APPID", "TGG_TASK_PLATFORM_KEY"];
   const taskConfigured = taskKeys.map(key => Boolean(String(env[key] || "").trim()));
-  if (strict || taskConfigured.some(Boolean)) {
+  if (strictMode || taskConfigured.some(Boolean)) {
     for (let index = 0; index < taskKeys.length; index++) if (!taskConfigured[index]) errors.push(`${taskKeys[index]} is required for the task platform; production must not fall back to local mock tasks`);
   }
   if (taskConfigured[0]) {
@@ -105,11 +112,11 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
   } catch {
     errors.push("TGG_TASK_PLATFORM_TIME_ZONE must be a valid IANA time zone");
   }
-  if (strict && callbackToken.length < 24) errors.push("TGG_TASK_CALLBACK_TOKEN must be at least 24 characters in production");
-  if (strict && isPlaceholder(callbackToken)) errors.push("TGG_TASK_CALLBACK_TOKEN must not use a placeholder in production");
-  if (!strict && !callbackToken) warnings.push("Task callback endpoint is disabled until TGG_TASK_CALLBACK_TOKEN is configured");
+  if (strictMode && callbackToken.length < 24) errors.push("TGG_TASK_CALLBACK_TOKEN must be at least 24 characters in production");
+  if (strictMode && isPlaceholder(callbackToken)) errors.push("TGG_TASK_CALLBACK_TOKEN must not use a placeholder in production");
+  if (!strictMode && !callbackToken) warnings.push("Task callback endpoint is disabled until TGG_TASK_CALLBACK_TOKEN is configured");
 
-  if (strict) {
+  if (strictMode) {
     const required = key => {
       if (!String(env[key] || "").trim() || isPlaceholder(env[key])) errors.push(`${key} requires a real production value`);
     };

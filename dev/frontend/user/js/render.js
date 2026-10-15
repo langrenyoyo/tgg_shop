@@ -420,6 +420,19 @@ function addressView(state) {
 }
 
 function profileView(state) {
+  if (!state.user) {
+    return `
+      <section class="notice">
+        <strong>请先登录</strong>
+        <p>登录后才能查看订单、积分、地址和个人服务。</p>
+      </section>
+      <form class="form" style="margin-top:12px" data-user-login>
+        <input name="userId" autocomplete="username" placeholder="用户账号" required />
+        <input name="password" type="password" autocomplete="current-password" placeholder="密码" required />
+        <button type="submit" class="primary">登录</button>
+      </form>
+    `;
+  }
   const user = state.user || {};
   const memberActive = isMemberUser(user);
   const memberDaysLeft = getMemberDaysLeft(user);
@@ -442,6 +455,7 @@ function profileView(state) {
       ${profileButton("business", "商务合作")}
       ${profileButton("recruiting", "招聘岗位")}
     </section>
+    <button type="button" class="secondary" style="width:100%;margin-top:12px" data-action="logout">退出登录</button>
   `;
 }
 
