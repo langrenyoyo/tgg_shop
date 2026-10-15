@@ -2,6 +2,7 @@ const { publicRole, requireAdminPermission, resolveAdmin } = require("../domain/
 const { createException, resolveException } = require("../domain/exception-rules");
 const { verifyPickup, shipOrder, deliverOrder, createDeliveryException } = require("../domain/fulfillment-rules");
 const { approveRefund } = require("../domain/refund-rules");
+const refundService = require("./refund-service");
 const { mockOperationsEnabled } = require("../config/runtime-safety");
 const { handleTaskCallback } = require("../domain/task-callback-rules");
 const { nextId, saveState } = require("../data/store");
@@ -1176,7 +1177,10 @@ function requestApproval(state, input, actor = {}) {
 }
 
 function approveRefundOrder(state, refundId, actor = {}, reason = "") {
-  const result = approveRefund(state, refundId);
+  const refund = refundRepository.findById(state, refundId);
+  const result = refund?.refundCashAmount > 0 && !mockOperationsEnabled()
+    ? refundService.prepareRefundApproval(state, refundId)
+    : approveRefund(state, refundId);
   if (result.ok) {
     logOperation(state, actor, "refund.approve", "refund", refundId, {
       orderId: result.refundOrder?.orderId,

@@ -85,6 +85,7 @@ function requiresUserAuth(req, url) {
   if (req.method === "GET" && /^\/api\/products\/[^/]+$/.test(url.pathname)) return false;
   if (req.method === "GET" && /^\/api\/tasks\/[^/]+$/.test(url.pathname)) return false;
   if (req.method === "POST" && url.pathname === "/api/payment-providers/lfwin/notify") return false;
+  if (req.method === "POST" && ["/api/payment/lfwin/refund-notify", "/api/payment-providers/lfwin/refund-notify"].includes(url.pathname)) return false;
   if (req.method === "POST" && url.pathname === "/api/task/callback") return false;
   if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") return false;
   if (req.method === "POST" && url.pathname === "/api/pospal/callback") return false;

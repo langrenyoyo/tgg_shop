@@ -62,7 +62,7 @@ function createRefundRequest(state, userId, orderId, reason = "用户申请退�
   return { ok: true, refundOrder };
 }
 
-function approveRefund(state, refundId) {
+function approveRefund(state, refundId, options = {}) {
   const refundOrder = refundRepository.findById(state, refundId);
   if (!refundOrder) return { ok: false, status: 404, error: "退款单不存在" };
   if (refundOrder.status === "refunded") {
@@ -74,7 +74,7 @@ function approveRefund(state, refundId) {
     };
   }
   if (refundOrder.status !== "pending_review") return { ok: false, status: 400, error: "退款单状态不允许审批" };
-  if (refundOrder.refundCashAmount > 0 && !mockOperationsEnabled()) {
+  if (refundOrder.refundCashAmount > 0 && !mockOperationsEnabled() && !options.providerConfirmed) {
     return { ok: false, status: 503, error: "生产环境尚未配置真实退款通道，不能用模拟退款入账" };
   }
 
@@ -198,5 +198,10 @@ function shouldRestoreStock(order) {
 
 module.exports = {
   createRefundRequest,
-  approveRefund
+  approveRefund,
+  settleProviderRefund(state, refundId) {
+    const refundOrder = refundRepository.findById(state, refundId);
+    if (refundOrder && refundOrder.status !== "pending_review") refundOrder.status = "pending_review";
+    return approveRefund(state, refundId, { providerConfirmed: true });
+  }
 };

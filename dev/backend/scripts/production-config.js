@@ -52,7 +52,7 @@ function check() {
   }
   report.ok = report.errors.length === 0;
   report.scope = "Offline configuration only; credentials, connectivity and business acceptance are not verified";
-  report.remainingAcceptance = ["WeChat real-device login/payment", "Task submission/review/callback points", "Production cash refunds are still disabled", "Production ad rewards are still disabled", "Provider reconciliation and database recovery"];
+  report.remainingAcceptance = ["WeChat real-device login/payment", "Task submission/review/callback points", "LFWin cash refund provider acceptance and signed callback", "Production ad rewards are still disabled", "Provider reconciliation and database recovery"];
   console.log(JSON.stringify(report, null, 2));
   if (!report.ok) process.exitCode = 1;
 }

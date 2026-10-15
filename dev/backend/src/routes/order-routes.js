@@ -6,6 +6,11 @@ const { isolatedNonProduction } = require("../config/runtime-safety");
 
 async function handleOrderRoutes(ctx) {
   const { req, url, state, user, send, readBody, publicUser } = ctx;
+  if (req.method === "POST" && ["/api/payment/lfwin/refund-notify", "/api/payment-providers/lfwin/refund-notify"].includes(url.pathname)) {
+    const result = orderService.handleLfwinRefundNotification(state, await readBody(req));
+    if (result.ok) await saveState();
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? "success" : "fail", { "Content-Type": "text/plain; charset=utf-8" });
+  }
 
   const ownedOrderMatch = url.pathname.match(/^\/api\/orders\/([^/]+)(?:\/(pay|payments|refunds|cancel|receive))?$/);
   if (ownedOrderMatch && !state.orders.some(order => order.id === ownedOrderMatch[1] && order.userId === user.id)) return send(ctx.res, 404, { error: "订单不存在" });

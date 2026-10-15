@@ -3,6 +3,7 @@ const { createRefundRequest } = require("../domain/refund-rules");
 const orderRepository = require("../repositories/order-repository");
 const paymentService = require("./payment-service");
 const { mockOperationsEnabled } = require("../config/runtime-safety");
+const refundService = require("./refund-service");
 
 function subscribeMember(state, user, input = {}) {
   const paymentResult = paymentService.createMemberPayment(state, user, input);
@@ -85,6 +86,10 @@ function handleLfwinPaymentNotification(state, payload) {
   return paymentService.applyLfwinPaymentNotification(state, payload);
 }
 
+function handleLfwinRefundNotification(state, payload) {
+  return refundService.handleRefundNotification(state, payload);
+}
+
 function requestRefund(state, userId, orderId, reason) {
   return createRefundRequest(state, userId, orderId, reason);
 }
@@ -101,5 +106,6 @@ module.exports = {
   queryLfwinPayment,
   closeLfwinPayment,
   handleLfwinPaymentNotification,
+  handleLfwinRefundNotification,
   requestRefund
 };

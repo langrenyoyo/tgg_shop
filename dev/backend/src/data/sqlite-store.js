@@ -42,6 +42,7 @@ function runMigrations(database) {
   ensureAuthSessionColumns(database);
   ensureAuthSessionTypes(database);
   ensurePaymentOrderColumns(database);
+  ensureRefundColumns(database);
   ensureWithdrawalColumns(database);
   const userColumns = new Set(database.prepare("PRAGMA table_info(app_user)").all().map(column => column.name));
   if (!userColumns.has("wechat_openid")) database.exec("ALTER TABLE app_user ADD COLUMN wechat_openid TEXT;");
@@ -94,6 +95,14 @@ function ensurePaymentOrderColumns(database) {
   if (!columns.has("metadata_json")) database.exec("ALTER TABLE payment_order ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}';");
   if (!columns.has("callback_time")) database.exec("ALTER TABLE payment_order ADD COLUMN callback_time TEXT;");
   if (!columns.has("updated_at")) database.exec("ALTER TABLE payment_order ADD COLUMN updated_at TEXT;");
+}
+
+function ensureRefundColumns(database) {
+  const columns = new Set(database.prepare("PRAGMA table_info(refund_order)").all().map(column => column.name));
+  if (!columns.has("metadata_json")) database.exec("ALTER TABLE refund_order ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}';");
+  const sql = String(database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'refund_order'").get()?.sql || "");
+  if (sql.includes("'unknown'") && sql.includes("'sending'")) return;
+  database.exec("PRAGMA foreign_keys = OFF; BEGIN; CREATE TABLE refund_order_v2 (id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES shop_order(id), user_id TEXT NOT NULL REFERENCES app_user(id), refund_cash_amount_cents INTEGER NOT NULL DEFAULT 0 CHECK (refund_cash_amount_cents >= 0), refund_point_amount INTEGER NOT NULL DEFAULT 0 CHECK (refund_point_amount >= 0), status TEXT NOT NULL CHECK (status IN ('pending_review', 'approved', 'rejected', 'refunding', 'refunded', 'failed', 'unknown', 'sending')), reason TEXT, metadata_json TEXT NOT NULL DEFAULT '{}', idempotency_key TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP); INSERT INTO refund_order_v2 SELECT id, order_id, user_id, refund_cash_amount_cents, refund_point_amount, status, reason, metadata_json, idempotency_key, created_at, updated_at FROM refund_order; DROP TABLE refund_order; ALTER TABLE refund_order_v2 RENAME TO refund_order; COMMIT; PRAGMA foreign_keys = ON;");
 }
 
 function readState(database) {
@@ -391,7 +400,7 @@ function readState(database) {
 
   const refundOrders = database
     .prepare(
-      "SELECT id, order_id, user_id, refund_cash_amount_cents, refund_point_amount, status, reason, idempotency_key, created_at, updated_at FROM refund_order ORDER BY created_at DESC"
+      "SELECT id, order_id, user_id, refund_cash_amount_cents, refund_point_amount, status, reason, metadata_json, idempotency_key, created_at, updated_at FROM refund_order ORDER BY created_at DESC"
     )
     .all()
     .map((row) => ({
@@ -402,6 +411,7 @@ function readState(database) {
       refundPointAmount: row.refund_point_amount,
       status: row.status,
       reason: row.reason,
+      ...parseJsonValue(row.metadata_json, {}),
       idempotencyKey: row.idempotency_key,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -898,7 +908,7 @@ function insertState(database, state) {
   }
 
   const insertRefund = database.prepare(
-    "INSERT INTO refund_order (id, order_id, user_id, refund_cash_amount_cents, refund_point_amount, status, reason, idempotency_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO refund_order (id, order_id, user_id, refund_cash_amount_cents, refund_point_amount, status, reason, metadata_json, idempotency_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const item of state.refundOrders) {
     insertRefund.run(
@@ -909,6 +919,17 @@ function insertState(database, state) {
       item.refundPointAmount || 0,
       item.status,
       item.reason || null,
+      JSON.stringify({
+        merchantRefundNo: item.merchantRefundNo || null,
+        providerOrderNo: item.providerOrderNo || null,
+        providerMerchantOrderNo: item.providerMerchantOrderNo || null,
+        providerRefundNo: item.providerRefundNo || null,
+        providerStatus: item.providerStatus || null,
+        providerErrorMessage: item.providerErrorMessage || null,
+        approvedAt: item.approvedAt || null,
+        submittedAt: item.submittedAt || null,
+        lastQueryAt: item.lastQueryAt || null
+      }),
       item.idempotencyKey,
       item.createdAt || new Date().toISOString(),
       item.updatedAt || item.createdAt || new Date().toISOString()

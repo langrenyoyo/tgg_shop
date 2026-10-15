@@ -172,8 +172,9 @@ CREATE TABLE IF NOT EXISTS refund_order (
   user_id TEXT NOT NULL REFERENCES app_user(id),
   refund_cash_amount_cents INTEGER NOT NULL DEFAULT 0 CHECK (refund_cash_amount_cents >= 0),
   refund_point_amount INTEGER NOT NULL DEFAULT 0 CHECK (refund_point_amount >= 0),
-  status TEXT NOT NULL CHECK (status IN ('pending_review', 'approved', 'rejected', 'refunding', 'refunded', 'failed')),
+  status TEXT NOT NULL CHECK (status IN ('pending_review', 'approved', 'rejected', 'refunding', 'refunded', 'failed', 'unknown', 'sending')),
   reason TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
   idempotency_key TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

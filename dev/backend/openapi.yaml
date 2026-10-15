@@ -3050,6 +3050,73 @@ paths:
         "403":
           description: Missing refund approval permission
 
+  /api/admin/refunds/{refundId}/submit-provider:
+    post:
+      tags: [Admin]
+      summary: Submit an approved cash refund to LFWin
+      description: Requires refund:approve permission. The local cash ledger is not written until a verified provider success result is received.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RefundId"
+      responses:
+        "200":
+          description: Submitted or already settled
+        "409":
+          description: Submission result is unknown and must be queried
+        "502":
+          description: Provider request failed or returned an invalid result
+
+  /api/admin/refunds/{refundId}/query-provider:
+    post:
+      tags: [Admin]
+      summary: Query an LFWin refund
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RefundId"
+      responses:
+        "200":
+          description: Provider result synchronized
+        "502":
+          description: Provider query failed
+
+  /api/admin/refunds/{refundId}/retry-provider:
+    post:
+      tags: [Admin]
+      summary: Retry a definitively failed LFWin refund
+      description: A refund marked unknown cannot be retried; query the provider first.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RefundId"
+      responses:
+        "200":
+          description: Retry submitted
+        "409":
+          description: Refund result is ambiguous or not retryable
+
+  /api/payment/lfwin/refund-notify:
+    post:
+      tags: [Provider]
+      summary: Receive a signed LFWin refund notification
+      description: Public callback endpoint. LFWin signature, merchant identity, provider identity, and refund amount are required.
+      responses:
+        "200":
+          description: success
+        "400":
+          description: Invalid signature, identity, amount, or status
+
+  /api/payment-providers/lfwin/refund-notify:
+    post:
+      tags: [Provider]
+      summary: Compatibility route for signed LFWin refund notifications
+      responses:
+        "200":
+          description: success
+        "400":
+          description: Invalid notification
+
 components:
   securitySchemes:
     UserBearerAuth:

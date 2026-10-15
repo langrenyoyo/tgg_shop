@@ -4,6 +4,7 @@ const withdrawalService = require("../services/withdrawal-service");
 const refundReturns = require("../services/refund-return-service");
 const taskReconciliation = require("../services/task-reconciliation-service");
 const accountService = require("../services/account-service");
+const refundService = require("../services/refund-service");
 
 async function handleAdminRoutes(ctx) {
   const { req, url, state, send } = ctx;
@@ -263,6 +264,13 @@ async function handleAdminRoutes(ctx) {
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
     const body = await ctx.readBody(req);
     const result = adminService.approveApprovalRequest(state, approveApprovalMatch[1], check, body.reason);
+    if (result.ok && result.result?.awaitingProvider && result.approvalRequest?.action === "refund.approve") {
+      const submission = await refundService.submitRefund(state, result.approvalRequest.targetId);
+      result.result = { ...result.result, providerSubmission: submission };
+      result.approvalRequest.result = result.result;
+      await require("../data/store").saveState();
+      if (!submission.ok) return send(ctx.res, submission.status || 502, { error: submission.error, approvalRequest: result.approvalRequest, result: result.result });
+    }
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.approvalRequest : { error: result.error, approvalRequest: result.approvalRequest });
   }
 
@@ -389,6 +397,17 @@ async function handleAdminRoutes(ctx) {
     const check = adminService.requirePermission(req, state, "refund:approve");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
     return send(ctx.res, 409, { error: "退款通过属于敏感财务操作，请先提交二级审批", action: "refund.approve", targetId: approveRefundMatch[1] });
+  }
+  const refundProviderMatch = url.pathname.match(/^\/api\/admin\/refunds\/([^/]+)\/(submit-provider|query-provider|retry-provider)$/);
+  if (req.method === "POST" && refundProviderMatch) {
+    const check = adminService.requirePermission(req, state, "refund:approve");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const refundId = refundProviderMatch[1];
+    const action = refundProviderMatch[2];
+    const result = action === "query-provider"
+      ? await refundService.queryRefund(state, refundId)
+      : await refundService.submitRefund(state, refundId, { retry: action === "retry-provider" });
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result : { error: result.error, refundOrder: result.refundOrder });
   }
 
   return false;
