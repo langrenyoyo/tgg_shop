@@ -50,19 +50,21 @@ test("malformed administrator hashes fail closed without throwing", () => {
   }
 });
 
-test("PostgreSQL staging rejects the shared user password fallback", t => {
+test("PostgreSQL staging rejects fallback credentials and secrets", t => {
   const previous = {
     NODE_ENV: process.env.NODE_ENV,
     TGG_STORE_DRIVER: process.env.TGG_STORE_DRIVER,
     TGG_STORE_MODE: process.env.TGG_STORE_MODE,
     TGG_DEMO_PASSWORD: process.env.TGG_DEMO_PASSWORD,
-    TGG_DEMO_PASSWORD_HASH: process.env.TGG_DEMO_PASSWORD_HASH
+    TGG_DEMO_PASSWORD_HASH: process.env.TGG_DEMO_PASSWORD_HASH,
+    TGG_AUTH_SECRET: process.env.TGG_AUTH_SECRET
   };
   process.env.NODE_ENV = "staging";
   process.env.TGG_STORE_DRIVER = "pg";
   process.env.TGG_STORE_MODE = "memory";
   delete process.env.TGG_DEMO_PASSWORD;
   delete process.env.TGG_DEMO_PASSWORD_HASH;
+  delete process.env.TGG_AUTH_SECRET;
   t.after(() => {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
@@ -72,5 +74,6 @@ test("PostgreSQL staging rejects the shared user password fallback", t => {
 
   const state = createSeed();
   const result = auth.login(state, { userId: state.users[0].id, password: "123456" });
-  assert.equal(result.ok, false);
+  assert.deepEqual({ ok: result.ok, status: result.status }, { ok: false, status: 503 });
+  assert.equal(state.authSessions?.length || 0, 0);
 });

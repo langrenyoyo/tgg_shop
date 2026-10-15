@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const { ensureAdminUsers, effectiveRole, publicAdmin, verifyAdminPassword, hashAdminPassword } = require("../domain/admin-accounts");
 const { publicStation } = require("../domain/station-accounts");
 const { nextId, saveState } = require("../data/store");
-const { productionLike } = require("../config/runtime-safety");
+const { authSecret, productionLike } = require("../config/runtime-safety");
 const { getBearerToken, issueToken, publicRole, verifyToken } = require("../domain/auth");
 const { publicUser } = require("../http/http-utils");
 const userRepository = require("../repositories/user-repository");
@@ -15,7 +15,15 @@ function getCurrentUser(user) {
   return publicUser(user);
 }
 
+function authenticationUnavailable() {
+  return productionLike() && !authSecret()
+    ? { ok: false, status: 503, error: "服务端认证密钥未配置" }
+    : null;
+}
+
 function login(state, input = {}) {
+  const unavailable = authenticationUnavailable();
+  if (unavailable) return unavailable;
   const userId = typeof input === "string" ? input : input.userId;
   const password = typeof input === "string" ? "" : input.password;
   const nextUser = userRepository.findById(state, userId);
@@ -39,6 +47,8 @@ function login(state, input = {}) {
 }
 
 async function wechatLogin(state, input = {}) {
+  const unavailable = authenticationUnavailable();
+  if (unavailable) return unavailable;
   const session = await exchangeWechatCode(input.code);
   if (!session.ok) return session;
   const data = session.data;
@@ -71,6 +81,8 @@ async function wechatLogin(state, input = {}) {
 }
 
 async function stationWechatLogin(state, input = {}) {
+  const unavailable = authenticationUnavailable();
+  if (unavailable) return unavailable;
   const session = await exchangeWechatCode(input.code);
   if (!session.ok) return session;
   const account = (state.stationAccounts || []).find((item) => item.wechatOpenid === session.data.openid);
@@ -116,6 +128,8 @@ async function exchangeWechatCode(rawCode) {
 }
 
 function adminLogin(state, input = {}) {
+  const unavailable = authenticationUnavailable();
+  if (unavailable) return unavailable;
   const identity = String(input.username || input.adminId || input.roleId || "").trim();
   const account = ensureAdminUsers(state).find(item => item.username.toLowerCase() === identity.toLowerCase() || item.id === identity);
   if (!account || account.status !== "active") return { ok: false, status: 401, error: "账号或密码错误" };
@@ -138,6 +152,8 @@ function adminLogin(state, input = {}) {
 }
 
 function stationLogin(state, input = {}) {
+  const unavailable = authenticationUnavailable();
+  if (unavailable) return unavailable;
   const identity = String(input.username || input.accountId || "").trim();
   const account = (state.stationAccounts || []).find((item) => item.id === identity || item.username.toLowerCase() === identity.toLowerCase());
   if (!account || account.status !== "active") return { ok: false, status: 401, error: "站点账号或密码错误" };
@@ -167,6 +183,8 @@ function logout(state, req) {
 }
 
 function refresh(state, input = {}, expectedType) {
+  const unavailable = authenticationUnavailable();
+  if (unavailable) return unavailable;
   const refreshToken = String(input.refreshToken || "");
   if (!refreshToken) return { ok: false, status: 401, error: "刷新令牌不能为空" };
   const refreshTokenHash = hashRefreshToken(refreshToken);
@@ -249,7 +267,9 @@ function createRefreshToken() {
 }
 
 function hashRefreshToken(token) {
-  return crypto.createHmac("sha256", process.env.TGG_AUTH_SECRET || "tgg-shop-dev-auth-secret").update(String(token)).digest("hex");
+  const secret = authSecret();
+  if (!secret) return "";
+  return crypto.createHmac("sha256", secret).update(String(token)).digest("hex");
 }
 
 function refreshExpiresAt() {

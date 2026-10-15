@@ -28,11 +28,17 @@ function taskCallbackToken(env = process.env) {
   return String(env.TGG_TASK_CALLBACK_TOKEN || env.TGG_TASK_CALLBACK_SECRET || "").trim();
 }
 
+function authSecret(env = process.env) {
+  const configured = String(env.TGG_AUTH_SECRET || "").trim();
+  return configured || (productionLike(env) ? "" : "tgg-shop-dev-auth-secret");
+}
+
 module.exports = {
   isIsolatedStore,
   mockOperationsEnabled,
   isolatedNonProduction,
   productionLike,
   cashPaymentsEnabled,
-  taskCallbackToken
+  taskCallbackToken,
+  authSecret
 };

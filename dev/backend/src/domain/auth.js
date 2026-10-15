@@ -1,10 +1,11 @@
 const crypto = require("node:crypto");
 const { ensureAdminUsers, effectiveRole } = require("./admin-accounts");
+const { authSecret } = require("../config/runtime-safety");
 
 const TOKEN_TTL_SECONDS = Number(process.env.TGG_AUTH_TOKEN_TTL_SECONDS || 60 * 60 * 8);
-const AUTH_SECRET = process.env.TGG_AUTH_SECRET || "tgg-shop-dev-auth-secret";
 
 function issueToken(subject) {
+  if (!authSecret()) throw Object.assign(new Error("认证密钥未配置"), { status: 503 });
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     ...subject,
@@ -131,7 +132,9 @@ function base64UrlDecode(value) {
 }
 
 function sign(value) {
-  return crypto.createHmac("sha256", AUTH_SECRET).update(value).digest("base64url");
+  const secret = authSecret();
+  if (!secret) return "";
+  return crypto.createHmac("sha256", secret).update(value).digest("base64url");
 }
 
 function safeEqual(a, b) {
