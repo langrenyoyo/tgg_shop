@@ -7,17 +7,23 @@ function hashAdminPassword(password) {
 
 function verifyAdminPassword(password, hash) {
   if (typeof password !== "string" || password.length > 128) return false;
-  let actual;
-  let expected;
-  if (hash?.startsWith("scrypt:")) {
-    const [, salt, digest] = hash.split(":");
-    actual = crypto.scryptSync(password, salt, 32);
-    expected = Buffer.from(digest || "", "hex");
-  } else {
-    actual = crypto.scryptSync(password, process.env.TGG_PASSWORD_SALT || "tgg-shop-dev-password-salt", 32);
-    expected = Buffer.from(hash || "", "hex");
+  try {
+    let actual;
+    let expected;
+    if (hash?.startsWith("scrypt:")) {
+      const parts = hash.split(":");
+      if (parts.length !== 3 || !/^[a-f0-9]{32}$/i.test(parts[1]) || !/^[a-f0-9]{64}$/i.test(parts[2])) return false;
+      actual = crypto.scryptSync(password, parts[1], 32);
+      expected = Buffer.from(parts[2], "hex");
+    } else {
+      if (!/^[a-f0-9]{64}$/i.test(String(hash || ""))) return false;
+      actual = crypto.scryptSync(password, process.env.TGG_PASSWORD_SALT || "tgg-shop-dev-password-salt", 32);
+      expected = Buffer.from(hash, "hex");
+    }
+    return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  } catch {
+    return false;
   }
-  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
 function configuredAdminPasswordHash() {

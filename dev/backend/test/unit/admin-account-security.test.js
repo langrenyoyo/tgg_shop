@@ -40,3 +40,10 @@ test("a provisioned production hash unlocks an account previously scrubbed by st
   assert.equal(account.passwordHash, configuredHash);
   assert.equal(accounts.verifyAdminPassword("a-real-provisioned-password", account.passwordHash), true);
 });
+
+test("malformed administrator hashes fail closed without throwing", () => {
+  for (const hash of ["", "broken", "scrypt:", "scrypt:bad:digest", "scrypt:0123456789abcdef0123456789abcdef:bad", "a".repeat(10000)]) {
+    assert.doesNotThrow(() => accounts.verifyAdminPassword("password", hash));
+    assert.equal(accounts.verifyAdminPassword("password", hash), false);
+  }
+});
