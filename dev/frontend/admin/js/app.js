@@ -1,4 +1,4 @@
-import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin, isAdminLoginPage, hasAdminSession } from "./api.js";
+import { api, getAdminRole, safeApi, retryApprovalIntent, loginAdmin, logoutAdmin, isAdminLoginPage, hasAdminSession, ADMIN_LOGIN_PATH } from "./api.js";
 import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
@@ -63,8 +63,17 @@ const state = {
   identity: null,
   role: getAdminRole()
 };
+let dashboardLoadSequence = 0;
 
 async function loadDashboard() {
+  const loadSequence = ++dashboardLoadSequence;
+  if (!hasAdminSession() && !isAdminLoginPage()) {
+    state.identity = null;
+    state.loading = false;
+    renderAdminPage(state);
+    if (typeof window.location?.replace === "function") window.location.replace(ADMIN_LOGIN_PATH);
+    return false;
+  }
   if (isAdminLoginPage() && !hasAdminSession()) {
     state.identity = null;
     state.loading = false;
@@ -73,6 +82,7 @@ async function loadDashboard() {
     return false;
   }
   const identity = await safeApi("/api/admin/auth/me", null);
+  if (loadSequence !== dashboardLoadSequence) return false;
   state.identity = identity.ok ? identity.data : null;
   if (!state.identity) {
     state.loading = false;
@@ -110,6 +120,7 @@ async function loadDashboard() {
     safeApi("/api/admin/permissions/catalog", [])
   ]);
 
+  if (loadSequence !== dashboardLoadSequence) return false;
   if (!state.identity) {
     state.loading = false;
     renderAdminPage(state);
@@ -1359,6 +1370,7 @@ function exportDashboardCsv() {
 
 renderAdminPage(state);
 window.addEventListener("tgg-admin-auth-expired", () => {
+  dashboardLoadSequence += 1;
   state.identity = null;
   state.loading = false;
   state.loginError = "登录已失效，请重新登录";

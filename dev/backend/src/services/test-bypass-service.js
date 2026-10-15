@@ -2,9 +2,10 @@ const { saveState, nextId } = require("../data/store");
 const paymentService = require("./payment-service");
 const userRepository = require("../repositories/user-repository");
 const ledgerRepository = require("../repositories/ledger-repository");
+const { mockOperationsEnabled } = require("../config/runtime-safety");
 
 function enabled(env = process.env) {
-  return env.NODE_ENV !== "production" && String(env.TGG_TEST_BYPASS_ENABLED || "") === "1";
+  return mockOperationsEnabled(env);
 }
 
 function settlePayment(state, user, payNo) {
@@ -34,7 +35,7 @@ function completeWithdrawal(state, user, withdrawalId) {
       userId: withdrawal.userId,
       changeType: "withdraw_payout",
       direction: "out",
-      amount: withdrawal.amount,
+      amount: withdrawal.arrivalAmount ?? withdrawal.amount,
       balanceAfter: owner?.withdrawableBalance || 0,
       bizNo: withdrawal.id,
       idempotencyKey: payoutKey,

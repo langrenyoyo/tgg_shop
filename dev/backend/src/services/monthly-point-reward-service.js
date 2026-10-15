@@ -1,5 +1,6 @@
 const { nextId, saveState } = require("../data/store");
 const ledgerRepository = require("../repositories/ledger-repository");
+const { getMonthRange: getZonedMonthRange, toMonthKey: toZonedMonthKey, getPreviousMonthKey: getZonedPreviousMonthKey, getLocalTime } = require("../time-zone");
 
 const DEFAULT_RULES = [
   { threshold: 500, rewardPoints: 100 },
@@ -77,6 +78,9 @@ function settleMonthlyPointRewards(state, options = {}) {
     return { ok: true, appliedCount: 0, months: [], reason: normalizeReason(options.reason), disabled: true };
   }
   const now = options.now ? new Date(options.now) : new Date();
+  if (!isSettlementDue(state, now)) {
+    return { ok: true, appliedCount: 0, months: [], reason: normalizeReason(options.reason), deferred: true };
+  }
   const cutoffMonthKey = getPreviousMonthKey(now);
   const rules = getMonthlyPointRewardRules(state);
   const result = {
@@ -267,10 +271,7 @@ function findMatchedRule(rules, totalPoints) {
 }
 
 function getMonthRange(monthKey) {
-  const [year, month] = monthKey.split("-").map((item) => Number(item));
-  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
-  return { start, end };
+  return getZonedMonthRange(monthKey, "Asia/Shanghai");
 }
 
 function inMonthRange(value, monthRange) {
@@ -279,18 +280,20 @@ function inMonthRange(value, monthRange) {
 }
 
 function toMonthKey(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  return toZonedMonthKey(value, "Asia/Shanghai");
 }
 
 function getPreviousMonthKey(date = new Date()) {
-  const current = new Date(date);
-  const year = current.getUTCFullYear();
-  const month = current.getUTCMonth();
-  const previous = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
-  previous.setUTCMonth(previous.getUTCMonth() - 1);
-  return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, "0")}`;
+  return getZonedPreviousMonthKey(date, "Asia/Shanghai");
+}
+
+function isSettlementDue(state, now) {
+  const timeZone = state?.config?.deliveryTimeZone || "Asia/Shanghai";
+  const local = getLocalTime(now, timeZone);
+  if (local.day !== 1) return true;
+  const hour = Math.min(23, Math.max(0, Math.trunc(Number(state.config.monthlyPointRewardSettlementHour ?? 0))));
+  const minute = Math.min(59, Math.max(0, Math.trunc(Number(state.config.monthlyPointRewardSettlementMinute ?? 0))));
+  return local.hour > hour || (local.hour === hour && local.minute >= minute);
 }
 
 function normalizeMonthKey(value) {

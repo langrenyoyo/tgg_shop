@@ -2,11 +2,13 @@ const { createOrder } = require("../domain/rules");
 const { createRefundRequest } = require("../domain/refund-rules");
 const orderRepository = require("../repositories/order-repository");
 const paymentService = require("./payment-service");
+const { mockOperationsEnabled } = require("../config/runtime-safety");
 
 function subscribeMember(state, user, input = {}) {
   const paymentResult = paymentService.createMemberPayment(state, user, input);
   if (!paymentResult.ok) return paymentResult;
   if (input.autoPay === false) return paymentResult;
+  if (!mockOperationsEnabled()) return { ...paymentResult, pendingProviderPayment: true };
 
   const callbackResult = paymentService.mockPaymentCallback(state, paymentResult.payment.payNo, {
     status: "paid",
@@ -42,6 +44,7 @@ function createOrderPayment(state, orderId, input = {}) {
 }
 
 function submitPayment(state, orderId, input = {}) {
+  if (!mockOperationsEnabled()) return { ok: false, status: 503, error: "当前环境禁止模拟支付，请使用已配置的真实支付渠道" };
   const paymentResult = createOrderPayment(state, orderId, input);
   if (!paymentResult.ok) return paymentResult;
 

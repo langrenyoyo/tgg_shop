@@ -75,6 +75,7 @@ Page({
         paymentMode: mode, fulfillmentType: this.data.fulfillmentType,
         pickupSiteId: this.data.sites[this.data.siteIndex]?.id,
         deliveryAddress: this.data.deliveryAddress.trim(), idempotencyKey: this.idempotencyKey,
+        ...(this.data.fulfillmentType === "delivery" && this.data.defaultAddress?.id ? { addressId: this.data.defaultAddress.id } : {}),
         ...(this.data.fulfillmentType === "delivery" ? { deliveryTimeSlot: this.data.config.deliveryTimeSlots[this.data.deliverySlotIndex] } : {})
       };
       cart.writeCheckoutAttempt(this.idempotencyKey, payload);

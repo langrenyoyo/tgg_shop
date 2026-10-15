@@ -178,6 +178,10 @@ test("user and admin frontends support core click flows", async (t) => {
     const adminPage = await CDPPage.create(`${BASE}/admin`);
     await adminPage.evaluate(`localStorage.setItem('tggAdminRole', 'super_admin'); localStorage.removeItem('tggAdminToken')`);
     await adminPage.goto(`${BASE}/admin`);
+    await adminPage.waitForExpression(`Boolean(document.querySelector('[data-admin-login]')) || Boolean(document.querySelector('.dashboard-metrics'))`);
+    if (await adminPage.evaluate(`Boolean(document.querySelector('[data-admin-login]'))`)) {
+      await adminPage.fillFormAndSubmit('[data-admin-login]', { username: "super_admin", password: "123456" });
+    }
     await adminPage.waitForText("运营仪表盘");
     await adminPage.waitForText("最近订单");
     await runAdminRepairPatrol(adminPage, userPage);
@@ -523,7 +527,7 @@ async function runAdminProductPatrol(adminPage, userPage) {
   assert.equal(product.status, "off");
   assert.equal((await fetch(`${BASE}/api/products/${product.id}`)).status, 404);
   await adminPage.click(`[data-product-edit="${product.id}"]`);
-  await adminPage.fillFormAndSubmit(form, { category: "闭环新品", unit: "500g / 盒", description: "冷藏保存\n开封即食", cashPrice: 1.5, pointsPrice: 10, reason: "完善上架资料" });
+  await adminPage.fillFormAndSubmit(form, { category: "闭环新品", unit: "500g / 盒", description: "冷藏保存\n开封即食", cashPrice: 1.5, regularPrice: 2, pointsPrice: 10, reason: "完善上架资料" });
   await adminPage.waitForExpression(`document.querySelector('${form}').dataset.productId === ''`);
   await adminPage.click(`[data-product-edit="${product.id}"]`);
   assert.equal(await adminPage.evaluate(`document.querySelector('${form} [name="description"]').value`), "冷藏保存\n开封即食");
@@ -924,7 +928,8 @@ function startServer() {
       TGG_TASK_PLATFORM_APPID: "",
       TGG_TASK_PLATFORM_KEY: "",
       PORT: String(APP_PORT),
-      TGG_STORE_MODE: "memory"
+      TGG_STORE_MODE: "memory",
+      TGG_TEST_BYPASS_ENABLED: "1"
     },
     stdio: "ignore"
   });

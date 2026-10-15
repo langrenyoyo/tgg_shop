@@ -7,6 +7,7 @@ function isPlaceholder(value) {
 function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "production") {
   const errors = [];
   const warnings = [];
+  const driver = String(env.TGG_STORE_DRIVER || "json");
 
   const port = Number(env.PORT || 5177);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -20,13 +21,25 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
   if (strict && isPlaceholder(authSecret)) {
     errors.push("TGG_AUTH_SECRET must not use a default placeholder in production");
   }
+  if (strict && String(env.TGG_TEST_BYPASS_ENABLED || "") === "1") errors.push("TGG_TEST_BYPASS_ENABLED must be 0 or unset in production");
+  if ((strict || driver === "pg") && String(env.TGG_DEMO_PASSWORD || "").trim()) errors.push("TGG_DEMO_PASSWORD must not be configured with PostgreSQL; provision hashed administrator credentials");
+  if (strict && !String(env.TGG_ADMIN_PASSWORD_HASH || env.TGG_DEMO_PASSWORD_HASH || "").trim()) errors.push("TGG_ADMIN_PASSWORD_HASH or TGG_DEMO_PASSWORD_HASH is required in production");
 
   const ttlSeconds = Number(env.TGG_AUTH_TOKEN_TTL_SECONDS || 60 * 60 * 8);
   if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
     errors.push("TGG_AUTH_TOKEN_TTL_SECONDS must be a positive number");
   }
 
-  const driver = String(env.TGG_STORE_DRIVER || "json");
+  const bodyLimit = Number(env.TGG_MAX_BODY_BYTES || 1024 * 1024);
+  if (!Number.isSafeInteger(bodyLimit) || bodyLimit < 1024 || bodyLimit > 16 * 1024 * 1024) {
+    errors.push("TGG_MAX_BODY_BYTES must be an integer between 1024 and 16777216");
+  }
+  const uploadLimit = Number(env.TGG_UPLOAD_MAX_BYTES || 10 * 1024 * 1024);
+  if (!Number.isSafeInteger(uploadLimit) || uploadLimit < 1024 || uploadLimit > 50 * 1024 * 1024) {
+    errors.push("TGG_UPLOAD_MAX_BYTES must be an integer between 1024 and 52428800");
+  }
+
+  if (String(env.TGG_TEST_BYPASS_ENABLED || "") === "1" && driver === "pg") errors.push("TGG_TEST_BYPASS_ENABLED cannot be enabled with PostgreSQL storage");
   if (!["json", "sqlite", "pg"].includes(driver)) {
     errors.push(`Unsupported TGG_STORE_DRIVER: ${driver}`);
   }
@@ -49,6 +62,23 @@ function validateRuntimeConfig(env = process.env, strict = env.NODE_ENV === "pro
 
   if (strict && driver !== "pg") {
     errors.push("TGG_STORE_DRIVER must be pg in production");
+  }
+
+  const corsOrigins = String(env.TGG_CORS_ORIGIN || "").split(",").map(item => item.trim()).filter(Boolean);
+  if (strict && corsOrigins.length === 0) errors.push("TGG_CORS_ORIGIN must contain at least one HTTPS origin in production");
+  if (strict && corsOrigins.includes("*")) errors.push("TGG_CORS_ORIGIN must list explicit HTTPS origins in production");
+  for (const origin of corsOrigins) {
+    try {
+      const url = new URL(origin);
+      if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error();
+    } catch { errors.push("TGG_CORS_ORIGIN must contain explicit HTTPS origins without paths or credentials"); break; }
+  }
+  if (strict && String(env.TGG_ENFORCE_HTTPS || "1") !== "1") errors.push("TGG_ENFORCE_HTTPS must be 1 in production");
+  if (strict) {
+    try {
+      const publicOrigin = new URL(String(env.TGG_PUBLIC_ORIGIN || corsOrigins[0] || ""));
+      if (publicOrigin.protocol !== "https:" || publicOrigin.pathname !== "/" || publicOrigin.search || publicOrigin.hash) throw new Error();
+    } catch { errors.push("TGG_PUBLIC_ORIGIN must be an HTTPS origin in production"); }
   }
 
   const callbackToken = String(env.TGG_TASK_CALLBACK_TOKEN || "").trim();

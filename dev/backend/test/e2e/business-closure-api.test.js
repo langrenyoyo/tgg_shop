@@ -151,7 +151,8 @@ function startServer() {
       TGG_TASK_PLATFORM_APPID: "",
       TGG_TASK_PLATFORM_KEY: "",
       PORT: String(APP_PORT),
-      TGG_STORE_MODE: "memory"
+      TGG_STORE_MODE: "memory",
+      TGG_TEST_BYPASS_ENABLED: "1"
     },
     stdio: "ignore"
   });

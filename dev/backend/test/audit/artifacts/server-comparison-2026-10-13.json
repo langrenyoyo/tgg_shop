@@ -1,99 +1,19 @@
 {
-  "checkedAt": "2026-10-13T13:53:33.186831+00:00",
-  "localHead": "c30f3a8ced36752ab702da0febec5fde6631bea0",
-  "serverHead": "3c99643b762beb763eacbcb27b9017403cb8cb58",
+  "checkedAt": "2026-10-15T15:19:53.859604+00:00",
+  "localHead": "c05702252e32df4c0fcc38fac01c4545f45fefa3",
+  "serverHead": "c05702252e32df4c0fcc38fac01c4545f45fefa3",
   "serverWorktree": "M dev/backend/.env.example",
-  "localWorktree": "?? dev/backend/test/audit/browser-readiness.js\n?? dev/backend/test/audit/compare-server.py\n?? dev/backend/test/audit/readiness-audit.js\n?? dev/backend/test/audit/run-server-readiness.py\n?? dev/backend/test/audit/server-browser-readiness.js\n?? dev/backend/test/audit/server-readiness-remote.js\n?? 服务器功能配置验收报告_2026-10-13.md\n?? 项目功能配置验收报告_2026-10-13.md",
-  "commitsServerToLocal": "c30f3a8 feat: remove legacy advertising and add cart quantity badge",
-  "committedDiffStat": "app/API对接说明.md                                 |  19 +-\n app/css/earn-points.css                            |  27 ---\n app/earn-points.html                               |  39 +---\n app/js/earn-points.js                              | 206 +--------------------\n app/js/signin-api.js                               | 151 ---------------\n dev/README.md                                      |   2 +\n dev/backend/openapi.yaml                           |  69 +++----\n dev/backend/src/config/active-config.js            |  14 ++\n dev/backend/src/data/seed.js                       |  19 +-\n dev/backend/src/routes/admin-routes.js             |   2 +-\n dev/backend/src/routes/catalog-routes.js           |   3 +-\n dev/backend/src/routes/growth-routes.js            |  27 +--\n dev/backend/src/services/account-service.js        |   1 -\n dev/backend/src/services/admin-service.js          |  25 +--\n dev/backend/src/services/catalog-service.js        |   4 +-\n dev/backend/src/services/growth-service.js         | 186 +------------------\n dev/backend/test/e2e/frontend-cdp.test.js          |  49 ++++-\n dev/backend/test/smoke.test.js                     |  24 +--\n dev/backend/test/unit/advertising-removal.test.js  |  59 ++++++\n .../test/unit/miniprogram-ad-playback.test.js      |  28 ---\n dev/backend/test/unit/miniprogram-cart.test.js     |  56 ++++++\n .../test/unit/miniprogram-signin-page.test.js      |  48 -----\n dev/backend/test/unit/signin-security.test.js      | 127 -------------\n dev/frontend/admin/index.html                      |   1 -\n dev/frontend/admin/js/app.js                       |  30 +--\n dev/frontend/admin/js/render.js                    |  19 +-\n dev/frontend/user/index.html                       |   9 -\n dev/frontend/user/js/app.js                        |  29 +--\n dev/frontend/user/js/render.js                     |  20 --\n dev/frontend/user/styles.css                       |  48 +----\n wechat-miniprogram/README.md                       |   8 +-\n wechat-miniprogram/app.js                          |   8 +-\n wechat-miniprogram/app.json                        |   1 -\n wechat-miniprogram/pages/home/index.js             |   2 -\n wechat-miniprogram/pages/home/index.wxml           |   1 -\n wechat-miniprogram/pages/home/index.wxss           |   2 +-\n wechat-miniprogram/pages/me/index.js               |   2 +-\n wechat-miniprogram/pages/me/index.wxml             |   2 +-\n wechat-miniprogram/pages/me/index.wxss             |   2 +-\n wechat-miniprogram/pages/points/index.js           |   2 +-\n wechat-miniprogram/pages/signin/index.js           |  99 ----------\n wechat-miniprogram/pages/signin/index.json         |   3 -\n wechat-miniprogram/pages/signin/index.wxml         |  24 ---\n wechat-miniprogram/pages/signin/index.wxss         |   1 -\n wechat-miniprogram/pages/tasks/index.js            |   1 -\n wechat-miniprogram/pages/tasks/index.wxml          |   1 -\n wechat-miniprogram/utils/ad-playback.js            |  30 ---\n wechat-miniprogram/utils/cart.js                   |  20 +-\n 需求文档.md                                        |   2 +\n 49 files changed, 272 insertions(+), 1280 deletions(-)",
+  "localWorktree": "M dev/backend/.env.example\n M dev/backend/server.js\n M dev/backend/src/config/runtime-config.js\n M dev/backend/src/data/seed.js\n M dev/backend/src/domain/admin-accounts.js\n M dev/backend/src/domain/rules.js\n M dev/backend/src/http/http-utils.js\n M dev/backend/src/services/account-service.js\n M dev/backend/src/services/admin-service.js\n M dev/backend/src/services/auth-service.js\n M dev/backend/src/services/monthly-point-reward-service.js\n M dev/backend/src/services/test-bypass-service.js\n M dev/backend/src/services/withdrawal-service.js\n M dev/backend/test/audit/artifacts/server-http-2026-10-13.jsonl\n M dev/backend/test/e2e/frontend-cdp.test.js\n M dev/backend/test/unit/production-withdrawal-approval.test.js\n M dev/frontend/user/js/app.js\n M dev/frontend/user/js/render.js\n M wechat-miniprogram/pages/checkout/index.js\n?? dev/backend/deploy/\n?? dev/backend/src/time-zone.js\n?? dev/backend/test/audit/artifacts/2026-10-15/\n?? ui/v17/assets/icons/\n?? 服务器代码闭环与安全审计报告_2026-10-15.md",
+  "commitsServerToLocal": "",
+  "committedDiffStat": "",
   "tracked": {
-    "server": 560,
-    "local": 553,
-    "identicalBytes": 502,
-    "newlineOnly": 10,
-    "contentDifferences": 50
+    "server": 593,
+    "local": 593,
+    "identicalBytes": 550,
+    "newlineOnly": 24,
+    "contentDifferences": 19
   },
   "differences": [
-    {
-      "path": "app/API对接说明.md",
-      "kind": "changed",
-      "server": {
-        "sha256": "f034b0320ee944c03d87e27be1e533f4c09e28a8ee451b5a48aee860230eb468",
-        "normalized": "f034b0320ee944c03d87e27be1e533f4c09e28a8ee451b5a48aee860230eb468",
-        "bytes": 5269
-      },
-      "local": {
-        "sha256": "6d90a8a3dd3a51de68ac1881490a3fabe6e6dba978ff17965241cc84c09b6706",
-        "normalized": "6d90a8a3dd3a51de68ac1881490a3fabe6e6dba978ff17965241cc84c09b6706",
-        "bytes": 4748
-      }
-    },
-    {
-      "path": "app/css/earn-points.css",
-      "kind": "changed",
-      "server": {
-        "sha256": "37dd062147c2378462389ab0260dd48544b2c3936c532268392459a6484a6bee",
-        "normalized": "37dd062147c2378462389ab0260dd48544b2c3936c532268392459a6484a6bee",
-        "bytes": 10313
-      },
-      "local": {
-        "sha256": "d6a8e1f359dd1ceb8be44998c4aca8e50b21ab279b7cca48ed86bf5d3825760f",
-        "normalized": "d6a8e1f359dd1ceb8be44998c4aca8e50b21ab279b7cca48ed86bf5d3825760f",
-        "bytes": 9201
-      }
-    },
-    {
-      "path": "app/earn-points.html",
-      "kind": "changed",
-      "server": {
-        "sha256": "6baa48b593c5191987da98145c9005013a29d3e1668b9ce1ff461c520d1398ee",
-        "normalized": "6baa48b593c5191987da98145c9005013a29d3e1668b9ce1ff461c520d1398ee",
-        "bytes": 5654
-      },
-      "local": {
-        "sha256": "e0df00c38c63b59467191bf8a7fcfa86480ae2e6891442833ce558bde5c097f3",
-        "normalized": "e0df00c38c63b59467191bf8a7fcfa86480ae2e6891442833ce558bde5c097f3",
-        "bytes": 3562
-      }
-    },
-    {
-      "path": "app/js/earn-points.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "1872cb13cddc8dd8e1eb68c78241aceef8e4e9a8e21461c98fb9067fae90c316",
-        "normalized": "1872cb13cddc8dd8e1eb68c78241aceef8e4e9a8e21461c98fb9067fae90c316",
-        "bytes": 21267
-      },
-      "local": {
-        "sha256": "cd86c0d4502ae650ee4bd6fe877c5bdfc72285a007d7360a4aebf0947bc925e7",
-        "normalized": "cd86c0d4502ae650ee4bd6fe877c5bdfc72285a007d7360a4aebf0947bc925e7",
-        "bytes": 13978
-      }
-    },
-    {
-      "path": "app/js/signin-api.js",
-      "kind": "server-only",
-      "server": {
-        "sha256": "cf96dc8dcccb0862ff3d3bcfd1be04bbc8fd9cea908deceecce533d5302f5022",
-        "normalized": "cf96dc8dcccb0862ff3d3bcfd1be04bbc8fd9cea908deceecce533d5302f5022",
-        "bytes": 5230
-      },
-      "local": null
-    },
-    {
-      "path": "dev/README.md",
-      "kind": "changed",
-      "server": {
-        "sha256": "fe74a90bfe9721ca1c76fdf0822c02c1863879d485a6e38a917b15d7ad14cebf",
-        "normalized": "fe74a90bfe9721ca1c76fdf0822c02c1863879d485a6e38a917b15d7ad14cebf",
-        "bytes": 9173
-      },
-      "local": {
-        "sha256": "3a1a553d656e58bf0a61c8ad738819546103e92cc2224f3bd8927b3eedab6921",
-        "normalized": "3a1a553d656e58bf0a61c8ad738819546103e92cc2224f3bd8927b3eedab6921",
-        "bytes": 9507
-      }
-    },
     {
       "path": "dev/backend/.env.example",
       "kind": "changed",
@@ -103,571 +23,261 @@
         "bytes": 2414
       },
       "local": {
-        "sha256": "9ce766c34f18cb8beae89a3a043ca9e56e0e95cd0e0e09368ef903e08b3e53ad",
-        "normalized": "9ce766c34f18cb8beae89a3a043ca9e56e0e95cd0e0e09368ef903e08b3e53ad",
-        "bytes": 2364
+        "sha256": "0bc8a6055a8a11b61c279389b644f1467ac196543a1d17dadf49b2f8cc7c21ed",
+        "normalized": "0bc8a6055a8a11b61c279389b644f1467ac196543a1d17dadf49b2f8cc7c21ed",
+        "bytes": 2426
       }
     },
     {
-      "path": "dev/backend/openapi.yaml",
+      "path": "dev/backend/server.js",
       "kind": "changed",
       "server": {
-        "sha256": "947872ea21b5b12d6047e3f09dc11bf43b217c72259cd6a4931178e11fb9b2da",
-        "normalized": "947872ea21b5b12d6047e3f09dc11bf43b217c72259cd6a4931178e11fb9b2da",
-        "bytes": 111699
+        "sha256": "5058e1483a92c7ad7b73e4b154c78781b0cdf8b744fe0f8c1d32e0db710e5f0d",
+        "normalized": "5058e1483a92c7ad7b73e4b154c78781b0cdf8b744fe0f8c1d32e0db710e5f0d",
+        "bytes": 4294
       },
       "local": {
-        "sha256": "71c80841036e0e78af35e95a119abbecf12fa7011e88a376983cbf61a2a2412f",
-        "normalized": "71c80841036e0e78af35e95a119abbecf12fa7011e88a376983cbf61a2a2412f",
-        "bytes": 110644
+        "sha256": "ac260322ec37591075f91861141698c15ec49bbe81a93e42d91cfe55ba0bb1e2",
+        "normalized": "ac260322ec37591075f91861141698c15ec49bbe81a93e42d91cfe55ba0bb1e2",
+        "bytes": 4814
       }
     },
     {
-      "path": "dev/backend/src/config/active-config.js",
-      "kind": "local-only",
-      "server": null,
+      "path": "dev/backend/src/config/runtime-config.js",
+      "kind": "changed",
+      "server": {
+        "sha256": "e7c44b98792909951aaf811b4556aaec6fdd5a7a4ea5f2f8119be3166fe428a3",
+        "normalized": "e7c44b98792909951aaf811b4556aaec6fdd5a7a4ea5f2f8119be3166fe428a3",
+        "bytes": 7757
+      },
       "local": {
-        "sha256": "030bc9751807df07f5ae8da3ec952e69e9e7b7c932beea7fe03dece32f4e93b1",
-        "normalized": "030bc9751807df07f5ae8da3ec952e69e9e7b7c932beea7fe03dece32f4e93b1",
-        "bytes": 712
+        "sha256": "e7e8db2ecfba9218a5ef12284d74fe47efcb76647bf02136b4743fc824ad3b82",
+        "normalized": "e7e8db2ecfba9218a5ef12284d74fe47efcb76647bf02136b4743fc824ad3b82",
+        "bytes": 8807
       }
     },
     {
       "path": "dev/backend/src/data/seed.js",
       "kind": "changed",
       "server": {
-        "sha256": "0f6769c621bb21b5586b3159015095565d056a7f95e6d41afb02ab7431c3a92e",
-        "normalized": "0f6769c621bb21b5586b3159015095565d056a7f95e6d41afb02ab7431c3a92e",
-        "bytes": 10989
-      },
-      "local": {
         "sha256": "74245532075b0cd77ed6805dc9efd5e28d596709948c68fe033d4e8291e677c0",
         "normalized": "74245532075b0cd77ed6805dc9efd5e28d596709948c68fe033d4e8291e677c0",
         "bytes": 10118
+      },
+      "local": {
+        "sha256": "180c0773c5660d20318e78d4b5eef84df78680c9f0d834f8908297866a06ec0c",
+        "normalized": "180c0773c5660d20318e78d4b5eef84df78680c9f0d834f8908297866a06ec0c",
+        "bytes": 10291
       }
     },
     {
-      "path": "dev/backend/src/routes/admin-routes.js",
+      "path": "dev/backend/src/domain/admin-accounts.js",
       "kind": "changed",
       "server": {
-        "sha256": "adfa72a2155bd4d4670e3cbd737decef8bb59505d167a42545cc458ca42af8b3",
-        "normalized": "adfa72a2155bd4d4670e3cbd737decef8bb59505d167a42545cc458ca42af8b3",
-        "bytes": 26973
+        "sha256": "badbda5bfea3eefe743c4ee1abe50901694bdb4d6d740e9b526613797c5d389f",
+        "normalized": "badbda5bfea3eefe743c4ee1abe50901694bdb4d6d740e9b526613797c5d389f",
+        "bytes": 2181
       },
       "local": {
-        "sha256": "e78ba5484e14d26bce0e0c822d80d967883490ad73403af049d37e8224a66ab1",
-        "normalized": "e78ba5484e14d26bce0e0c822d80d967883490ad73403af049d37e8224a66ab1",
-        "bytes": 27022
+        "sha256": "7aa28360fbf2703b197c5c4cfe011a21b6ae30136009649317553123f095c1ab",
+        "normalized": "7aa28360fbf2703b197c5c4cfe011a21b6ae30136009649317553123f095c1ab",
+        "bytes": 2729
       }
     },
     {
-      "path": "dev/backend/src/routes/catalog-routes.js",
+      "path": "dev/backend/src/domain/rules.js",
       "kind": "changed",
       "server": {
-        "sha256": "9b1075e0170bf05cfe0d17599e9da980fca0e1697dcea026346d913788ce3a7d",
-        "normalized": "9b1075e0170bf05cfe0d17599e9da980fca0e1697dcea026346d913788ce3a7d",
-        "bytes": 1231
+        "sha256": "1fc9d3b353e8f77a834ad0b68b0a42bf91d74f07e38f1bd8b7aa885f5ed2c6cb",
+        "normalized": "1fc9d3b353e8f77a834ad0b68b0a42bf91d74f07e38f1bd8b7aa885f5ed2c6cb",
+        "bytes": 11701
       },
       "local": {
-        "sha256": "6648a66080b42ec13e6357374b22fa36cf863e2f8a9195489a7c0cb7102c4102",
-        "normalized": "6648a66080b42ec13e6357374b22fa36cf863e2f8a9195489a7c0cb7102c4102",
-        "bytes": 1306
+        "sha256": "6231f99552da85a71ce5903c9fd008f02533be25d60d0bb007425f5db7293884",
+        "normalized": "6231f99552da85a71ce5903c9fd008f02533be25d60d0bb007425f5db7293884",
+        "bytes": 14133
       }
     },
     {
-      "path": "dev/backend/src/routes/growth-routes.js",
+      "path": "dev/backend/src/http/http-utils.js",
       "kind": "changed",
       "server": {
-        "sha256": "f503e3230129a3d9cd2aeb2117bee136f1a13d1e2e82e95f878eaa37b1e86cec",
-        "normalized": "f503e3230129a3d9cd2aeb2117bee136f1a13d1e2e82e95f878eaa37b1e86cec",
-        "bytes": 2249
+        "sha256": "aadbff7e17b50b523066133877d639621984f3dac8341dcf1f3f946f977bf98f",
+        "normalized": "aadbff7e17b50b523066133877d639621984f3dac8341dcf1f3f946f977bf98f",
+        "bytes": 1329
       },
       "local": {
-        "sha256": "2bd0adb313ec8ecee3f2b1afd47cc43c982e24c927e6fa68d19b399b5b9fbe27",
-        "normalized": "2bd0adb313ec8ecee3f2b1afd47cc43c982e24c927e6fa68d19b399b5b9fbe27",
-        "bytes": 1460
+        "sha256": "30667e5a0f390cbe626565498800b132f0faa524a6aefb90444663091d8f56fe",
+        "normalized": "30667e5a0f390cbe626565498800b132f0faa524a6aefb90444663091d8f56fe",
+        "bytes": 1903
       }
     },
     {
       "path": "dev/backend/src/services/account-service.js",
       "kind": "changed",
       "server": {
-        "sha256": "97225b40e9e36395153327b2ad1fcf056048e537044cc4bc1d38a3c1c8579e52",
-        "normalized": "97225b40e9e36395153327b2ad1fcf056048e537044cc4bc1d38a3c1c8579e52",
-        "bytes": 9252
-      },
-      "local": {
         "sha256": "99fe1273a8dd5f7a76ac2693357109c11775d92d7d2c1e0d0101b59130d6a43d",
         "normalized": "99fe1273a8dd5f7a76ac2693357109c11775d92d7d2c1e0d0101b59130d6a43d",
         "bytes": 9144
+      },
+      "local": {
+        "sha256": "234c9949eee4e1174cded66dc087e31a13fe16f6a193034767b419b30822fbd9",
+        "normalized": "234c9949eee4e1174cded66dc087e31a13fe16f6a193034767b419b30822fbd9",
+        "bytes": 11220
       }
     },
     {
       "path": "dev/backend/src/services/admin-service.js",
       "kind": "changed",
       "server": {
-        "sha256": "04132b65d49870e68932a5f28aa156eb4fdef025b722ceda113bbbe3249bec48",
-        "normalized": "04132b65d49870e68932a5f28aa156eb4fdef025b722ceda113bbbe3249bec48",
-        "bytes": 73346
-      },
-      "local": {
         "sha256": "eff58a0f6ad3ff6fb9daafc2786199b572e2525cdb235dac42e6932c010097a5",
         "normalized": "eff58a0f6ad3ff6fb9daafc2786199b572e2525cdb235dac42e6932c010097a5",
         "bytes": 73006
+      },
+      "local": {
+        "sha256": "f1a594646b96b4a976d8e7aa0085301c622d533e05de9006a15e3640cdee4126",
+        "normalized": "f1a594646b96b4a976d8e7aa0085301c622d533e05de9006a15e3640cdee4126",
+        "bytes": 74813
       }
     },
     {
-      "path": "dev/backend/src/services/catalog-service.js",
+      "path": "dev/backend/src/services/auth-service.js",
       "kind": "changed",
       "server": {
-        "sha256": "b2ef319db91872513f9c23b455af0412b095bc6dfb0ef6b1592006af480fb99e",
-        "normalized": "b2ef319db91872513f9c23b455af0412b095bc6dfb0ef6b1592006af480fb99e",
-        "bytes": 3703
+        "sha256": "f37e10f72924e8827f17d6ff061fbdf7cebfdaf273a07c533d338c647ead2a07",
+        "normalized": "f37e10f72924e8827f17d6ff061fbdf7cebfdaf273a07c533d338c647ead2a07",
+        "bytes": 14620
       },
       "local": {
-        "sha256": "c63a6434b314d01c7da9f7622381c17541b3ef1c88a4789e4c3c9ffd4d55f92a",
-        "normalized": "c63a6434b314d01c7da9f7622381c17541b3ef1c88a4789e4c3c9ffd4d55f92a",
-        "bytes": 3744
+        "sha256": "b2cdeacc8c2e394e05a62511b06f052c7d65e9bd9135def06795b2d3ae2ac45d",
+        "normalized": "b2cdeacc8c2e394e05a62511b06f052c7d65e9bd9135def06795b2d3ae2ac45d",
+        "bytes": 14696
       }
     },
     {
-      "path": "dev/backend/src/services/growth-service.js",
+      "path": "dev/backend/src/services/monthly-point-reward-service.js",
       "kind": "changed",
       "server": {
-        "sha256": "2fb988d4c42c3a518abf1764a4bf3a69372137fc876ad283ee5023830bad212a",
-        "normalized": "2fb988d4c42c3a518abf1764a4bf3a69372137fc876ad283ee5023830bad212a",
-        "bytes": 10420
+        "sha256": "1a65ee2446833b7ff17f8f3798adf93c3caac5662f010877d747793e7b7ca576",
+        "normalized": "1a65ee2446833b7ff17f8f3798adf93c3caac5662f010877d747793e7b7ca576",
+        "bytes": 13612
       },
       "local": {
-        "sha256": "82a855aae30dca3922dc529f7e354c97f8aa6775a06225fff709180e1588987d",
-        "normalized": "82a855aae30dca3922dc529f7e354c97f8aa6775a06225fff709180e1588987d",
-        "bytes": 2483
+        "sha256": "fb2f2a5259c5c3163428bc1f7424c429cc097ee73c0ddd22d6f6eecd9ef58fc5",
+        "normalized": "fb2f2a5259c5c3163428bc1f7424c429cc097ee73c0ddd22d6f6eecd9ef58fc5",
+        "bytes": 13871
+      }
+    },
+    {
+      "path": "dev/backend/src/services/test-bypass-service.js",
+      "kind": "changed",
+      "server": {
+        "sha256": "3ce727fcfb6bac2f2a7df3b82a493278e56e910cb95b67581b86774e18b0ed96",
+        "normalized": "3ce727fcfb6bac2f2a7df3b82a493278e56e910cb95b67581b86774e18b0ed96",
+        "bytes": 2446
+      },
+      "local": {
+        "sha256": "84ece94a7c76d2a190971e1d3ccb947f545370ce19274347bab11387c77eb8eb",
+        "normalized": "84ece94a7c76d2a190971e1d3ccb947f545370ce19274347bab11387c77eb8eb",
+        "bytes": 2599
+      }
+    },
+    {
+      "path": "dev/backend/src/services/withdrawal-service.js",
+      "kind": "changed",
+      "server": {
+        "sha256": "cf0d36e94961ee3dc1f0201feda0603d3c351ac9b0c44697eb4c0a2284e4b6e6",
+        "normalized": "cf0d36e94961ee3dc1f0201feda0603d3c351ac9b0c44697eb4c0a2284e4b6e6",
+        "bytes": 9150
+      },
+      "local": {
+        "sha256": "d7f63c5ead117577c59b38a2d3afc4be56649bb2c6446b321ce02b3d39a2d9ae",
+        "normalized": "d7f63c5ead117577c59b38a2d3afc4be56649bb2c6446b321ce02b3d39a2d9ae",
+        "bytes": 9212
+      }
+    },
+    {
+      "path": "dev/backend/test/audit/artifacts/server-http-2026-10-13.jsonl",
+      "kind": "changed",
+      "server": {
+        "sha256": "b1d02ed9369013d0a7cfee484ff0a43093d361b9675fbaaf49780a43bfea0c12",
+        "normalized": "b1d02ed9369013d0a7cfee484ff0a43093d361b9675fbaaf49780a43bfea0c12",
+        "bytes": 9403
+      },
+      "local": {
+        "sha256": "4ac518ee84e57b9e36a392282b8906a7b95f960186c8bf89d0d9286088c0fa4d",
+        "normalized": "f3f44fb31945d10bfeb2126cab2e718faad9c40cdb7f779d1fc0459554d97293",
+        "bytes": 9273
       }
     },
     {
       "path": "dev/backend/test/e2e/frontend-cdp.test.js",
       "kind": "changed",
       "server": {
-        "sha256": "7b92981526a741eaa6a3cf18870f7fec973d0baae7f03ec8f886e11dc4acab69",
-        "normalized": "7b92981526a741eaa6a3cf18870f7fec973d0baae7f03ec8f886e11dc4acab69",
-        "bytes": 53915
-      },
-      "local": {
         "sha256": "9e06fc65eb62cc43747539540c9fc3ac76f7d6837e5ff4a01ef280cadb87c010",
         "normalized": "9e06fc65eb62cc43747539540c9fc3ac76f7d6837e5ff4a01ef280cadb87c010",
         "bytes": 56902
+      },
+      "local": {
+        "sha256": "8cdf91c72743153f46711ea93ebc0193119a60716f3457910f133cf790fceaa4",
+        "normalized": "8cdf91c72743153f46711ea93ebc0193119a60716f3457910f133cf790fceaa4",
+        "bytes": 57283
       }
     },
     {
-      "path": "dev/backend/test/smoke.test.js",
+      "path": "dev/backend/test/unit/production-withdrawal-approval.test.js",
       "kind": "changed",
       "server": {
-        "sha256": "89acd5dc4b3bb1691f7b12c57333037816ab92751bd0e414e0f62f72428fcbaa",
-        "normalized": "89acd5dc4b3bb1691f7b12c57333037816ab92751bd0e414e0f62f72428fcbaa",
-        "bytes": 50564
+        "sha256": "19f1e596392ab42f154c7bd7265e40df4df73362de93f3e2d272f64bec37b8e0",
+        "normalized": "19f1e596392ab42f154c7bd7265e40df4df73362de93f3e2d272f64bec37b8e0",
+        "bytes": 7715
       },
       "local": {
-        "sha256": "088659eb13318c78804f5022509929d9ce74f6fc43e64d6717f3a8e0cb6e249b",
-        "normalized": "088659eb13318c78804f5022509929d9ce74f6fc43e64d6717f3a8e0cb6e249b",
-        "bytes": 49608
-      }
-    },
-    {
-      "path": "dev/backend/test/unit/advertising-removal.test.js",
-      "kind": "local-only",
-      "server": null,
-      "local": {
-        "sha256": "f76e92b94b7253777b39ba90885d8ec532f1dc9b950ea83fdce7dd88420ad371",
-        "normalized": "f76e92b94b7253777b39ba90885d8ec532f1dc9b950ea83fdce7dd88420ad371",
-        "bytes": 3111
-      }
-    },
-    {
-      "path": "dev/backend/test/unit/miniprogram-ad-playback.test.js",
-      "kind": "server-only",
-      "server": {
-        "sha256": "5244fe7c284aa4acca1ac08903319e6fbb6891895503a7fe028b242a4a85cadb",
-        "normalized": "5244fe7c284aa4acca1ac08903319e6fbb6891895503a7fe028b242a4a85cadb",
-        "bytes": 1572
-      },
-      "local": null
-    },
-    {
-      "path": "dev/backend/test/unit/miniprogram-cart.test.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "e93fefccdbc8cf280f19ff7c5624a6e0cb182d2fd9d04b50160833122a6a3815",
-        "normalized": "e93fefccdbc8cf280f19ff7c5624a6e0cb182d2fd9d04b50160833122a6a3815",
-        "bytes": 3766
-      },
-      "local": {
-        "sha256": "fcbaa22ff1bc4f5193917483d908df63da479d18904af5cb5c208ec80b63fa84",
-        "normalized": "fcbaa22ff1bc4f5193917483d908df63da479d18904af5cb5c208ec80b63fa84",
-        "bytes": 5948
-      }
-    },
-    {
-      "path": "dev/backend/test/unit/miniprogram-signin-page.test.js",
-      "kind": "server-only",
-      "server": {
-        "sha256": "d05147e424bfa63128f44e10aaabe868c1feb1bb804297e86311e4d6129df345",
-        "normalized": "d05147e424bfa63128f44e10aaabe868c1feb1bb804297e86311e4d6129df345",
-        "bytes": 2510
-      },
-      "local": null
-    },
-    {
-      "path": "dev/backend/test/unit/signin-security.test.js",
-      "kind": "server-only",
-      "server": {
-        "sha256": "216b064cad63638921664fdd361330d19073e6c375ce290a34599e65ecfbe8b9",
-        "normalized": "216b064cad63638921664fdd361330d19073e6c375ce290a34599e65ecfbe8b9",
-        "bytes": 6657
-      },
-      "local": null
-    },
-    {
-      "path": "dev/frontend/admin/index.html",
-      "kind": "changed",
-      "server": {
-        "sha256": "ee9334241318678fd6573b0aea63cd318bb979856c6d331edd950cfaf432e3a8",
-        "normalized": "ee9334241318678fd6573b0aea63cd318bb979856c6d331edd950cfaf432e3a8",
-        "bytes": 2978
-      },
-      "local": {
-        "sha256": "89bbd099c4b422306702b1ee5ae087228c25baf7ef7660255a5204115e14ab91",
-        "normalized": "89bbd099c4b422306702b1ee5ae087228c25baf7ef7660255a5204115e14ab91",
-        "bytes": 2898
-      }
-    },
-    {
-      "path": "dev/frontend/admin/js/app.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "77e46aba5091daf1b7ba13d293611433e71bb818c9ab7ea4b6d566f2bb47e065",
-        "normalized": "77e46aba5091daf1b7ba13d293611433e71bb818c9ab7ea4b6d566f2bb47e065",
-        "bytes": 66718
-      },
-      "local": {
-        "sha256": "a94511d97dc27370509a20a09a53cbec13237fc9aff2ebaecca2ededd76f108d",
-        "normalized": "a94511d97dc27370509a20a09a53cbec13237fc9aff2ebaecca2ededd76f108d",
-        "bytes": 65550
-      }
-    },
-    {
-      "path": "dev/frontend/admin/js/render.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "a488d8dcfc4e982f8c6bdd4d85c4fa04a84c529b95f5afd9401db15406326b61",
-        "normalized": "a488d8dcfc4e982f8c6bdd4d85c4fa04a84c529b95f5afd9401db15406326b61",
-        "bytes": 55321
-      },
-      "local": {
-        "sha256": "30a4c9009914f3ca16f9df6a75f954dc9645d019e51eca46bd675627ebd81d81",
-        "normalized": "30a4c9009914f3ca16f9df6a75f954dc9645d019e51eca46bd675627ebd81d81",
-        "bytes": 54102
-      }
-    },
-    {
-      "path": "dev/frontend/user/index.html",
-      "kind": "changed",
-      "server": {
-        "sha256": "afa5fcae201ee2711c08cb0f4b78978610e8f1049701eb84f985189e2a6b479b",
-        "normalized": "afa5fcae201ee2711c08cb0f4b78978610e8f1049701eb84f985189e2a6b479b",
-        "bytes": 1319
-      },
-      "local": {
-        "sha256": "16b19153ad6599a89c1fc938acfd95960ffb0d78faef3e8a3d621573ee4f8354",
-        "normalized": "16b19153ad6599a89c1fc938acfd95960ffb0d78faef3e8a3d621573ee4f8354",
-        "bytes": 1020
+        "sha256": "87e7196fd6b7775ee0558371e5e8d5de94ee0380c9c5486d9c7abcaa41f20f74",
+        "normalized": "87e7196fd6b7775ee0558371e5e8d5de94ee0380c9c5486d9c7abcaa41f20f74",
+        "bytes": 7715
       }
     },
     {
       "path": "dev/frontend/user/js/app.js",
       "kind": "changed",
       "server": {
-        "sha256": "69723aeb23e2cd4eb1f2cba6ff5ab6cb6eaab05fa3fffabfed296aa42566fc91",
-        "normalized": "69723aeb23e2cd4eb1f2cba6ff5ab6cb6eaab05fa3fffabfed296aa42566fc91",
-        "bytes": 18623
-      },
-      "local": {
         "sha256": "8ffe74f79271efcee4fcbc1de661bc7d9036f05dfa8aee949fe720ce397b7bfa",
         "normalized": "8ffe74f79271efcee4fcbc1de661bc7d9036f05dfa8aee949fe720ce397b7bfa",
         "bytes": 17386
+      },
+      "local": {
+        "sha256": "29d48db2ed5d7597e44a8bab84e29a29db5b819946dcfe8d0e42cee1c9470fe7",
+        "normalized": "29d48db2ed5d7597e44a8bab84e29a29db5b819946dcfe8d0e42cee1c9470fe7",
+        "bytes": 17599
       }
     },
     {
       "path": "dev/frontend/user/js/render.js",
       "kind": "changed",
       "server": {
-        "sha256": "32f4cb37e7c38f4e4dd8322568b1159fd37ae3a149cf1afaf674355d695b27e8",
-        "normalized": "32f4cb37e7c38f4e4dd8322568b1159fd37ae3a149cf1afaf674355d695b27e8",
-        "bytes": 54542
-      },
-      "local": {
         "sha256": "168437f5fee984dff6a4b41e3028e2f35eb74e7cbadfcddc427ab3a5af9994d7",
         "normalized": "168437f5fee984dff6a4b41e3028e2f35eb74e7cbadfcddc427ab3a5af9994d7",
         "bytes": 53281
+      },
+      "local": {
+        "sha256": "10b43455a25b28a7468d58462ddb1627c6c71beef70acd73427633c1a8b9da2e",
+        "normalized": "10b43455a25b28a7468d58462ddb1627c6c71beef70acd73427633c1a8b9da2e",
+        "bytes": 53748
       }
     },
     {
-      "path": "dev/frontend/user/styles.css",
+      "path": "wechat-miniprogram/pages/checkout/index.js",
       "kind": "changed",
       "server": {
-        "sha256": "19b0975f0483790ae2a623f6cb155c6eb2764c62ee97fff9fb06f4179d21d594",
-        "normalized": "19b0975f0483790ae2a623f6cb155c6eb2764c62ee97fff9fb06f4179d21d594",
-        "bytes": 22860
+        "sha256": "2286fd0b6fe3b90ec9399644e2bf7329c902fdd518a6a7e600a42c9d1e95575e",
+        "normalized": "2286fd0b6fe3b90ec9399644e2bf7329c902fdd518a6a7e600a42c9d1e95575e",
+        "bytes": 8233
       },
       "local": {
-        "sha256": "756a6ab6139162c707fd28f09fae1c9beed064dccc2d39149cc9a23c08ea155f",
-        "normalized": "c62a4f85f91c394b457e11e2bb42b6b2d2cc7be23fb9e8703bb540d003d3537f",
-        "bytes": 22163
-      }
-    },
-    {
-      "path": "wechat-miniprogram/README.md",
-      "kind": "changed",
-      "server": {
-        "sha256": "3ca93879cb993adb65a6846dea5c6f4b9902611ca4bc3096d73bb911f11ef4bc",
-        "normalized": "3ca93879cb993adb65a6846dea5c6f4b9902611ca4bc3096d73bb911f11ef4bc",
-        "bytes": 2875
-      },
-      "local": {
-        "sha256": "7bf9106b4fb9b72a0bbf20636a0662d6f6814bc6ef34a79b0bda2b68c235e7d7",
-        "normalized": "7bf9106b4fb9b72a0bbf20636a0662d6f6814bc6ef34a79b0bda2b68c235e7d7",
-        "bytes": 3128
-      }
-    },
-    {
-      "path": "wechat-miniprogram/app.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "fef8f95d562d40ba1df6df0c8bab8e3dbb59a92c7064c5fdf0307ade872bd840",
-        "normalized": "fef8f95d562d40ba1df6df0c8bab8e3dbb59a92c7064c5fdf0307ade872bd840",
-        "bytes": 807
-      },
-      "local": {
-        "sha256": "df4e729691b645d15da1b5314fa89a43a8fecfee210dd619647efdfa16360f3a",
-        "normalized": "df4e729691b645d15da1b5314fa89a43a8fecfee210dd619647efdfa16360f3a",
-        "bytes": 908
-      }
-    },
-    {
-      "path": "wechat-miniprogram/app.json",
-      "kind": "changed",
-      "server": {
-        "sha256": "cf364a23bb56e3d5a3a2951c8a7cb04b913fc061c7c346e8316e252fb9b71d5f",
-        "normalized": "cf364a23bb56e3d5a3a2951c8a7cb04b913fc061c7c346e8316e252fb9b71d5f",
-        "bytes": 1965
-      },
-      "local": {
-        "sha256": "f0a6f59748d5ec5e64b0abf6be6aabdac9797a30479cdc2cae01c62478ac70a6",
-        "normalized": "e9e88401572785dd6155309a67640ac2146e09e51a5178068444a815c323eb1e",
-        "bytes": 1942
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/home/index.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "f1941a36a72bca5a89e4f037ed50133ab7a6d7c636a9fa3a19fdb945cbafa68e",
-        "normalized": "f1941a36a72bca5a89e4f037ed50133ab7a6d7c636a9fa3a19fdb945cbafa68e",
-        "bytes": 5188
-      },
-      "local": {
-        "sha256": "9d08baab578a0fbd372f0a2302c09c9cb184a0671dc9a32f359e4bcae8d31c7f",
-        "normalized": "9d08baab578a0fbd372f0a2302c09c9cb184a0671dc9a32f359e4bcae8d31c7f",
-        "bytes": 5072
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/home/index.wxml",
-      "kind": "changed",
-      "server": {
-        "sha256": "0c6ee98a1cc8d341c2c8cc97c55751846a0f9b65e02280c5c684432514b51554",
-        "normalized": "0c6ee98a1cc8d341c2c8cc97c55751846a0f9b65e02280c5c684432514b51554",
-        "bytes": 5115
-      },
-      "local": {
-        "sha256": "75e930660d91d65ef0fddb3c90c119639365ecfa7a17604741b620e3c866c673",
-        "normalized": "75e930660d91d65ef0fddb3c90c119639365ecfa7a17604741b620e3c866c673",
-        "bytes": 4927
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/home/index.wxss",
-      "kind": "changed",
-      "server": {
-        "sha256": "2e80f8c166db970d8f5021d03758923f7108cfbb660276c62c7c4276ec89e052",
-        "normalized": "2e80f8c166db970d8f5021d03758923f7108cfbb660276c62c7c4276ec89e052",
-        "bytes": 4486
-      },
-      "local": {
-        "sha256": "960373d4e53693257e9fce7979a31df5180f06c533df3eb1620269aad8b64562",
-        "normalized": "960373d4e53693257e9fce7979a31df5180f06c533df3eb1620269aad8b64562",
-        "bytes": 4497
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/me/index.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "126ad959d7909ef4920e595f7dc5345e5faec37997c6e75f6dc066e5cc739569",
-        "normalized": "126ad959d7909ef4920e595f7dc5345e5faec37997c6e75f6dc066e5cc739569",
-        "bytes": 3837
-      },
-      "local": {
-        "sha256": "154d637b4a71f02d8e6ef8e0635ca5055cb4d5b3fd8f6171e15644d5b082e900",
-        "normalized": "154d637b4a71f02d8e6ef8e0635ca5055cb4d5b3fd8f6171e15644d5b082e900",
-        "bytes": 3774
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/me/index.wxml",
-      "kind": "changed",
-      "server": {
-        "sha256": "c92375a7beecb24da767b1f6df1cf1f479fc6b026a2d93096604670455777630",
-        "normalized": "c92375a7beecb24da767b1f6df1cf1f479fc6b026a2d93096604670455777630",
-        "bytes": 5509
-      },
-      "local": {
-        "sha256": "d68a880dc0e1c18b1339961ebe7c019f4830c9c4bbb0e0ec8c98cbd1c8edacc6",
-        "normalized": "3c23b9152730f1a43ca5306a8fdf2314d67714502b825617e36153b462d2dc6d",
-        "bytes": 5349
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/me/index.wxss",
-      "kind": "changed",
-      "server": {
-        "sha256": "49c2638f6f75bf2daded8f68f04c742e4154ef171cf2825960e5f6de8b01107d",
-        "normalized": "49c2638f6f75bf2daded8f68f04c742e4154ef171cf2825960e5f6de8b01107d",
-        "bytes": 3626
-      },
-      "local": {
-        "sha256": "0b939a835c869089464758a53f3397cdbfd8a9547ed8d29b3f18a67850f498c8",
-        "normalized": "453b47245fc6de39fd517fec84425d2b78cbf196ef9ffd88d57aa912bf8f3074",
-        "bytes": 3627
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/points/index.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "09b9461a507e2428f59e0580baa7bf93a173c6c0031fa4ff64b4e68ef44f4e1d",
-        "normalized": "09b9461a507e2428f59e0580baa7bf93a173c6c0031fa4ff64b4e68ef44f4e1d",
-        "bytes": 3722
-      },
-      "local": {
-        "sha256": "ad5ee847bb413b5b3e55a3534f7b0e6a9e2b330333514e24e194fe4a12385c73",
-        "normalized": "ad5ee847bb413b5b3e55a3534f7b0e6a9e2b330333514e24e194fe4a12385c73",
-        "bytes": 3704
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/signin/index.js",
-      "kind": "server-only",
-      "server": {
-        "sha256": "bc0b05f1be981dc57af02fc008e038742d02225917ed9cc3ee0e39007b558cc9",
-        "normalized": "bc0b05f1be981dc57af02fc008e038742d02225917ed9cc3ee0e39007b558cc9",
-        "bytes": 4510
-      },
-      "local": null
-    },
-    {
-      "path": "wechat-miniprogram/pages/signin/index.json",
-      "kind": "server-only",
-      "server": {
-        "sha256": "ac4d405dc09625c78195634560922c7a2e307eb14e29a1aeee3def9189184761",
-        "normalized": "ac4d405dc09625c78195634560922c7a2e307eb14e29a1aeee3def9189184761",
-        "bytes": 41
-      },
-      "local": null
-    },
-    {
-      "path": "wechat-miniprogram/pages/signin/index.wxml",
-      "kind": "server-only",
-      "server": {
-        "sha256": "9486904c5dab963bdc97ce4c647b4b926a0ef71a80ec6f9bbf02ca9f8971c6fe",
-        "normalized": "9486904c5dab963bdc97ce4c647b4b926a0ef71a80ec6f9bbf02ca9f8971c6fe",
-        "bytes": 1707
-      },
-      "local": null
-    },
-    {
-      "path": "wechat-miniprogram/pages/signin/index.wxss",
-      "kind": "server-only",
-      "server": {
-        "sha256": "9df4497eceef36c1f98efa6c806e0ed97e260fe5310566cbb84d27b6834bb64d",
-        "normalized": "9df4497eceef36c1f98efa6c806e0ed97e260fe5310566cbb84d27b6834bb64d",
-        "bytes": 13
-      },
-      "local": null
-    },
-    {
-      "path": "wechat-miniprogram/pages/tasks/index.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "d6698d95c81c9b57b1f5612f3566e05e9b8c6ac92858ee7f304a4a625cfbcaf8",
-        "normalized": "d6698d95c81c9b57b1f5612f3566e05e9b8c6ac92858ee7f304a4a625cfbcaf8",
-        "bytes": 3953
-      },
-      "local": {
-        "sha256": "42745b701765866673c71dbea6b1f7102ce9c543d02d8f4d8c2b8bb40a0d0a65",
-        "normalized": "42745b701765866673c71dbea6b1f7102ce9c543d02d8f4d8c2b8bb40a0d0a65",
-        "bytes": 3886
-      }
-    },
-    {
-      "path": "wechat-miniprogram/pages/tasks/index.wxml",
-      "kind": "changed",
-      "server": {
-        "sha256": "07aad19621752d07d01f401730321e86ff685ebc22435a7abdf3749b954d31a9",
-        "normalized": "07aad19621752d07d01f401730321e86ff685ebc22435a7abdf3749b954d31a9",
-        "bytes": 3249
-      },
-      "local": {
-        "sha256": "dd01015206f2ebd92ab9e61d1eb080d0ac620b2c303a2cddd92b4de765fcf783",
-        "normalized": "dd01015206f2ebd92ab9e61d1eb080d0ac620b2c303a2cddd92b4de765fcf783",
-        "bytes": 3188
-      }
-    },
-    {
-      "path": "wechat-miniprogram/utils/ad-playback.js",
-      "kind": "server-only",
-      "server": {
-        "sha256": "145dfc48c0593f1baa7ff8013f3682df18458c0c9bcfeec7975210970a70a229",
-        "normalized": "145dfc48c0593f1baa7ff8013f3682df18458c0c9bcfeec7975210970a70a229",
-        "bytes": 1350
-      },
-      "local": null
-    },
-    {
-      "path": "wechat-miniprogram/utils/cart.js",
-      "kind": "changed",
-      "server": {
-        "sha256": "769c074c2845a19274242d86c7f89fec16684c5e8ed3d67e937af28fee4a73eb",
-        "normalized": "769c074c2845a19274242d86c7f89fec16684c5e8ed3d67e937af28fee4a73eb",
-        "bytes": 3275
-      },
-      "local": {
-        "sha256": "757cecd2e7a8fdf2dd15d5ad0c08703fb265d9399fe827614c4b96ed9520d21e",
-        "normalized": "757cecd2e7a8fdf2dd15d5ad0c08703fb265d9399fe827614c4b96ed9520d21e",
-        "bytes": 3940
-      }
-    },
-    {
-      "path": "需求文档.md",
-      "kind": "changed",
-      "server": {
-        "sha256": "f50bc78c956c6866e05f8502bcb256eb961f2c65c8d941f4cfe8105948abe30f",
-        "normalized": "f50bc78c956c6866e05f8502bcb256eb961f2c65c8d941f4cfe8105948abe30f",
-        "bytes": 54192
-      },
-      "local": {
-        "sha256": "2a2f04dd38155fc399c15e528515c8dab801e32af38fc8998b3cddf740c0d939",
-        "normalized": "2a2f04dd38155fc399c15e528515c8dab801e32af38fc8998b3cddf740c0d939",
-        "bytes": 54465
+        "sha256": "ecd94d2dca6fb77c305e35af47be12706d2c19ed46b1ec5ae1b7100348bad606",
+        "normalized": "ecd94d2dca6fb77c305e35af47be12706d2c19ed46b1ec5ae1b7100348bad606",
+        "bytes": 8370
       }
     }
   ],
@@ -2073,7 +1683,7 @@
     {
       "path": "/api/signin/status",
       "method": "GET",
-      "summary": "Get current sign-in ad progress and streak",
+      "summary": "Retired advertising sign-in endpoint",
       "tags": [
         "Growth"
       ],
@@ -2083,13 +1693,13 @@
         }
       ],
       "responses": [
-        "200"
+        "410"
       ]
     },
     {
       "path": "/api/signin/status",
       "method": "POST",
-      "summary": "Get current sign-in ad progress and streak",
+      "summary": "Retired advertising sign-in endpoint",
       "tags": [
         "Growth"
       ],
@@ -2099,13 +1709,13 @@
         }
       ],
       "responses": [
-        "200"
+        "410"
       ]
     },
     {
       "path": "/api/signin/start",
       "method": "POST",
-      "summary": "Start sign-in ad session",
+      "summary": "Retired advertising sign-in endpoint",
       "tags": [
         "Growth"
       ],
@@ -2115,13 +1725,13 @@
         }
       ],
       "responses": [
-        "200"
+        "410"
       ]
     },
     {
       "path": "/api/signin/ad_complete",
       "method": "POST",
-      "summary": "Report one completed ad in a development sign-in session",
+      "summary": "Retired advertising sign-in endpoint",
       "tags": [
         "Growth"
       ],
@@ -2131,16 +1741,13 @@
         }
       ],
       "responses": [
-        "200",
-        "400",
-        "404",
-        "503"
+        "410"
       ]
     },
     {
       "path": "/api/signin/lottery_spin",
       "method": "POST",
-      "summary": "Spin lottery after sign-in ads",
+      "summary": "Retired advertising sign-in endpoint",
       "tags": [
         "Growth"
       ],
@@ -2150,9 +1757,7 @@
         }
       ],
       "responses": [
-        "200",
-        "400",
-        "503"
+        "410"
       ]
     },
     {
@@ -6113,7 +5718,6 @@
     "pages/tasks/index",
     "pages/task-detail/index",
     "pages/task-submit/index",
-    "pages/signin/index",
     "pages/invite/index",
     "pages/me/index",
     "pages/orders/index",

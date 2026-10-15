@@ -20,20 +20,56 @@ function verifyAdminPassword(password, hash) {
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
+function configuredAdminPasswordHash() {
+  return String(process.env.TGG_ADMIN_PASSWORD_HASH || process.env.TGG_DEMO_PASSWORD_HASH || "").trim();
+}
+
+const defaultPasswordHashCache = new Map();
+
+function requiresProvisionedAdminCredentials() {
+  return process.env.NODE_ENV === "production" || String(process.env.TGG_STORE_DRIVER || "json") === "pg";
+}
+
+function isDefaultPasswordHash(hash) {
+  if (!hash) return false;
+  if (defaultPasswordHashCache.has(hash)) return defaultPasswordHashCache.get(hash);
+  const result = verifyAdminPassword("123456", hash);
+  defaultPasswordHashCache.set(hash, result);
+  return result;
+}
+
 function ensureAdminUsers(state) {
   if (Array.isArray(state.adminUsers) && state.adminUsers.length) {
-    state.adminUsers = state.adminUsers.map(item => ({
+    const configuredHash = configuredAdminPasswordHash();
+    const mustProvision = requiresProvisionedAdminCredentials();
+    state.adminUsers = state.adminUsers.map(item => {
+      const normalized = {
       status: "active",
       roleIds: [],
       ...item,
       roleIds: Array.isArray(item.roleIds) ? item.roleIds : [item.roleId || item.id].filter(Boolean)
-    }));
+      };
+      if (isDefaultPasswordHash(normalized.passwordHash)) {
+        if (configuredHash) {
+          normalized.passwordHash = configuredHash;
+          normalized.status = "active";
+          delete normalized.securityLockReason;
+        } else if (mustProvision) {
+          normalized.status = "disabled";
+          normalized.securityLockReason = "admin password provisioning required";
+        }
+      }
+      return normalized;
+    });
     return state.adminUsers;
   }
   const { createSeed } = require("../data/seed");
-  const passwordHash = process.env.TGG_DEMO_PASSWORD_HASH || hashAdminPassword(process.env.TGG_DEMO_PASSWORD || "123456");
+  const configuredHash = configuredAdminPasswordHash();
+  const configuredPassword = process.env.TGG_DEMO_PASSWORD || (!requiresProvisionedAdminCredentials() ? "123456" : "");
+  const passwordHash = configuredHash || hashAdminPassword(configuredPassword || crypto.randomBytes(32).toString("hex"));
+  const status = requiresProvisionedAdminCredentials() && !configuredHash ? "disabled" : "active";
   state.adminUsers = createSeed().roles.map(role => ({
-    id: role.id, username: role.id, name: role.name, roleIds: [role.id], status: "active",
+    id: role.id, username: role.id, name: role.name, roleIds: [role.id], status,
     passwordHash, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: ""
   }));
   return state.adminUsers;
@@ -50,4 +86,4 @@ function effectiveRole(state, account) {
     roleIds: roles.map(role => role.id), permissions: [...new Set(roles.flatMap(role => role.permissions))] };
 }
 
-module.exports = { hashAdminPassword, verifyAdminPassword, ensureAdminUsers, publicAdmin, effectiveRole };
+module.exports = { hashAdminPassword, verifyAdminPassword, ensureAdminUsers, publicAdmin, effectiveRole, configuredAdminPasswordHash };

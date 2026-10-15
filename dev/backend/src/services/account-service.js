@@ -1,6 +1,7 @@
 const { nextId, saveState } = require("../data/store");
 const ledgerRepository = require("../repositories/ledger-repository");
 const ticketRepository = require("../repositories/ticket-repository");
+const { getMonthRange, toMonthKey } = require("../time-zone");
 
 function listPickupSites(state) {
   return state.pickupSites.filter((site) => site.enabled);
@@ -19,6 +20,15 @@ function listAddresses(state, userId) {
   return state.addresses.filter((address) => address.userId === userId);
 }
 
+function addressInServiceRange(state, input, fallback = true) {
+  const text = [input.province, input.city, input.district, input.detail || input.address].filter(Boolean).join(" ");
+  const keywords = Array.isArray(state.config?.deliveryServiceAreaKeywords)
+    ? state.config.deliveryServiceAreaKeywords.map(value => String(value).trim()).filter(Boolean)
+    : [];
+  if (keywords.length) return keywords.some(keyword => text.includes(keyword));
+  return input.inServiceRange === false ? false : fallback;
+}
+
 function createAddress(state, userId, input) {
   const now = new Date().toISOString();
   const userAddresses = state.addresses.filter((candidate) => candidate.userId === userId);
@@ -31,7 +41,7 @@ function createAddress(state, userId, input) {
     city: input.city || "",
     district: input.district || "",
     detail: input.detail || input.address || "",
-    inServiceRange: input.inServiceRange !== false,
+    inServiceRange: addressInServiceRange(state, input),
     isDefault: Boolean(input.isDefault) || userAddresses.length === 0,
     createdAt: now,
     updatedAt: now
@@ -60,6 +70,7 @@ function updateAddress(state, userId, addressId, input) {
     for (const item of state.addresses.filter((candidate) => candidate.userId === userId)) item.isDefault = false;
     address.isDefault = true;
   }
+  address.inServiceRange = addressInServiceRange(state, { ...address, ...input }, address.inServiceRange !== false);
   address.updatedAt = new Date().toISOString();
   saveState();
   return { ok: true, address };
@@ -90,17 +101,34 @@ function getWithdrawal(state, userId, withdrawalId) {
 
 function requestWithdrawal(state, user, input) {
   const requestedKey = String(input.idempotencyKey || "").trim();
+  const requestedAmount = roundMoney(input.amount);
+  const requestedChannel = String(input.channel || "wechat").trim() || "wechat";
+  const requestedOpenid = String(input.openid || user.openid || user.wechatOpenid || "").trim();
+  const requestedRecipientName = String(input.recipientName || "").trim();
   if (requestedKey) {
     const existing = state.withdrawRequests.find((item) => item.userId === user.id && item.idempotencyKey === requestedKey);
-    if (existing) return { ok: true, withdrawal: existing, idempotent: true };
+    if (existing) {
+      const sameIntent = existing.amount === requestedAmount
+        && existing.channel === requestedChannel
+        && existing.openid === requestedOpenid
+        && existing.recipientName === requestedRecipientName;
+      return sameIntent
+        ? { ok: true, withdrawal: existing, idempotent: true }
+        : { ok: false, status: 409, error: "提现请求标识已用于其他提现意图" };
+    }
   }
-  const amount = roundMoney(input.amount);
+  const amount = requestedAmount;
   const minAmount = Number(state.config.withdrawMinAmount || 1);
-  if (!amount || amount < minAmount) return { ok: false, status: 400, error: `最低提现金额为 ${minAmount} 元` };
+  const feeRate = Number(state.config.withdrawFeeRate ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "提现金额必须是正数" };
+  if (!Number.isFinite(minAmount) || minAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
+  if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate > 1) return { ok: false, status: 500, error: "提现手续费配置无效，请联系管理员" };
+  if (amount < minAmount) return { ok: false, status: 400, error: `最低提现金额为 ${minAmount} 元` };
   if (amount > user.withdrawableBalance) return { ok: false, status: 400, error: "可提现余额不足" };
 
-  const fee = roundMoney(amount * Number(state.config.withdrawFeeRate || 0));
+  const fee = roundMoney(amount * feeRate);
   const arrivalAmount = roundMoney(amount - fee);
+  if (arrivalAmount <= 0) return { ok: false, status: 400, error: "扣除手续费后到账金额必须大于 0 元" };
   const now = new Date().toISOString();
   const withdrawal = {
     id: nextId("wd"),
@@ -108,11 +136,11 @@ function requestWithdrawal(state, user, input) {
     amount,
     fee,
     arrivalAmount,
-    channel: input.channel || "wechat",
+    channel: requestedChannel,
     status: "pending_review",
     idempotencyKey: requestedKey || `withdraw:${user.id}:${Date.now()}`,
-    openid: String(input.openid || user.openid || user.wechatOpenid || "").trim(),
-    recipientName: String(input.recipientName || "").trim(),
+    openid: requestedOpenid,
+    recipientName: requestedRecipientName,
     provider: "huifu_bafang",
     providerStatus: "pending",
     createdAt: now,
@@ -163,8 +191,12 @@ function getRanking(state, userId) {
   const scoreTypes = new Set(["signin", "lottery", "task_reward", "invite_reward", "invite_commission", "ranking_reward"]);
   const scores = new Map();
   for (const user of state.users) scores.set(user.id, { userId: user.id, nickname: user.nickname, score: 0 });
+  const monthKey = toMonthKey(new Date(), "Asia/Shanghai");
+  const monthRange = getMonthRange(monthKey, "Asia/Shanghai");
   for (const entry of state.pointLedger) {
     if (entry.direction === "in" && scoreTypes.has(entry.changeType)) {
+      const createdAt = new Date(entry.createdAt || 0);
+      if (Number.isNaN(createdAt.getTime()) || createdAt < monthRange.start || createdAt >= monthRange.end) continue;
       scores.get(entry.userId).score += entry.points;
     }
   }
@@ -172,7 +204,7 @@ function getRanking(state, userId) {
     .sort((a, b) => b.score - a.score)
     .map((item, index) => ({ ...item, rank: index + 1 }));
   return {
-    period: new Date().toISOString().slice(0, 7),
+    period: monthKey,
     refreshMinutes: state.config.rankingRefreshMinutes,
     currentUser: rows.find((item) => item.userId === userId) || null,
     rows

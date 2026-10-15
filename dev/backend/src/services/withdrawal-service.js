@@ -24,7 +24,12 @@ function update(state, withdrawal, body, callback = false) {
     const user = userRepository.findById(state, withdrawal.userId);
     const payoutKey = `${withdrawal.id}:payout`;
     if (user && !(state.withdrawableLedger || []).some(item => item.idempotencyKey === payoutKey)) {
-      ledgerRepository.addWithdrawableEntry(state, { id: `wlg_${Date.now()}_payout`, userId: user.id, changeType: "withdraw_payout", direction: "out", amount: withdrawal.amount, balanceAfter: user.withdrawableBalance, bizNo: withdrawal.id, idempotencyKey: payoutKey, createdAt: withdrawal.lastQueryAt });
+      ledgerRepository.addWithdrawableEntry(state, { id: `wlg_${Date.now()}_payout`, userId: user.id, changeType: "withdraw_payout", direction: "out", amount: withdrawal.arrivalAmount, balanceAfter: user.withdrawableBalance, bizNo: withdrawal.id, idempotencyKey: payoutKey, createdAt: withdrawal.lastQueryAt });
+    }
+    const fee = Number(withdrawal.fee || 0);
+    const feeKey = `${withdrawal.id}:fee`;
+    if (user && fee > 0 && !(state.withdrawableLedger || []).some(item => item.idempotencyKey === feeKey)) {
+      ledgerRepository.addWithdrawableEntry(state, { id: `wlg_${Date.now()}_fee`, userId: withdrawal.userId, changeType: "withdraw_fee", direction: "out", amount: fee, balanceAfter: user.withdrawableBalance, bizNo: withdrawal.id, idempotencyKey: feeKey, createdAt: withdrawal.lastQueryAt });
     }
   }
   if (["FAIL", "FAILED", "CLOSED", "CANCELLED", "OVERDUE_CLOSE", "REFUND"].includes(status)) {
@@ -40,12 +45,18 @@ function update(state, withdrawal, body, callback = false) {
 }
 function providerAmountMatches(withdrawal, body) {
   const data = body?.data || body?.result || body || {};
-  const raw = data.amount ?? data.transfer_amount ?? data.amount_cents;
-  if (raw === undefined || raw === null || raw === "") return true;
-  const number = Number(raw);
-  // amount_cents is explicitly cents; other provider amount fields are yuan.
-  const amount = data.amount_cents !== undefined ? number / 100 : number;
-  return Number.isFinite(amount) && Math.abs(amount - Number(withdrawal.amount)) < 0.005;
+  const expectedCents = Math.round(Number(withdrawal.arrivalAmount ?? withdrawal.amount) * 100);
+  let actualCents = null;
+  if (data.amount_cents !== undefined || data.transfer_amount_cents !== undefined) {
+    const raw = data.amount_cents ?? data.transfer_amount_cents;
+    if (/^\d+$/.test(String(raw))) actualCents = Number(raw);
+  } else if (data.amount !== undefined) {
+    const raw = String(data.amount);
+    if (/^\d+(?:\.\d{1,2})?$/.test(raw)) actualCents = Math.round(Number(raw) * 100);
+  } else if (data.transfer_amount !== undefined) {
+    if (/^\d+$/.test(String(data.transfer_amount))) actualCents = Number(data.transfer_amount);
+  }
+  return Number.isSafeInteger(actualCents) && actualCents >= 0 && actualCents === expectedCents;
 }
 async function submitWithdrawal(state, id) {
   const w = state.withdrawRequests.find((x) => x.id === id);
@@ -59,7 +70,7 @@ async function submitWithdrawal(state, id) {
     appid,
     order_id: merchantOrderId,
     openid: w.openid,
-    transfer_amount: Math.round(w.amount * 100),
+    transfer_amount: Math.round(Number(w.arrivalAmount ?? w.amount) * 100),
     remark: String(w.remark || `TGG提现${w.id}`).slice(0, 32),
     user_recv_perception: process.env.HF_USER_RECV_PERCEPTION || "现金奖励",
     callback_url: process.env.HF_CALLBACK_URL,
@@ -113,7 +124,11 @@ function handleCallback(state, input = {}) {
   if (success) {
     if (!providerAmountMatches(w, input)) return { ok: false, status: 409, error: "服务商提现金额与本地提现单不一致" };
     const payout = (state.withdrawableLedger || []).find(item => item.idempotencyKey === `${w.id}:payout`);
-    if (payout && (payout.userId !== w.userId || payout.amount !== w.amount || payout.bizNo !== w.id || payout.direction !== "out")) return { ok: false, status: 409, error: "提现出账流水与提现单不一致，请人工核对" };
+    const expectedPayout = Number(w.arrivalAmount ?? w.amount);
+    if (payout && (payout.userId !== w.userId || Number(payout.amount) !== expectedPayout || payout.bizNo !== w.id || payout.direction !== "out")) return { ok: false, status: 409, error: "提现出账流水与提现单不一致，请人工核对" };
+    const fee = Number(w.fee || 0);
+    const feeEntry = (state.withdrawableLedger || []).find(item => item.idempotencyKey === `${w.id}:fee`);
+    if (fee > 0 && feeEntry && (feeEntry.userId !== w.userId || Number(feeEntry.amount) !== fee || feeEntry.bizNo !== w.id || feeEntry.direction !== "out")) return { ok: false, status: 409, error: "提现手续费流水冲突，请人工核对" };
   }
   return { ok: true, withdrawal: update(state, w, input, true) };
 }

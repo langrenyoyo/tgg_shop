@@ -305,6 +305,7 @@ function findAttempt(state, subjectType, subjectId) {
 function isValidPassword(password) {
   const passwordHash = process.env.TGG_DEMO_PASSWORD_HASH;
   const passwordText = String(password || "");
+  if (process.env.NODE_ENV === "production" && !passwordHash) return false;
   if (passwordHash) return hashPassword(passwordText) === passwordHash;
   return passwordText === String(process.env.TGG_DEMO_PASSWORD || "123456");
 }

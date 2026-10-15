@@ -6,7 +6,7 @@ const path = require("node:path");
 
 function uploadRoute() {
   const writes = [];
-  const context = { module: { exports: {} }, __dirname, Buffer, require: name => name === "path" ? path : { mkdirSync() {}, writeFileSync: (file, data) => writes.push(data) } };
+  const context = { module: { exports: {} }, __dirname, Buffer, require: name => name === "path" ? path : name === "node:crypto" ? { randomBytes: () => Buffer.alloc(8, 7) } : { mkdirSync() {}, writeFileSync: (file, data) => writes.push(data) } };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../src/routes/common-routes.js"), "utf8"), context);
   return { route: context.module.exports.handleCommonRoutes, writes };
 }

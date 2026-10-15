@@ -2,6 +2,7 @@ const { publicRole, requireAdminPermission, resolveAdmin } = require("../domain/
 const { createException, resolveException } = require("../domain/exception-rules");
 const { verifyPickup, shipOrder, deliverOrder, createDeliveryException } = require("../domain/fulfillment-rules");
 const { approveRefund } = require("../domain/refund-rules");
+const { mockOperationsEnabled } = require("../config/runtime-safety");
 const { handleTaskCallback } = require("../domain/task-callback-rules");
 const { nextId, saveState } = require("../data/store");
 const {
@@ -780,6 +781,29 @@ function updateConfig(state, input, actor = {}) {
       }) && new Set(shortcuts.map((item, index) => String(item?.key || `category-${index}`).trim())).size === shortcuts.length;
     if (!valid) return { ok: false, status: 400, error: "首页分类至少需要 1 项，最多 8 项，且名称、分类、Logo 和标识必须有效" };
   }
+  const numericRules = {
+    membershipMonthlyPrice: value => value >= 0,
+    membershipMonthlyPoints: value => Number.isInteger(value) && value >= 0,
+    membershipPointCashRate: value => value > 0,
+    deliveryFee: value => value >= 0,
+    deliveryCutoffHour: value => Number.isInteger(value) && value >= 0 && value <= 23,
+    rankingRefreshMinutes: value => value > 0,
+    inviteRewardPoints: value => Number.isInteger(value) && value >= 0,
+    inviteCommissionRate: value => value >= 0 && value <= 1,
+    monthlyPointRewardSettlementHour: value => Number.isInteger(value) && value >= 0 && value <= 23,
+    monthlyPointRewardSettlementMinute: value => Number.isInteger(value) && value >= 0 && value <= 59,
+    withdrawMinAmount: value => value > 0,
+    withdrawFeeRate: value => value >= 0 && value <= 1,
+    paymentTimeoutMinutes: value => value === 0 || value >= 1,
+    stationPickupHoldHours: value => Number.isInteger(value) && value >= 1 && value <= 720,
+    cashOrderMaxAmount: value => value > 0,
+    cashDailyMaxAmount: value => value > 0
+  };
+  for (const [key, validate] of Object.entries(numericRules)) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
+    const value = Number(input[key]);
+    if (!Number.isFinite(value) || !validate(value)) return { ok: false, status: 400, error: `${key} 配置无效` };
+  }
   const before = { ...state.config };
   const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
   const numberKeys = [
@@ -796,7 +820,9 @@ function updateConfig(state, input, actor = {}) {
     "withdrawMinAmount",
     "withdrawFeeRate",
     "paymentTimeoutMinutes",
-    "stationPickupHoldHours"
+    "stationPickupHoldHours",
+    "cashOrderMaxAmount",
+    "cashDailyMaxAmount"
   ];
   const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "stationSortMode", "stationShelfPrefix"];
 
@@ -837,6 +863,13 @@ function updateConfig(state, input, actor = {}) {
       .map(item => item.trim())
       .filter(item => /^(?:[01]\d|2[0-3]):[0-5]\d\s*-\s*(?:[01]\d|2[0-3]):[0-5]\d$/.test(item))
       .slice(0, 12);
+  }
+  if (Array.isArray(input.deliveryServiceAreaKeywords)) {
+    state.config.deliveryServiceAreaKeywords = input.deliveryServiceAreaKeywords
+      .map(value => String(value).trim().slice(0, 80)).filter(Boolean).slice(0, 50);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "deliveryRequireSavedAddress")) {
+    state.config.deliveryRequireSavedAddress = Boolean(input.deliveryRequireSavedAddress);
   }
   if (Array.isArray(input.homeServiceBadges)) {
     state.config.homeServiceBadges = input.homeServiceBadges.map(String).map((item) => item.trim()).filter(Boolean);
@@ -938,7 +971,7 @@ function approveWithdrawal(state, withdrawalId, actor = {}, reason = "") {
 
   // Production approval authorizes provider submission; never post a payout
   // ledger before the provider reports a terminal success.
-  if (process.env.NODE_ENV === "production") {
+  if (!mockOperationsEnabled()) {
     withdrawal.status = "approved";
     withdrawal.providerStatus = "APPROVED";
     withdrawal.updatedAt = new Date().toISOString();
@@ -956,7 +989,7 @@ function approveWithdrawal(state, withdrawalId, actor = {}, reason = "") {
     userId: withdrawal.userId,
     changeType: "withdraw_payout",
     direction: "out",
-    amount: withdrawal.amount,
+    amount: withdrawal.arrivalAmount ?? withdrawal.amount,
     balanceAfter: userRepository.findById(state, withdrawal.userId)?.withdrawableBalance || 0,
     bizNo: withdrawal.id,
     idempotencyKey: `${withdrawal.id}:payout`,

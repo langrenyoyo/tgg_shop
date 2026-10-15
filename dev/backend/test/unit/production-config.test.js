@@ -11,6 +11,8 @@ const { loadEnv, readEnvFile } = require("../../src/config/env-file");
 const valid = {
   NODE_ENV: "production", TGG_STORE_DRIVER: "pg", TGG_PG_URL: "postgres://user:pwd@db.internal/tgg",
   TGG_AUTH_SECRET: "a".repeat(64), TGG_TASK_CALLBACK_TOKEN: "b".repeat(64),
+  TGG_ADMIN_PASSWORD_HASH: "scrypt$test-admin-hash",
+  TGG_CORS_ORIGIN: "https://shop.taoguoguo.cc", TGG_PUBLIC_ORIGIN: "https://shop.taoguoguo.cc",
   TGG_TASK_PLATFORM_BASE_URL: "https://tasks.vendor.com", TGG_TASK_PLATFORM_APPID: "1234", TGG_TASK_PLATFORM_KEY: "c".repeat(32),
   WECHAT_APPID: "wx7cdc387f27520de8", WECHAT_APPSECRET: "d".repeat(32),
   LFWIN_BASE_URL: "https://pay.vendor.com", LFWIN_API_KEY: "merchant-key", LFWIN_SIGN_TYPE: "MD5", LFWIN_SIGN_KEY: "e".repeat(32),

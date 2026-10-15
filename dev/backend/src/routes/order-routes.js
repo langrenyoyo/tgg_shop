@@ -2,6 +2,7 @@ const orderService = require("../services/order-service");
 const userOrders = require("../services/user-order-service");
 const { saveState } = require("../data/store");
 const paymentService = require("../services/payment-service");
+const { isolatedNonProduction } = require("../config/runtime-safety");
 
 async function handleOrderRoutes(ctx) {
   const { req, url, state, user, send, readBody, publicUser } = ctx;
@@ -62,6 +63,7 @@ async function handleOrderRoutes(ctx) {
 
   const payMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/pay$/);
   if (req.method === "POST" && payMatch) {
+    if (!isolatedNonProduction()) return send(ctx.res, 503, { error: "当前环境未启用模拟支付，请使用已配置的真实支付渠道" });
     const result = orderService.submitPayment(state, payMatch[1], await readBody(req));
     if (result.ok) await saveState();
     return send(ctx.res, result.ok ? 200 : 400, result.ok ? result.order : { error: result.error });
@@ -104,7 +106,7 @@ async function handleOrderRoutes(ctx) {
 
   const callbackMatch = url.pathname.match(/^\/api\/payments\/([^/]+)\/mock-callback$/);
   if (req.method === "POST" && callbackMatch) {
-    if (process.env.NODE_ENV === "production") return send(ctx.res, 403, { error: "生产环境禁止模拟支付" });
+    if (!isolatedNonProduction()) return send(ctx.res, 403, { error: "当前环境禁止模拟支付" });
     if (!state.paymentLedger.some(payment => payment.payNo === callbackMatch[1] && payment.userId === user.id)) return send(ctx.res, 404, { error: "支付单不存在" });
     const result = orderService.handlePaymentCallback(state, callbackMatch[1], await readBody(req));
     if (result.ok) await saveState();

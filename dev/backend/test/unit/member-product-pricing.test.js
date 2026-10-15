@@ -8,9 +8,9 @@ const { loadSQLiteState, saveSQLiteState } = require("../../src/data/sqlite-stor
 const actor = state => ({ role: state.roles.find(role => role.id === "product_admin") });
 const productInput = { name: "双价商品", category: "水果", image: "/assets/apple.jpg", stock: 10, cashPrice: 12.8, regularPrice: 20, supportsPoints: false, status: "on", reason: "测试双价上架" };
 
-test("unsubscribed and expired users cannot order through any payment mode, without mutations", () => {
+test("unsubscribed and expired users cannot place cash orders, without mutations", () => {
   for (const memberUntil of [null, new Date(Date.now() - 1000).toISOString()]) {
-    for (const paymentMode of ["cash", "pure_points", "points_plus_cash"]) {
+    for (const paymentMode of ["cash", "points_plus_cash"]) {
       for (const productId of ["p_apple", "p_banana"]) {
         const state = createSeed();
         Object.assign(state.users.find(user => user.id === "u_1002"), { memberUntil, points: 10000 });
@@ -21,6 +21,18 @@ test("unsubscribed and expired users cannot order through any payment mode, with
         assert.equal(JSON.stringify(state), before);
       }
     }
+  }
+});
+
+test("pure-points redemption does not require membership", () => {
+  for (const productId of ["p_apple", "p_banana"]) {
+    const state = createSeed();
+    const user = state.users.find(item => item.id === "u_1002");
+    user.memberUntil = null;
+    user.points = 10000;
+    const result = createOrder(state, user.id, { paymentMode: "pure_points", items: [{ productId, quantity: 1 }] });
+    assert.equal(result.ok, true);
+    assert.equal(result.order.status, "paid");
   }
 });
 

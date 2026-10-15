@@ -8,6 +8,7 @@ const inventoryRepository = require("../repositories/inventory-repository");
 const ticketRepository = require("../repositories/ticket-repository");
 const { createException } = require("./exception-rules");
 const { logOrderStatus } = require("./rules");
+const { mockOperationsEnabled, productionLike } = require("../config/runtime-safety");
 
 function createRefundRequest(state, userId, orderId, reason = "用户申请退款") {
   const order = orderRepository.findById(state, orderId);
@@ -73,7 +74,7 @@ function approveRefund(state, refundId) {
     };
   }
   if (refundOrder.status !== "pending_review") return { ok: false, status: 400, error: "退款单状态不允许审批" };
-  if (process.env.NODE_ENV === "production" && refundOrder.refundCashAmount > 0) {
+  if (refundOrder.refundCashAmount > 0 && !mockOperationsEnabled()) {
     return { ok: false, status: 503, error: "生产环境尚未配置真实退款通道，不能用模拟退款入账" };
   }
 
@@ -139,7 +140,7 @@ function approveRefund(state, refundId) {
       userId: user.id,
       direction: "out",
       amount: refundOrder.refundCashAmount,
-      channel: process.env.NODE_ENV === "production" ? "provider_refund" : "mock_refund",
+      channel: productionLike() ? "provider_refund" : "mock_refund",
       status: "refunded",
       idempotencyKey: `refund:${refundOrder.id}:cash`,
       createdAt: now

@@ -10,13 +10,14 @@ const { publicUser } = require("../http/http-utils");
 const { createLfwinClient } = require("./lfwin-payment-client");
 const { exclusive, isBusy } = require("./operation-lock");
 const { releaseOrderPoints } = require("../domain/point-reservations");
+const { isolatedNonProduction } = require("../config/runtime-safety");
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
 }
 
 function createGoodsPayment(state, orderId, input = {}) {
-  if (process.env.NODE_ENV === "production" && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled in production" };
+  if (!isolatedNonProduction() && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled outside an isolated test environment" };
   const order = orderRepository.findById(state, orderId);
   if (!order) return { ok: false, status: 404, error: "订单不存在" };
   if (isBusy(order)) return { ok: false, status: 409, error: "订单操作处理中" };
@@ -66,7 +67,7 @@ function createMemberPayment(state, user, input = {}) {
   if (paymentMode === "points_plus_cash" && !pointsRequired) return { ok: false, status: 400, error: "后台尚未配置积分开通会员" };
   const pointAmount = paymentMode === "cash" ? 0 : Math.min(user.points, pointsRequired);
   const amount = roundMoney(Math.max(0, price * months - pointAmount * pointCashRate));
-  if (process.env.NODE_ENV === "production" && amount > 0 && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled in production" };
+  if (!isolatedNonProduction() && amount > 0 && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled outside an isolated test environment" };
   const idempotencyKey = input.idempotencyKey || `payment:member:${user.id}:${months}:${Date.now()}`;
   const existing = state.paymentLedger.find((payment) => payment.idempotencyKey === idempotencyKey);
   if (existing) return existing.userId === user.id && existing.payScene === "member_open" ? { ok: true, payment: existing, idempotent: true } : { ok: false, status: 409, error: "支付请求标识已被使用" };
@@ -250,7 +251,7 @@ function applyLfwinPaymentNotification(state, payload, client = createLfwinClien
 }
 
 function mockPaymentCallback(state, payNo, input = {}) {
-  if (process.env.NODE_ENV === "production") return { ok: false, status: 403, error: "生产环境禁止模拟支付" };
+  if (!isolatedNonProduction()) return { ok: false, status: 403, error: "当前环境禁止模拟支付" };
   const payment = state.paymentLedger.find((item) => item.payNo === payNo || item.id === payNo);
   if (!payment) return { ok: false, status: 404, error: "支付单不存在" };
   if (payment.status === "paid") return { ok: true, payment, result: getPaymentResult(state, payment), idempotent: true };

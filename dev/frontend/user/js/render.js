@@ -223,7 +223,7 @@ function submissionsView(state) {
     <div class="subtabs"><button type="button" class="active">全部</button><button type="button">审核中</button><button type="button">已通过</button></div>
     <div class="stack">
       ${(state.submissions || []).length
-        ? state.submissions.map((item) => `<article class="list-card"><h3>${item.taskTitle || item.taskId}</h3><p>${statusLabel(item.status)} · ${formatDate(item.createdAt)}</p>${item.remarks ? `<p class="muted">${item.remarks}</p>` : ""}</article>`).join("")
+        ? state.submissions.map((item) => `<article class="list-card"><h3>${homeEscape(item.taskTitle || item.taskId)}</h3><p>${statusLabel(item.status)} · ${formatDate(item.createdAt)}</p>${item.remarks ? `<p class="muted">${homeEscape(item.remarks)}</p>` : ""}</article>`).join("")
         : `<div class="empty">暂无任务提交记录</div>`}
     </div>
   `;
@@ -288,7 +288,7 @@ function categoryModeLabel(mode) {
 function productView(product, state = {}) {
   if (!product) return `<div class="empty">暂无商品</div>`;
   const isPure = product.purePointsOnly;
-  const memberLocked = !isMemberUser(state.user);
+  const memberLocked = !isMemberUser(state.user) && !isPure;
   const stock = Number(product.stock || 0);
   return `
     <article class="hero-product top-card product-detail-hero">
@@ -319,10 +319,10 @@ function cartView(state) {
   const totalPoints = items.reduce((sum, item) => sum + (item.purePointsOnly ? (item.pointsPrice || 0) * (item.quantity || 1) : 0), 0);
   const totalCash = items.reduce((sum, item) => sum + (!item.purePointsOnly ? (item.cashPrice || 0) * (item.quantity || 1) : 0), 0);
   const mixed = items.some((item) => item.purePointsOnly) && items.some((item) => !item.purePointsOnly);
-  const memberLocked = !isMemberUser(state.user);
+  const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly);
   return `
     <div class="stack cart-list">
-      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" /><span><strong>${item.name}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 需先开通会员" : "会员现金商品 · 自建配送"}</p>${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}<div class="qty"><button type="button" data-cart-qty="${item.id}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${item.id}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${item.id}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
+      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${homeEscape(item.image)}" alt="${homeEscape(item.name)}" loading="lazy" decoding="async" /><span><strong>${homeEscape(item.name)}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 需先开通会员" : "会员现金商品 · 自建配送"}</p>${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}<div class="qty"><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${homeEscape(item.id)}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
     </div>
     ${mixed ? `<section class="notice" style="margin-top:10px"><strong>请分开结算</strong><p>纯积分兑换不提供现金补差入口，现金商品需会员购买。</p></section>` : ""}
     ${memberLocked ? `<section class="member-lock"><strong>下单需月会员</strong><span>所有商品均需先购买月会员后下单。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
@@ -345,7 +345,7 @@ function checkoutView(state, type) {
   const mixed = items.some((item) => item.purePointsOnly) && items.some((item) => !item.purePointsOnly);
   const pureOnly = items.length > 0 && items.every((item) => item.purePointsOnly);
   const cashOnly = items.length > 0 && items.every((item) => !item.purePointsOnly);
-  const memberLocked = !isMemberUser(state.user);
+  const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly);
   const deliveryFee = state.config?.deliveryFeeEnabled && delivery && cashOnly ? Number(state.config.deliveryFee || 0) : 0;
   const disabled = !items.length || mixed || (delivery && !defaultAddress);
   return `
@@ -363,7 +363,7 @@ function checkoutView(state, type) {
     <section class="field-card"><h3>配送时间</h3><p>${delivery ? `每天 ${cutoffHour}:00（${deliveryTimeZone}）截单，截单前当天配送，之后次日配送` : "到站后凭核销码取货"}</p>${delivery ? `<label class="delivery-slot-picker">配送时段<select data-delivery-slot>${slots.map((slot) => `<option value="${homeEscape(slot)}" ${slot === selectedSlot ? "selected" : ""}>${homeEscape(slot)}</option>`).join("")}</select></label>` : `<div class="slot-row">${slots.map((slot) => `<span class="state">${homeEscape(slot)}</span>`).join("")}</div>`}</section>
     <section class="field-card">
       <h3>商品清单</h3>
-      <div class="checkout-items">${items.map((item) => `<p><span>${item.name} x${item.quantity || 1}${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}</span><strong>${lineTotalText(item)}</strong></p>`).join("") || `<p class="muted">暂无商品</p>`}</div>
+      <div class="checkout-items">${items.map((item) => `<p><span>${homeEscape(item.name)} x${item.quantity || 1}${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}</span><strong>${lineTotalText(item)}</strong></p>`).join("") || `<p class="muted">暂无商品</p>`}</div>
       <div class="fee-lines" style="margin-top:10px"><p><span>配送费</span><strong>${deliveryFee ? money(deliveryFee) : "¥0.0"}</strong></p></div>
     </section>
     ${memberLocked ? `<section class="member-lock"><strong>下单需月会员</strong><span>开通后可现金购买和使用积分不足现金补差。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
@@ -386,11 +386,11 @@ function orderDetailView(state) {
   if (!order) return `<div class="empty">暂无订单详情</div>`;
   const payment = findOrderPayment(state, order);
   return `
-    <section class="order-detail-head"><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span><h2>${order.id}</h2><p>${order.fulfillmentType === "pickup" ? "自提核销" : "TGG 自建配送"} · ${fulfillmentStatusLabel(order)}</p></section>
+    <section class="order-detail-head"><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span><h2>${homeEscape(order.id)}</h2><p>${order.fulfillmentType === "pickup" ? "自提核销" : "TGG 自建配送"} · ${fulfillmentStatusLabel(order)}</p></section>
     <section class="order-summary"><span><strong>${orderAmountText(order)}</strong><em>订单金额</em></span><span><strong>${order.paymentMode === "pure_points" ? "纯积分" : "会员现金"}</strong><em>支付方式</em></span><span><strong>${order.fulfillmentType === "pickup" ? "自提" : "配送"}</strong><em>履约方式</em></span></section>
     ${orderRiskNotice(order)}
     <section class="field-card"><h3>订单进度</h3><div class="order-steps">${orderSteps(order, payment)}</div></section>
-    <section class="field-card"><h3>商品清单</h3><div class="order-item-lines">${order.items.map((item) => `<p><span>${item.title || item.name || item.productId} x${item.quantity}</span></p>`).join("")}</div><p class="muted">${paymentHint(order)}</p></section>
+    <section class="field-card"><h3>商品清单</h3><div class="order-item-lines">${order.items.map((item) => `<p><span>${homeEscape(item.title || item.name || item.productId)} x${item.quantity}</span></p>`).join("")}</div><p class="muted">${paymentHint(order)}</p></section>
     <section class="field-card"><h3>支付与账务</h3>${payment ? paymentDetail(payment) : `<p class="muted">${order.paymentMode === "pure_points" ? "纯积分订单无需现金支付单，积分已按订单状态扣减或退回。" : "暂无支付单，等待发起支付。"}</p>`}<p class="muted">退款时现金和积分将分别按原账务流水退回。</p></section>
     <section class="field-card"><h3>${order.fulfillmentType === "pickup" ? "自提信息" : "配送信息"}</h3>${fulfillmentDetail(order)}</section>
     ${refundStateNotice(order)}
@@ -406,16 +406,16 @@ function addressView(state) {
   const editing = (state.addresses || []).find((item) => item.id === state.editingAddressId) || {};
   return `
     <form class="form" data-address-form>
-      <input name="receiverName" placeholder="收货人" value="${editing.receiverName || ""}" required />
-      <input name="mobile" placeholder="手机号" value="${editing.mobile || ""}" required />
-      <input name="province" placeholder="省份" value="${editing.province || ""}" />
-      <input name="city" placeholder="城市" value="${editing.city || ""}" />
-      <input name="district" placeholder="区域" value="${editing.district || ""}" />
-      <textarea name="detail" placeholder="详细地址" required>${editing.detail || ""}</textarea>
+      <input name="receiverName" placeholder="收货人" value="${homeEscape(editing.receiverName)}" required />
+      <input name="mobile" placeholder="手机号" value="${homeEscape(editing.mobile)}" required />
+      <input name="province" placeholder="省份" value="${homeEscape(editing.province)}" />
+      <input name="city" placeholder="城市" value="${homeEscape(editing.city)}" />
+      <input name="district" placeholder="区域" value="${homeEscape(editing.district)}" />
+      <textarea name="detail" placeholder="详细地址" required>${homeEscape(editing.detail)}</textarea>
       <label class="check-row"><input name="isDefault" type="checkbox" ${editing.isDefault ? "checked" : ""}> 设为默认地址</label>
       <button type="submit" class="primary">${editing.id ? "保存地址" : "新增地址"}</button>
     </form>
-    <div class="stack" style="margin-top:12px">${(state.addresses || []).map((item) => `<article class="list-card"><h3>${item.receiverName} ${item.mobile || ""}</h3><p>${addressLine(item)}</p><p>${item.isDefault ? `<span class="state">默认</span>` : ""}</p><button type="button" class="link" data-edit-address="${item.id}">编辑</button> <button type="button" class="link" data-default-address="${item.id}">设默认</button> <button type="button" class="link" data-delete-address="${item.id}">删除</button></article>`).join("") || `<div class="empty">暂无地址</div>`}</div>
+    <div class="stack" style="margin-top:12px">${(state.addresses || []).map((item) => `<article class="list-card"><h3>${homeEscape(item.receiverName)} ${homeEscape(item.mobile || "")}</h3><p>${addressLine(item)}</p><p>${item.isDefault ? `<span class="state">默认</span>` : ""}</p><button type="button" class="link" data-edit-address="${homeEscape(item.id)}">编辑</button> <button type="button" class="link" data-default-address="${homeEscape(item.id)}">设默认</button> <button type="button" class="link" data-delete-address="${homeEscape(item.id)}">删除</button></article>`).join("") || `<div class="empty">暂无地址</div>`}</div>
   `;
 }
 
@@ -425,7 +425,7 @@ function profileView(state) {
   const memberDaysLeft = getMemberDaysLeft(user);
   return `
     <section class="profile-head">
-      <div class="name-row"><span class="avatar">${(user.nickname || "T").slice(0, 1)}</span><div><strong>${user.nickname || "TGG 用户"}</strong><p>${memberActive ? "月会员" : "普通用户"}</p></div><button type="button" class="pill-button" data-page="membership">会员</button></div>
+      <div class="name-row"><span class="avatar">${homeEscape((user.nickname || "T").slice(0, 1))}</span><div><strong>${homeEscape(user.nickname || "TGG 用户")}</strong><p>${memberActive ? "月会员" : "普通用户"}</p></div><button type="button" class="pill-button" data-page="membership">会员</button></div>
       <div class="metrics"><span><strong>${user.points || 0}</strong>积分</span><span><strong>${money(user.withdrawableBalance || 0)}</strong>可提现</span><span><strong>${memberActive ? `${memberDaysLeft}天` : "未开通"}</strong>会员</span></div>
     </section>
     <section class="menu-list" style="margin-top:12px">
@@ -459,7 +459,7 @@ function membershipView(state) {
 }
 
 function pointsLedgerView(state) {
-  return `<div class="stack">${(state.pointLedger || []).map((item) => `<article class="ledger-row"><span class="state ${item.direction === "out" ? "warn" : ""}">${item.direction === "out" ? "支出" : "收入"}</span><span><strong>${ledgerTypeLabel(item.changeType)}</strong><p class="muted">${item.bizNo || "-"} · ${formatDate(item.createdAt)}</p></span><strong>${item.direction === "out" ? "-" : "+"}${item.points}</strong></article>`).join("") || `<div class="empty">暂无积分流水</div>`}</div>`;
+  return `<div class="stack">${(state.pointLedger || []).map((item) => `<article class="ledger-row"><span class="state ${item.direction === "out" ? "warn" : ""}">${item.direction === "out" ? "支出" : "收入"}</span><span><strong>${ledgerTypeLabel(item.changeType)}</strong><p class="muted">${homeEscape(item.bizNo || "-")} · ${formatDate(item.createdAt)}</p></span><strong>${item.direction === "out" ? "-" : "+"}${item.points}</strong></article>`).join("") || `<div class="empty">暂无积分流水</div>`}</div>`;
 }
 
 function paymentsView(state) {
@@ -468,7 +468,7 @@ function paymentsView(state) {
 
 function rankingView(state) {
   const rows = state.ranking?.rows || [];
-  return `<section class="notice"><strong>积分排行榜</strong><p>榜单默认统计签到、抽奖、任务奖励、邀请奖励、邀请提成等入账类型。</p></section><div class="stack" style="margin-top:12px">${rows.map((item) => `<article class="rank-row"><span class="state">#${item.rank}</span><span><strong>${item.nickname}</strong><p class="muted">${item.userId}</p></span><strong>${item.score}</strong></article>`).join("") || `<div class="empty">暂无排行</div>`}</div>`;
+  return `<section class="notice"><strong>积分排行榜</strong><p>榜单默认统计签到、抽奖、任务奖励、邀请奖励、邀请提成等入账类型。</p></section><div class="stack" style="margin-top:12px">${rows.map((item) => `<article class="rank-row"><span class="state">#${item.rank}</span><span><strong>${homeEscape(item.nickname)}</strong><p class="muted">${homeEscape(item.userId)}</p></span><strong>${item.score}</strong></article>`).join("") || `<div class="empty">暂无排行</div>`}</div>`;
 }
 
 function agentScanView() {
@@ -500,12 +500,12 @@ function ticketActionView(state, type, title, text, button) {
     <form class="form" style="margin-top:12px" data-ticket-form>
       <input type="hidden" name="type" value="${type}" />
       <input name="subject" placeholder="${title}" value="${title}" />
-      <input name="contactName" placeholder="联系人" value="${state.user?.nickname || ""}" />
-      <input name="contactPhone" placeholder="联系电话" value="${state.user?.phone || ""}" />
+      <input name="contactName" placeholder="联系人" value="${homeEscape(state.user?.nickname || "")}" />
+      <input name="contactPhone" placeholder="联系电话" value="${homeEscape(state.user?.phone || "")}" />
       <textarea name="content" placeholder="请描述具体问题或合作需求" required></textarea>
       <button type="submit" class="primary">${button}</button>
     </form>
-    <div class="stack" style="margin-top:12px">${tickets.map((item) => `<article class="list-card"><h3>${item.subject} · ${ticketStatusLabel(item.status)}</h3><p>${item.content}</p>${item.adminReply ? `<p class="muted">回复：${item.adminReply}</p>` : ""}</article>`).join("") || `<div class="empty">暂无提交记录</div>`}</div>
+    <div class="stack" style="margin-top:12px">${tickets.map((item) => `<article class="list-card"><h3>${homeEscape(item.subject)} · ${ticketStatusLabel(item.status)}</h3><p>${homeEscape(item.content)}</p>${item.adminReply ? `<p class="muted">回复：${homeEscape(item.adminReply)}</p>` : ""}</article>`).join("") || `<div class="empty">暂无提交记录</div>`}</div>
   `;
 }
 
@@ -737,7 +737,7 @@ function orderRiskNotice(order) {
 }
 
 function addressLine(address = {}) {
-  return [address.province, address.city, address.district, address.detail].filter(Boolean).join(" ");
+  return [address.province, address.city, address.district, address.detail].filter(Boolean).map(homeEscape).join(" ");
 }
 
 function profileButton(page, label) {

@@ -1,12 +1,13 @@
 const catalogService = require("../services/catalog-service");
 const { activeConfig } = require("../config/active-config");
+const { mockOperationsEnabled } = require("../config/runtime-safety");
 
 async function handleCatalogRoutes(ctx) {
   const { req, url, state, user, send, publicUser } = ctx;
 
   if (req.method === "GET" && url.pathname === "/api/config") return send(ctx.res, 200, {
     ...activeConfig(state.config),
-    testBypassEnabled: process.env.NODE_ENV !== "production" && String(process.env.TGG_TEST_BYPASS_ENABLED || "") === "1"
+    testBypassEnabled: mockOperationsEnabled()
   });
 
   if (req.method === "GET" && url.pathname === "/api/home") {

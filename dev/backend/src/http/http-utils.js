@@ -2,11 +2,23 @@ const { isMember } = require("../domain/rules");
 
 function send(res, status, data, headers = {}) {
   const body = typeof data === "string" || Buffer.isBuffer(data) ? data : JSON.stringify(data, null, 2);
+  const requestOrigin = String(res.req?.headers?.origin || "").trim();
+  const configuredOrigins = String(process.env.TGG_CORS_ORIGIN || "").split(",").map(item => item.trim()).filter(Boolean);
+  const corsHeaders = configuredOrigins.length
+    ? (requestOrigin && configuredOrigins.includes(requestOrigin)
+      ? { "Access-Control-Allow-Origin": requestOrigin, Vary: "Origin" }
+      : {})
+    : process.env.NODE_ENV === "production"
+      ? {}
+      : { "Access-Control-Allow-Origin": "*" };
   res.writeHead(status, {
     "Content-Type": headers["Content-Type"] || "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    ...(process.env.NODE_ENV === "production" ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
+    ...corsHeaders,
     ...headers
   });
   res.end(body);
@@ -15,7 +27,30 @@ function send(res, status, data, headers = {}) {
 
 async function readBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  const configuredLimit = Number(process.env.TGG_MAX_BODY_BYTES || 1024 * 1024);
+  const maxBytes = Number.isSafeInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 1024 * 1024;
+  const contentLength = Number(req.headers?.["content-length"]);
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    req.resume?.();
+    const error = new Error("Request body too large");
+    error.status = 413;
+    throw error;
+  }
+  let size = 0;
+  let tooLarge = false;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBytes) {
+      tooLarge = true;
+      continue;
+    }
+    chunks.push(Buffer.from(chunk));
+  }
+  if (tooLarge) {
+    const error = new Error("Request body too large");
+    error.status = 413;
+    throw error;
+  }
   if (!chunks.length) return {};
   const raw = Buffer.concat(chunks).toString("utf8");
   const contentType = String(req.headers["content-type"] || "").toLowerCase();
@@ -25,7 +60,9 @@ async function readBody(req) {
   try {
     return JSON.parse(raw);
   } catch {
-    return {};
+    const error = new Error("Malformed JSON body");
+    error.status = 400;
+    throw error;
   }
 }
 

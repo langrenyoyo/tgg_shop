@@ -116,6 +116,7 @@ async function run() {
       PORT: String(PORT),
       TGG_STORE_DRIVER: DRIVER,
       TGG_TASK_CALLBACK_TOKEN: "smoke-callback-token",
+      TGG_TEST_BYPASS_ENABLED: "1",
       ...(DRIVER === "pg" && !PG_URL ? { TGG_PG_MEM: "1" } : {}),
       ...(STORE_FILE ? { TGG_STORE_FILE: STORE_FILE, TGG_SQLITE_FILE: STORE_FILE } : {}),
       ...(DRIVER === "pg" && pgConnectionString ? { TGG_PG_URL: pgConnectionString, TGG_PG_STATE_ID: PG_STATE_ID } : {})

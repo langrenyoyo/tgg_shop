@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("node:crypto");
 
 const UPLOAD_DIR = path.resolve(__dirname, "..", "..", "data", "uploads");
 
@@ -52,9 +53,9 @@ async function handleUpload(req, imageOnly = false, imageLabel = "商品") {
 
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   const safeName = imageOnly ? (imageLabel === "首页" ? "home" : "product") + "." + imageExtension : sanitizeFilename(filePart.filename || "upload.bin");
-  const storedName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+  const storedName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeName}`;
   const storedPath = path.join(UPLOAD_DIR, storedName);
-  fs.writeFileSync(storedPath, filePart.buffer);
+  fs.writeFileSync(storedPath, filePart.buffer, { mode: 0o640 });
 
   const publicPath = `/uploads/${storedName}`;
   return {
@@ -75,7 +76,9 @@ async function handleUpload(req, imageOnly = false, imageLabel = "商品") {
 
 async function readBuffer(req) {
   const chunks = [];
-  const maxBytes = 10 * 1024 * 1024;
+  const env = typeof process === "undefined" ? {} : process.env;
+  const configuredLimit = Number(env.TGG_UPLOAD_MAX_BYTES || 10 * 1024 * 1024);
+  const maxBytes = Number.isSafeInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 10 * 1024 * 1024;
   if (Number(req.headers["content-length"]) > maxBytes) return null;
   let size = 0;
   for await (const chunk of req) {

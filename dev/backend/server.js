@@ -25,14 +25,29 @@ const taskSweep = createTaskSweep();
 
 const server = http.createServer(async (req, res) => {
   try {
+    // `send` needs the request Origin; keep it on the response without
+    // changing every route handler signature.
+    res.req = req;
+    const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
+    const enforceHttps = process.env.NODE_ENV === "production" && process.env.TGG_ENFORCE_HTTPS !== "0";
+    const isHttps = forwardedProto === "https" || Boolean(req.socket.encrypted);
+    if (enforceHttps && !isHttps) {
+      const configuredOrigin = String(process.env.TGG_PUBLIC_ORIGIN || process.env.TGG_CORS_ORIGIN || "").split(",")[0].trim().replace(/\/$/, "");
+      const host = String(req.headers.host || "").replace(/[\r\n]/g, "");
+      const target = configuredOrigin || `https://${host}`;
+      res.writeHead(308, { Location: `${target}${req.url}`, "Cache-Control": "no-store" });
+      res.end();
+      return;
+    }
     const url = new URL(req.url, `http://${req.headers.host}`);
     if (url.pathname === "/api/health") {
-      return send(res, 200, {
+      const storeReady = getStoreDriver() !== "pg" ? true : isPgReady();
+      return send(res, storeReady ? 200 : 503, {
         ok: true,
         service: "tgg-shop-dev",
         driver: getStoreDriver(),
-        storeReady: getStoreDriver() !== "pg" ? true : isPgReady(),
-        pgReady: getStoreDriver() !== "pg" ? null : isPgReady()
+        storeReady,
+        pgReady: getStoreDriver() !== "pg" ? null : storeReady
       });
     }
     if (url.pathname.startsWith("/api/")) return await routeApi(req, res, url);

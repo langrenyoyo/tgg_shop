@@ -4,6 +4,7 @@ const productRepository = require("../repositories/product-repository");
 const orderRepository = require("../repositories/order-repository");
 const ledgerRepository = require("../repositories/ledger-repository");
 const inventoryRepository = require("../repositories/inventory-repository");
+const { zonedTimeToUtc } = require("../time-zone");
 
 function isMember(user) {
   return Boolean(user.memberUntil && new Date(user.memberUntil).getTime() > Date.now());
@@ -22,7 +23,6 @@ function calcDeliveryDate(config, createdAt = new Date()) {
 
 function assertCanCreateOrder(state, user, payload) {
   if (!user) return { ok: false, error: "用户不存在" };
-  if (!isMember(user)) return { ok: false, error: "下单需要先购买月会员，会员到期请先续费" };
   if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
     return { ok: false, error: "请选择商品" };
   }
@@ -30,10 +30,20 @@ function assertCanCreateOrder(state, user, payload) {
   const paymentMode = payload.paymentMode || "pure_points";
   const fulfillmentType = payload.fulfillmentType || "pickup";
   if (!["pure_points", "cash", "points_plus_cash"].includes(paymentMode)) return { ok: false, error: "支付方式无效" };
+  if (paymentMode !== "pure_points" && !isMember(user)) return { ok: false, error: "下单需要先购买月会员，会员到期请先续费" };
   if (!["pickup", "delivery"].includes(fulfillmentType)) return { ok: false, error: "配送方式无效" };
   if (fulfillmentType === "pickup" && !state.config.pickupEnabled) return { ok: false, error: "自提暂未开放" };
   if (fulfillmentType === "delivery" && !state.config.deliveryEnabled) return { ok: false, error: "送货上门暂未开放" };
   if (fulfillmentType === "pickup" && !state.pickupSites.some(site => site.id === (payload.pickupSiteId || "site_001") && site.enabled)) return { ok: false, error: "自提点不存在或已停用" };
+  let savedAddress = null;
+  if (fulfillmentType === "delivery" && payload.addressId) {
+    savedAddress = state.addresses.find((address) => address.id === payload.addressId && address.userId === user.id);
+    if (!savedAddress) return { ok: false, error: "配送地址不存在或不属于当前用户" };
+    if (savedAddress.inServiceRange === false) return { ok: false, error: "当前地址不在配送服务范围内" };
+  }
+  if (fulfillmentType === "delivery" && (state.config.deliveryRequireSavedAddress === true || process.env.NODE_ENV === "production") && !payload.addressId) {
+    return { ok: false, error: "配送请先选择已保存且通过服务范围校验的收货地址" };
+  }
   if (fulfillmentType === "delivery" && !String(payload.deliveryAddress || "").trim()) return { ok: false, error: "请填写配送地址" };
 
   if (fulfillmentType === "delivery" && (!Array.isArray(state.config.deliveryTimeSlots) || !state.config.deliveryTimeSlots.length || (payload.deliveryTimeSlot && !state.config.deliveryTimeSlots.includes(payload.deliveryTimeSlot)))) {
@@ -88,7 +98,28 @@ function assertCanCreateOrder(state, user, payload) {
     cashAmount += deliveryFee;
   }
 
-  return { ok: true, items, cashAmount: roundMoney(cashAmount), pointAmount, paymentMode, fulfillmentType, deliveryFee };
+  const cashOrderAmountLimit = Number(state.config.cashOrderMaxAmount ?? 500);
+  const cashDailyAmountLimit = Number(state.config.cashDailyMaxAmount ?? 500);
+  if (cashAmount > 0 && (!Number.isFinite(cashOrderAmountLimit) || cashOrderAmountLimit <= 0 || cashAmount > cashOrderAmountLimit)) {
+    return { ok: false, error: `单笔现金订单金额不能超过 ${cashOrderAmountLimit || 500} 元` };
+  }
+  if (cashAmount > 0 && Number.isFinite(cashDailyAmountLimit) && cashDailyAmountLimit > 0) {
+    const timeZone = state.config.deliveryTimeZone || "Asia/Shanghai";
+    const localDate = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const [year, month, day] = localDate.split("-").map(Number);
+    const dayRange = { start: zonedTimeToUtc(year, month, day, 0, 0, 0, timeZone) };
+    dayRange.end = zonedTimeToUtc(year, month, day + 1, 0, 0, 0, timeZone);
+    const usedToday = state.orders
+      .filter((order) => order.userId === user.id && Number(order.cashAmount || 0) > 0 && !["cancelled", "closed", "refunded"].includes(order.status))
+      .filter((order) => {
+        const created = new Date(order.createdAt || 0);
+        return created >= dayRange.start && created < dayRange.end;
+      })
+      .reduce((sum, order) => sum + Number(order.cashAmount || 0), 0);
+    if (usedToday + cashAmount > cashDailyAmountLimit + 0.005) return { ok: false, error: `每日现金购买金额不能超过 ${cashDailyAmountLimit} 元` };
+  }
+
+  return { ok: true, items, cashAmount: roundMoney(cashAmount), pointAmount, paymentMode, fulfillmentType, deliveryFee, addressId: savedAddress?.id || null };
 }
 
 function createOrder(state, userId, payload) {
@@ -97,7 +128,7 @@ function createOrder(state, userId, payload) {
     if (existing) {
       const itemKey = items => Array.isArray(items) ? JSON.stringify(items.map(item => ({ productId: item?.productId, quantity: Number(item?.quantity ?? 1) })).sort((a, b) => String(a.productId).localeCompare(String(b.productId)))) : null;
       const type = payload.fulfillmentType || "pickup";
-      const matches = itemKey(existing.items) === itemKey(payload.items) && existing.paymentMode === (payload.paymentMode || "pure_points") && existing.fulfillmentType === type && (type === "pickup" ? existing.pickupSiteId === (payload.pickupSiteId || "site_001") : String(existing.deliveryAddress || "").trim() === String(payload.deliveryAddress || "").trim()) && (!payload.deliveryTimeSlot || existing.deliveryTimeSlot === payload.deliveryTimeSlot);
+      const matches = itemKey(existing.items) === itemKey(payload.items) && existing.paymentMode === (payload.paymentMode || "pure_points") && existing.fulfillmentType === type && (type === "pickup" ? existing.pickupSiteId === (payload.pickupSiteId || "site_001") : String(existing.deliveryAddress || "").trim() === String(payload.deliveryAddress || "").trim() && (existing.addressId || null) === (payload.addressId || null)) && (!payload.deliveryTimeSlot || existing.deliveryTimeSlot === payload.deliveryTimeSlot);
       if (!matches) return { ok: false, status: 409, error: "该提交标识已用于其他订单内容，请先核对原订单" };
       return { ok: true, order: existing, idempotent: true };
     }
@@ -131,6 +162,7 @@ function createOrder(state, userId, payload) {
         }
       : null,
     pickupCode: isPurePoints ? String(Math.floor(100000 + Math.random() * 900000)) : null,
+    addressId: check.addressId,
     deliveryAddress: payload.deliveryAddress || null,
     deliveryDate: check.fulfillmentType === "delivery" ? calcDeliveryDate(state.config) : null,
     deliveryTimeSlot: payload.deliveryTimeSlot || state.config.deliveryTimeSlots?.[0] || null,

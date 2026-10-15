@@ -97,6 +97,23 @@ function cartItemsForOrder(items = state.cart) {
   return items.map((item) => ({ productId: item.id, quantity: Math.max(1, Number(item.quantity || 1)) }));
 }
 
+function browserPaymentChannel() {
+  return state.config?.testBypassEnabled ? "mock_pay" : "lfwin_qrcode";
+}
+
+async function completeBrowserPayment(payment) {
+  if (payment.channel === "mock_pay") {
+    await api(`/api/payments/${payment.payNo}/mock-callback`, { method: "POST", body: JSON.stringify({ status: "paid" }) });
+    return true;
+  }
+  const result = await api(`/api/payments/${payment.payNo}/lfwin`, { method: "POST", body: JSON.stringify({ method: "qrcode" }) });
+  const paymentUrl = result.provider?.qrCode || result.provider?.paymentUrl;
+  if (!paymentUrl) throw new Error("支付二维码暂时不可用，请稍后重试");
+  if (typeof window !== "undefined" && typeof window.open === "function") window.open(paymentUrl, "_blank", "noopener,noreferrer");
+  toast("支付二维码已生成，请完成支付后刷新订单状态");
+  return false;
+}
+
 function getDefaultPaymentMode(items) {
   if (items.every((item) => item.purePointsOnly)) return "pure_points";
   if (items.some((item) => item.purePointsOnly)) return null;
@@ -115,7 +132,7 @@ function hasCashItems(items = []) {
 }
 
 function ensureMemberForCash(items = [], message = "下单需要先购买月会员") {
-  if (!items.length || isMemberUser()) return true;
+  if (!hasCashItems(items) || isMemberUser()) return true;
   toast(message);
   state.page = "membership";
   renderPage(state);
@@ -128,6 +145,10 @@ function getDeliveryAddressText() {
   return [address.province, address.city, address.district, address.detail].filter(Boolean).join(" ");
 }
 
+function getDeliveryAddressId() {
+  return (state.addresses.find((item) => item.isDefault) || state.addresses[0])?.id;
+}
+
 async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
   if (!items.length) return toast("请先选择商品");
   if (!paymentMode) return toast("纯积分商品请单独结算，避免出现现金补差入口");
@@ -137,6 +158,7 @@ async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
     fulfillmentType,
     pickupSiteId: fulfillmentType === "pickup" ? state.pickupSites[0]?.id || "site_001" : undefined,
     deliveryAddress: fulfillmentType === "delivery" ? getDeliveryAddressText() : undefined,
+    addressId: fulfillmentType === "delivery" ? getDeliveryAddressId() : undefined,
     deliveryTimeSlot: fulfillmentType === "delivery"
       ? (state.selectedDeliverySlot || state.config?.deliveryTimeSlots?.[0])
       : undefined,
@@ -144,9 +166,13 @@ async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
   };
   const order = await api("/api/orders", { method: "POST", body: JSON.stringify(payload) });
   if (order.status === "pending_payment") {
-    const payment = await api(`/api/orders/${order.id}/payments`, { method: "POST", body: JSON.stringify({ channel: "mock_pay" }) });
-    await api(`/api/payments/${payment.payNo}/mock-callback`, { method: "POST", body: JSON.stringify({ status: "paid" }) });
-    toast(`支付单 ${payment.payNo} 已模拟回调成功`);
+    const payment = await api(`/api/orders/${order.id}/payments`, { method: "POST", body: JSON.stringify({ channel: browserPaymentChannel() }) });
+    if (!await completeBrowserPayment(payment)) {
+      await refreshUser();
+      renderPage(state);
+      return;
+    }
+    toast(`支付单 ${payment.payNo} 已支付成功`);
   } else {
     toast("纯积分兑换成功，已生成核销码");
   }
@@ -164,8 +190,12 @@ async function createOrder(productId, paymentMode, fulfillmentType = "pickup") {
 }
 
 async function subscribeMember(paymentMode = "cash") {
-  const payment = await api("/api/member/payments", { method: "POST", body: JSON.stringify({ months: 1, paymentMode, channel: "mock_pay", idempotencyKey: `web-member:${paymentMode}:${Date.now()}` }) });
-  if (payment.status === "pending" && payment.channel === "mock_pay") await api(`/api/payments/${payment.payNo}/mock-callback`, { method: "POST", body: JSON.stringify({ status: "paid" }) });
+  const payment = await api("/api/member/payments", { method: "POST", body: JSON.stringify({ months: 1, paymentMode, channel: browserPaymentChannel(), idempotencyKey: `web-member:${paymentMode}:${Date.now()}` }) });
+  if (payment.status === "pending" && !await completeBrowserPayment(payment)) {
+    state.payments = await safeApi("/api/payments", state.payments);
+    renderPage(state);
+    return;
+  }
   state.user = await api("/api/me");
   state.payments = await safeApi("/api/payments", state.payments);
   toast("月会员已开通，可以使用现金购物");

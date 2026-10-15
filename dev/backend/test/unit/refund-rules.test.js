@@ -1,4 +1,5 @@
 process.env.TGG_STORE_MODE = "memory";
+process.env.TGG_TEST_BYPASS_ENABLED = "1";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
