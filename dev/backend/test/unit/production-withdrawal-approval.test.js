@@ -8,6 +8,34 @@ const { handleCallback } = require("../../src/services/withdrawal-service");
 const withdrawalService = require("../../src/services/withdrawal-service");
 const huifu = require("../../src/services/withdrawal-provider/huifu-bafang");
 
+test("live PostgreSQL rejects withdrawal before freezing funds when Huifu is unconfigured", t => {
+  const previousDriver = process.env.TGG_STORE_DRIVER;
+  process.env.TGG_STORE_DRIVER = "pg";
+  t.mock.method(huifu, "isConfigured", () => false);
+  t.after(() => {
+    if (previousDriver === undefined) delete process.env.TGG_STORE_DRIVER;
+    else process.env.TGG_STORE_DRIVER = previousDriver;
+  });
+
+  const state = createSeed();
+  const user = state.users.find(item => item.id === "u_1001");
+  user.withdrawableBalance = 100;
+  const before = JSON.stringify(state);
+  const result = requestWithdrawal(state, user, {
+    amount: 10,
+    openid: "wx-openid",
+    recipientName: "收款人",
+    idempotencyKey: "unconfigured-live-withdrawal"
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 503);
+  assert.equal(state.withdrawRequests.length, 0);
+  assert.equal(state.withdrawableLedger.length, 0);
+  assert.equal(user.withdrawableBalance, 100);
+  assert.equal(JSON.stringify(state), before);
+});
+
 test("production withdrawal approval authorizes provider submission without paying early", () => {
   const old = process.env.NODE_ENV; process.env.NODE_ENV = "production";
   try {

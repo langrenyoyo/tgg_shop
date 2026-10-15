@@ -2,6 +2,7 @@ const { nextId, saveState } = require("../data/store");
 const ledgerRepository = require("../repositories/ledger-repository");
 const ticketRepository = require("../repositories/ticket-repository");
 const { getMonthRange, toMonthKey } = require("../time-zone");
+const huifu = require("./withdrawal-provider/huifu-bafang");
 
 function listPickupSites(state) {
   return state.pickupSites.filter((site) => site.enabled);
@@ -125,6 +126,13 @@ function requestWithdrawal(state, user, input) {
   if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate > 1) return { ok: false, status: 500, error: "提现手续费配置无效，请联系管理员" };
   if (amount < minAmount) return { ok: false, status: 400, error: `最低提现金额为 ${minAmount} 元` };
   if (amount > user.withdrawableBalance) return { ok: false, status: 400, error: "可提现余额不足" };
+
+  // A live PostgreSQL deployment must never freeze funds until its payout rail is configured.
+  if (String(process.env.TGG_STORE_DRIVER || "json") === "pg"
+    && process.env.TGG_TEST_BYPASS_ENABLED !== "1"
+    && !huifu.isConfigured()) {
+    return { ok: false, status: 503, error: "汇服八方提现通道未配置，请联系管理员" };
+  }
 
   const fee = roundMoney(amount * feeRate);
   const arrivalAmount = roundMoney(amount - fee);
