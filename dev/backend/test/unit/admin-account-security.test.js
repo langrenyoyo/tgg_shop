@@ -43,6 +43,30 @@ test("a provisioned production hash unlocks an account previously scrubbed by st
   assert.equal(accounts.verifyAdminPassword("a-real-provisioned-password", account.passwordHash), true);
 });
 
+test("a production bootstrap hash never unlocks every seeded admin role", t => {
+  const configuredHash = accounts.hashAdminPassword("bootstrap-only-password");
+  withProductionAdminConfig(t, configuredHash);
+  const state = {
+    adminUsers: [
+      { id: "super_admin", username: "super_admin", roleIds: ["super_admin"], passwordHash: accounts.hashAdminPassword("123456"), status: "active" },
+      { id: "finance_admin", username: "finance_admin", roleIds: ["finance_admin"], passwordHash: accounts.hashAdminPassword("123456"), status: "active" },
+      { id: "customer_service", username: "customer_service", roleIds: ["customer_service"], passwordHash: configuredHash, status: "active" }
+    ]
+  };
+  const accountsAfterProvision = accounts.ensureAdminUsers(state);
+  const bootstrap = accountsAfterProvision.find(item => item.id === "super_admin");
+  const finance = accountsAfterProvision.find(item => item.id === "finance_admin");
+  const customerService = accountsAfterProvision.find(item => item.id === "customer_service");
+  assert.equal(bootstrap.status, "active");
+  assert.equal(bootstrap.passwordHash, configuredHash);
+  assert.equal(finance.status, "disabled");
+  assert.equal(customerService.status, "disabled");
+  assert.notEqual(finance.passwordHash, configuredHash);
+  assert.notEqual(customerService.passwordHash, configuredHash);
+  assert.equal(accounts.verifyAdminPassword("bootstrap-only-password", finance.passwordHash), false);
+  assert.equal(accounts.verifyAdminPassword("bootstrap-only-password", customerService.passwordHash), false);
+});
+
 test("malformed administrator hashes fail closed without throwing", () => {
   for (const hash of ["", "broken", "scrypt:", "scrypt:bad:digest", "scrypt:0123456789abcdef0123456789abcdef:bad", "a".repeat(10000)]) {
     assert.doesNotThrow(() => accounts.verifyAdminPassword("password", hash));

@@ -50,6 +50,15 @@ function ensureAdminUsers(state) {
   if (Array.isArray(state.adminUsers) && state.adminUsers.length) {
     const configuredHash = configuredAdminPasswordHash();
     const mustProvision = requiresProvisionedAdminCredentials();
+    // The environment hash is a one-time bootstrap credential, not a shared
+    // password for every seeded role. Keep exactly one explicit super-admin
+    // eligible for bootstrap and quarantine all other seeded credentials.
+    const bootstrapAccount = state.adminUsers.find(item =>
+      item?.id === "super_admin"
+      || item?.username === "super_admin"
+      || (Array.isArray(item?.roleIds) && item.roleIds.includes("super_admin"))
+    );
+    const bootstrapId = bootstrapAccount?.id || null;
     state.adminUsers = state.adminUsers.map(item => {
       const normalized = {
       status: "active",
@@ -58,10 +67,16 @@ function ensureAdminUsers(state) {
       roleIds: Array.isArray(item.roleIds) ? item.roleIds : [item.roleId || item.id].filter(Boolean)
       };
       const isProvisioningLocked = normalized.securityLockReason === "admin password provisioning required";
-      if (configuredHash && (isDefaultPasswordHash(normalized.passwordHash) || isProvisioningLocked)) {
+      const isBootstrap = bootstrapId !== null && normalized.id === bootstrapId;
+      const sharesBootstrapHash = configuredHash && normalized.passwordHash === configuredHash;
+      if (configuredHash && isBootstrap && (isDefaultPasswordHash(normalized.passwordHash) || isProvisioningLocked || sharesBootstrapHash)) {
         normalized.passwordHash = configuredHash;
         normalized.status = "active";
         delete normalized.securityLockReason;
+      } else if (configuredHash && !isBootstrap && (isDefaultPasswordHash(normalized.passwordHash) || isProvisioningLocked || sharesBootstrapHash)) {
+        normalized.passwordHash = hashAdminPassword(crypto.randomBytes(32).toString("hex"));
+        normalized.status = "disabled";
+        normalized.securityLockReason = "individual admin password provisioning required";
       } else if (isDefaultPasswordHash(normalized.passwordHash) && mustProvision) {
         // Do not leave a known development password hash in a production store.
         normalized.passwordHash = hashAdminPassword(crypto.randomBytes(32).toString("hex"));
@@ -75,12 +90,22 @@ function ensureAdminUsers(state) {
   const { createSeed } = require("../data/seed");
   const configuredHash = configuredAdminPasswordHash();
   const configuredPassword = process.env.TGG_DEMO_PASSWORD || (!requiresProvisionedAdminCredentials() ? "123456" : "");
-  const passwordHash = configuredHash || hashAdminPassword(configuredPassword || crypto.randomBytes(32).toString("hex"));
-  const status = requiresProvisionedAdminCredentials() && !configuredHash ? "disabled" : "active";
-  state.adminUsers = createSeed().roles.map(role => ({
-    id: role.id, username: role.id, name: role.name, roleIds: [role.id], status,
-    passwordHash, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: ""
-  }));
+  const roles = createSeed().roles;
+  const now = new Date().toISOString();
+  state.adminUsers = roles.map(role => {
+    const isBootstrap = role.id === "super_admin";
+    const passwordHash = isBootstrap && configuredHash
+      ? configuredHash
+      : hashAdminPassword(configuredPassword || crypto.randomBytes(32).toString("hex"));
+    const status = isBootstrap
+      ? (requiresProvisionedAdminCredentials() && !configuredHash ? "disabled" : "active")
+      : (requiresProvisionedAdminCredentials() ? "disabled" : "active");
+    return {
+      id: role.id, username: role.id, name: role.name, roleIds: [role.id], status,
+      passwordHash, ...(status === "disabled" && requiresProvisionedAdminCredentials() ? { securityLockReason: "admin password provisioning required" } : {}),
+      createdAt: now, updatedAt: now, lastLoginAt: ""
+    };
+  });
   return state.adminUsers;
 }
 
