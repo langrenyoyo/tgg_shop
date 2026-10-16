@@ -306,7 +306,11 @@ function cancelTimedOutPayments(state, input = {}) {
   const configuredTimeout = input.timeoutMinutes !== undefined
     ? input.timeoutMinutes
     : state.config?.paymentTimeoutMinutes;
-  if (Number(configuredTimeout) === 0) return { ok: true, timeoutMinutes: 0, cancelled: [] };
+  // Only an explicit zero disables the sweep. Legacy persisted configs may
+  // contain null, which must continue using the 30-minute default.
+  if (configuredTimeout !== null && configuredTimeout !== undefined && Number(configuredTimeout) === 0) {
+    return { ok: true, timeoutMinutes: 0, cancelled: [] };
+  }
   const timeoutMinutes = Math.max(1, Number(configuredTimeout || 30));
   const now = new Date(input.now || Date.now());
   const cutoff = now.getTime() - timeoutMinutes * 60 * 1000;

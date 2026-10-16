@@ -54,3 +54,21 @@ test("payment timeout sweep can be explicitly disabled", () => {
   const result = paymentService.cancelTimedOutPayments(state, { now: "2999-01-01T00:00:00.000Z" });
   assert.deepEqual(result, { ok: true, timeoutMinutes: 0, cancelled: [] });
 });
+
+test("legacy null payment timeout keeps the default sweep", () => {
+  const state = createSeed();
+  const product = state.products.find((item) => item.id === "p_apple");
+  const orderResult = createOrder(state, "u_1001", {
+    paymentMode: "cash",
+    fulfillmentType: "pickup",
+    pickupSiteId: "site_001",
+    items: [{ productId: product.id, quantity: 1 }]
+  });
+  assert.equal(orderResult.ok, true);
+  assert.equal(paymentService.createGoodsPayment(state, orderResult.order.id, { idempotencyKey: "legacy-null-timeout" }).ok, true);
+  state.config.paymentTimeoutMinutes = null;
+
+  const result = paymentService.cancelTimedOutPayments(state, { now: "2999-01-01T00:00:00.000Z" });
+  assert.equal(result.timeoutMinutes, 30);
+  assert.equal(result.cancelled.length, 1);
+});
