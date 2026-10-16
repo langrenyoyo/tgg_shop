@@ -56,6 +56,7 @@ function ensureAdminUsers(state) {
     const bootstrapAccount = state.adminUsers.find(item =>
       item?.id === "super_admin"
       || item?.username === "super_admin"
+      || item?.roleId === "super_admin"
       || (Array.isArray(item?.roleIds) && item.roleIds.includes("super_admin"))
     );
     const bootstrapId = bootstrapAccount?.id || null;
