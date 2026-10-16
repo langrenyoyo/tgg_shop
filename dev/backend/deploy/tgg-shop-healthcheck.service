@@ -6,4 +6,4 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=root
-ExecStart=/www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-healthcheck.sh
+ExecStart=/bin/sh /www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-healthcheck.sh
