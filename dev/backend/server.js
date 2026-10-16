@@ -12,7 +12,7 @@ for (const warning of runtimeConfig.warnings) console.warn(warning);
 const { send } = require("./src/http/http-utils");
 const { routeStatic } = require("./src/http/static-router");
 const { routeApi } = require("./src/routes/api-router");
-const { whenReady, getStoreDriver, isPgReady, shutdownStore, getState } = require("./src/data/store");
+const { whenReady, getStoreDriver, isPgReady, shutdownStore, getState, saveState } = require("./src/data/store");
 const { settleMonthlyPointRewards } = require("./src/services/monthly-point-reward-service");
 const { pruneAuthSessions } = require("./src/services/auth-service");
 const { withPersistence } = require("./src/data/persistence-scope");
@@ -74,7 +74,10 @@ const server = http.createServer(async (req, res) => {
 
 async function start() {
   await whenReady();
-  await withPersistence(() => pruneAuthSessions(getState()));
+  await withPersistence(() => {
+    const pruned = pruneAuthSessions(getState());
+    return pruned > 0 ? saveState() : null;
+  });
   await sweepMonthlyRewards("startup");
   await sweepTimedOutPayments("startup");
   rewardSweepTimer = setInterval(() => {
