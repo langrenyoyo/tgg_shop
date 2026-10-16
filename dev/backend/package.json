@@ -8,6 +8,8 @@
     "start": "node server.js",
     "config:init": "node scripts/production-config.js --init",
     "config:check": "node scripts/production-config.js --check",
+    "admin:hash-password": "node scripts/hash-password.js --stdin",
+    "admin:provision": "node scripts/provision-admin.js",
     "pospal:check": "node scripts/check-pospal.js",
     "api:check": "node scripts/check-openapi.js",
     "db:check": "node scripts/check-migrations.js",

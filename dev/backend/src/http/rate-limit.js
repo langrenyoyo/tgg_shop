@@ -9,7 +9,7 @@ const RULES = [
 function clientKey(req) {
   if (!req?.socket?.remoteAddress && !req?.connection?.remoteAddress) return null;
   if (process.env.TGG_TRUST_PROXY === "1") {
-    const forwarded = String(req.headers?.["x-forwarded-for"] || "").split(",")[0].trim();
+    const forwarded = String(req.headers?.["x-forwarded-for"] || req.headers?.["x-real-ip"] || "").split(",")[0].trim();
     if (forwarded) return forwarded;
   }
   return req.socket?.remoteAddress || req.connection?.remoteAddress || "unknown";

@@ -653,6 +653,17 @@ function listUsers(state) {
   }));
 }
 
+function listOrders(state, options = {}) {
+  const includePickupCode = options.includePickupCode === true;
+  return (state.orders || []).map((order) => {
+    const result = clonePlain(order);
+    // The pickup code is a bearer secret. Only fulfillment operators need it;
+    // ordinary order readers must use the dedicated verification workflow.
+    if (!includePickupCode) delete result.pickupCode;
+    return result;
+  });
+}
+
 function listAddresses(state) {
   return (state.addresses || []).map((address) => ({
     ...address,
@@ -1556,6 +1567,7 @@ module.exports = {
   listRefunds,
   listWithdrawals,
   listUsers,
+  listOrders,
   listAddresses,
   listInviteAudits,
   listInventoryLedger,

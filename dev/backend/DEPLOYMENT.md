@@ -5,6 +5,7 @@
 - `NODE_ENV=production`
 - `PORT`
 - `TGG_STORE_DRIVER=pg`
+- `TGG_TRUST_PROXY=1` only when Nginx or another trusted reverse proxy overwrites `X-Forwarded-For` and the backend is private; leave it `0` for direct access.
 - `TGG_PG_URL`
 - `TGG_PG_SCHEMA`
 - `TGG_PG_STATE_ID`
@@ -28,6 +29,20 @@ Run these commands from `dev/backend`:
 npm run config:init
 npm run config:check
 ```
+
+Before starting a persistent deployment, provision the bootstrap administrator
+without putting a plaintext password in an argument, shell history or log:
+
+```bash
+printf '%s' 'a-new-password-from-a-secret-manager' | npm run admin:hash-password
+```
+
+Put the returned `scrypt:...` value in `TGG_ADMIN_PASSWORD_HASH` in the
+root-owned environment file, set `TGG_ADMIN_USERNAME` and `TGG_ADMIN_NAME`,
+then run `npm run admin:provision` once. The command activates only the
+explicit super-admin account, disables shared seeded credentials, and never
+prints the password or hash. Rotate the environment hash after provisioning
+only if the account is reset through the authenticated admin workflow.
 
 `config:init` creates the Git-ignored `.env.production` once. It generates independent random authentication/task/withdrawal callback secrets, copies existing provider fields for verification, syncs the mini-program AppID, and sets callback URLs from the approved release origin. It never overwrites an existing file or changes `.env`. Existing provider settings still require production verification; a local UAT payment endpoint cannot override the documented production gateway `https://api2.lfwin.com`.
 

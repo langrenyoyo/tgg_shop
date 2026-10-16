@@ -12,6 +12,7 @@ EnvironmentFile=/etc/tgg-shop/tgg-shop.env
 Environment=TGG_ENV_FILE=/etc/tgg-shop/tgg-shop.env
 Environment=TGG_LOAD_DOTENV=0
 Environment=TGG_BIND_HOST=127.0.0.1
+Environment=TGG_TRUST_PROXY=1
 ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do /www/server/pgsql/bin/pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
 ExecStart=/usr/local/bin/node /www/wwwroot/tgg_shop/dev/backend/server.js
 Restart=always

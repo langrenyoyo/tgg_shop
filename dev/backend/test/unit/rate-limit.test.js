@@ -2,8 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { checkRateLimit, cleanupRateLimit } = require("../../src/http/rate-limit");
 
-function request(ip) {
-  return { method: "POST", headers: {}, socket: { remoteAddress: ip } };
+function request(ip, headers = {}) {
+  return { method: "POST", headers, socket: { remoteAddress: ip } };
 }
 
 test("authentication endpoints are rate limited per client IP", () => {
@@ -21,4 +21,20 @@ test("authentication endpoints are rate limited per client IP", () => {
 test("test requests without a network socket do not share a global bucket", () => {
   const url = new URL("https://example.com/api/auth/login");
   for (let i = 0; i < 20; i++) assert.equal(checkRateLimit({ method: "POST", headers: {} }, url).ok, true);
+});
+
+test("trusted reverse proxy rate limits by forwarded client address", t => {
+  const previous = process.env.TGG_TRUST_PROXY;
+  process.env.TGG_TRUST_PROXY = "1";
+  t.after(() => {
+    if (previous === undefined) delete process.env.TGG_TRUST_PROXY;
+    else process.env.TGG_TRUST_PROXY = previous;
+  });
+
+  const url = new URL("https://example.com/api/admin/auth/login");
+  const proxy = request("127.0.0.1", { "x-forwarded-for": "198.51.100.20" });
+  for (let i = 0; i < 12; i++) assert.equal(checkRateLimit(proxy, url, 1_800_000_000_000).ok, true);
+  assert.equal(checkRateLimit(proxy, url, 1_800_000_000_000).status, 429);
+  assert.equal(checkRateLimit(request("127.0.0.1", { "x-forwarded-for": "198.51.100.21" }), url, 1_800_000_000_000).ok, true);
+  cleanupRateLimit(1_800_000_060_001);
 });

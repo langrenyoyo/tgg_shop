@@ -98,7 +98,12 @@ async function handleAdminRoutes(ctx) {
     return send(ctx.res, 200, result);
   }
 
-  if (req.method === "GET" && url.pathname === "/api/admin/orders") return send(ctx.res, 200, state.orders);
+  if (req.method === "GET" && url.pathname === "/api/admin/orders") {
+    const check = adminService.requirePermission(req, state, "order:read");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const canVerifyPickup = check.role.permissions.includes("*") || check.role.permissions.includes("order:fulfillment");
+    return send(ctx.res, 200, adminService.listOrders(state, { includePickupCode: canVerifyPickup }));
+  }
 
   const pickupVerifyMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/pickup-verify$/);
   if (req.method === "POST" && pickupVerifyMatch) {

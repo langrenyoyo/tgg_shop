@@ -60,6 +60,28 @@ test("customer service can read orders", () => {
   assert.equal(result.ok, true);
 });
 
+test("order readers do not receive pickup bearer codes", async () => {
+  const state = createSeed();
+  const list = async roleId => {
+    let response;
+    await handleAdminRoutes({
+      state,
+      req: { ...reqWithRole(state, roleId), method: "GET" },
+      url: new URL("http://localhost/api/admin/orders"),
+      send: (_, status, body) => { response = { status, body }; }
+    });
+    return response;
+  };
+
+  const customer = await list("customer_service");
+  assert.equal(customer.status, 200);
+  assert.equal(Object.hasOwn(customer.body[0], "pickupCode"), false);
+
+  const fulfillment = await list("super_admin");
+  assert.equal(fulfillment.status, 200);
+  assert.equal(fulfillment.body[0].pickupCode, state.orders[0].pickupCode);
+});
+
 test("customer service cannot read financial ledgers", () => {
   const state = createSeed();
   const result = requireAdminPermission(reqWithRole(state, "customer_service"), state, "ledger:read");
@@ -128,6 +150,19 @@ test("refresh rotates refresh token and keeps session active", () => {
   const reused = authService.refresh(state, { refreshToken: login.refreshToken }, "user");
   assert.equal(reused.ok, false);
   assert.equal(reused.status, 401);
+});
+
+test("expired and revoked auth sessions are pruned without removing refreshable sessions", () => {
+  const state = createSeed();
+  const now = Date.parse("2026-10-16T00:00:00.000Z");
+  state.authSessions = [
+    { id: "expired", expiresAt: "2026-10-15T00:00:00.000Z", refreshExpiresAt: "2026-10-15T00:00:00.000Z" },
+    { id: "revoked", expiresAt: "2026-10-17T00:00:00.000Z", refreshExpiresAt: "2026-11-01T00:00:00.000Z", revokedAt: "2026-10-15T00:00:00.000Z" },
+    { id: "active", expiresAt: "2026-10-16T01:00:00.000Z", refreshExpiresAt: "2026-11-01T00:00:00.000Z", revokedAt: "" }
+  ];
+
+  assert.equal(authService.pruneAuthSessions(state, now), 2);
+  assert.deepEqual(state.authSessions.map(item => item.id), ["active"]);
 });
 
 test("failed admin login locks role temporarily", () => {

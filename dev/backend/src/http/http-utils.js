@@ -18,6 +18,7 @@ function send(res, status, data, headers = {}) {
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     ...(productionLike() ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),

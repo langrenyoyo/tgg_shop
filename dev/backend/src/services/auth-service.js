@@ -188,6 +188,7 @@ function logout(state, req) {
 function refresh(state, input = {}, expectedType) {
   const unavailable = authenticationUnavailable();
   if (unavailable) return unavailable;
+  pruneAuthSessions(state);
   const refreshToken = String(input.refreshToken || "");
   if (!refreshToken) return { ok: false, status: 401, error: "刷新令牌不能为空" };
   const refreshTokenHash = hashRefreshToken(refreshToken);
@@ -229,6 +230,7 @@ function refresh(state, input = {}, expectedType) {
 }
 
 function tokenResult(state, input) {
+  pruneAuthSessions(state);
   const token = issueToken(input.tokenPayload);
   const payload = JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString("utf8"));
   const subjectType = payload.type;
@@ -263,6 +265,22 @@ function tokenResult(state, input) {
     admin: input.admin,
     station: input.station
   };
+}
+
+function pruneAuthSessions(state, now = Date.now()) {
+  if (!Array.isArray(state.authSessions) || state.authSessions.length === 0) return 0;
+  const before = state.authSessions.length;
+  state.authSessions = state.authSessions.filter((session) => {
+    if (!session || session.revokedAt) return false;
+    const accessExpiry = new Date(session.expiresAt || 0).getTime();
+    const refreshExpiry = new Date(session.refreshExpiresAt || 0).getTime();
+    const latestExpiry = Math.max(
+      Number.isFinite(accessExpiry) ? accessExpiry : 0,
+      Number.isFinite(refreshExpiry) ? refreshExpiry : 0
+    );
+    return latestExpiry > now;
+  });
+  return before - state.authSessions.length;
 }
 
 function createRefreshToken() {
@@ -350,6 +368,7 @@ module.exports = {
   wechatLogin,
   adminLogin,
   stationLogin,
+  pruneAuthSessions,
   stationWechatLogin,
   bindStationWechat,
   refresh,
