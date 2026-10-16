@@ -84,7 +84,7 @@ function deliverOrder(state, orderId) {
   const order = orderRepository.findById(state, orderId);
   const check = assertFulfillableOrder(order, "delivery");
   if (!check.ok) return check;
-  if (order.fulfillmentStatus === "delivered" && order.status === "completed") {
+  if (order.fulfillmentStatus === "delivered" && order.status === "paid") {
     return { ok: true, order, idempotent: true };
   }
   if (order.fulfillmentStatus !== "shipping") {
@@ -94,8 +94,7 @@ function deliverOrder(state, orderId) {
   const previousStatus = order.status;
   const previousFulfillmentStatus = order.fulfillmentStatus;
   order.fulfillmentStatus = "delivered";
-  order.status = "completed";
-  order.completedAt = new Date().toISOString();
+  order.deliveredAt = new Date().toISOString();
   logOrderStatus(state, order, {
     fromStatus: previousStatus,
     toStatus: order.status,
@@ -106,6 +105,46 @@ function deliverOrder(state, orderId) {
   });
   saveState();
   return { ok: true, order };
+}
+
+function confirmDeliveryOrder(state, orderId, actor = {}) {
+  const order = orderRepository.findById(state, orderId);
+  const check = assertFulfillableOrder(order, "delivery");
+  if (!check.ok) return check;
+  if (order.fulfillmentStatus === "delivered" && order.status === "completed") {
+    return { ok: true, order, idempotent: true };
+  }
+  if (order.fulfillmentStatus !== "delivered" || order.status !== "paid") {
+    return { ok: false, status: 400, error: "订单尚未送达，不能确认收货" };
+  }
+  const previousStatus = order.status;
+  order.status = "completed";
+  order.completedAt = new Date().toISOString();
+  logOrderStatus(state, order, {
+    fromStatus: previousStatus,
+    toStatus: order.status,
+    fromFulfillmentStatus: order.fulfillmentStatus,
+    toFulfillmentStatus: order.fulfillmentStatus,
+    operatorType: actor.operatorType || "user",
+    operatorId: actor.operatorId || null,
+    reason: actor.reason || "确认收货"
+  });
+  saveState();
+  return { ok: true, order };
+}
+
+function autoConfirmDeliveryOrders(state, now = new Date()) {
+  const days = Number(state.config?.autoConfirmDeliveryDays || 7);
+  const cutoff = new Date(now).getTime() - Math.max(1, days) * 24 * 60 * 60 * 1000;
+  const confirmed = [];
+  for (const order of state.orders || []) {
+    if (order.fulfillmentType !== "delivery" || order.status !== "paid" || order.fulfillmentStatus !== "delivered") continue;
+    const deliveredAt = new Date(order.deliveredAt || 0).getTime();
+    if (!Number.isFinite(deliveredAt) || deliveredAt > cutoff) continue;
+    const result = confirmDeliveryOrder(state, order.id, { operatorType: "system", operatorId: "system", reason: "超过自动确认收货期限" });
+    if (result.ok && !result.idempotent) confirmed.push(result.order);
+  }
+  return { ok: true, confirmed };
 }
 
 function assertDeliveryStaffAvailable(state, staffId, order) {
@@ -157,5 +196,7 @@ module.exports = {
   verifyPickup,
   shipOrder,
   deliverOrder,
+  confirmDeliveryOrder,
+  autoConfirmDeliveryOrders,
   createDeliveryException
 };

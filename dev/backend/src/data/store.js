@@ -1,4 +1,5 @@
 const fs = require("fs");
+const crypto = require("node:crypto");
 const path = require("path");
 const { trackSave } = require("./persistence-scope");
 const { createSeed } = require("./seed");
@@ -124,7 +125,7 @@ function findProduct(productId) {
 }
 
 function nextId(prefix) {
-  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const suffix = crypto.randomBytes(6).toString("hex").toUpperCase();
   return `${prefix}_${Date.now()}_${suffix}`;
 }
 

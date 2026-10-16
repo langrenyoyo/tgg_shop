@@ -2,6 +2,7 @@ const { nextId, saveState } = require("../data/store");
 const ledgerRepository = require("../repositories/ledger-repository");
 const ticketRepository = require("../repositories/ticket-repository");
 const { getMonthRange, toMonthKey } = require("../time-zone");
+const { productionLike } = require("../config/runtime-safety");
 const huifu = require("./withdrawal-provider/huifu-bafang");
 
 function listPickupSites(state) {
@@ -104,7 +105,14 @@ function requestWithdrawal(state, user, input) {
   const requestedKey = String(input.idempotencyKey || "").trim();
   const requestedAmount = roundMoney(input.amount);
   const requestedChannel = String(input.channel || "wechat").trim() || "wechat";
-  const requestedOpenid = String(input.openid || user.openid || user.wechatOpenid || "").trim();
+  const suppliedOpenid = String(input.openid || "").trim();
+  const boundOpenid = String(user.wechatOpenid || user.openid || "").trim();
+  if (productionLike() && suppliedOpenid && boundOpenid && suppliedOpenid !== boundOpenid) {
+    return { ok: false, status: 400, error: "收款微信必须使用当前账号已绑定的微信" };
+  }
+  // In a live environment the recipient is always server-bound. The input
+  // fallback exists only for isolated tests that use synthetic users.
+  const requestedOpenid = productionLike() ? boundOpenid : (suppliedOpenid || boundOpenid);
   const requestedRecipientName = String(input.recipientName || "").trim();
   if (requestedKey) {
     const existing = state.withdrawRequests.find((item) => item.userId === user.id && item.idempotencyKey === requestedKey);
@@ -124,8 +132,27 @@ function requestWithdrawal(state, user, input) {
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "提现金额必须是正数" };
   if (!Number.isFinite(minAmount) || minAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
   if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate > 1) return { ok: false, status: 500, error: "提现手续费配置无效，请联系管理员" };
+  if (productionLike() && !requestedOpenid) return { ok: false, status: 400, error: "请先使用已绑定微信登录后再申请提现" };
   if (amount < minAmount) return { ok: false, status: 400, error: `最低提现金额为 ${minAmount} 元` };
   if (amount > user.withdrawableBalance) return { ok: false, status: 400, error: "可提现余额不足" };
+
+  const timeZone = state.config.deliveryTimeZone || "Asia/Shanghai";
+  const dateKey = value => new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit"
+  }).format(new Date(value));
+  const today = dateKey(Date.now());
+  const counted = (state.withdrawRequests || []).filter(item => item.userId === user.id
+    && dateKey(item.createdAt || item.updatedAt || 0) === today
+    && !["failed", "rejected", "cancelled"].includes(item.status));
+  const countLimit = Number(state.config.withdrawDailyCountLimit || 0);
+  const amountLimit = Number(state.config.withdrawDailyAmountLimit || 0);
+  if (countLimit > 0 && counted.length >= countLimit) {
+    return { ok: false, status: 400, error: `每日最多提现 ${countLimit} 次` };
+  }
+  const usedAmount = counted.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  if (amountLimit > 0 && usedAmount + amount > amountLimit + 0.005) {
+    return { ok: false, status: 400, error: `每日提现金额不能超过 ${amountLimit} 元` };
+  }
 
   // A live PostgreSQL deployment must never freeze funds until its payout rail is configured.
   if (String(process.env.TGG_STORE_DRIVER || "json") === "pg"

@@ -1,5 +1,5 @@
 <view class="page"><view class="title">确认订单</view>
-<view wx:if="{{user && !user.isMember}}" class="card">下单需要先购买月会员，会员到期请先续费。<button bindtap="openMembership">购买会员后下单</button></view>
+<view wx:if="{{user && !user.isMember && needsMembership}}" class="card">现金购物或现金补差需要先购买月会员。<button bindtap="openMembership">购买会员后下单</button></view>
 <view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重试</button></view>
 <view wx:if="{{pending}}" class="card">上次提交结果待确认，将按原商品、支付和收货信息重试。<view>{{pending.fulfillmentType === 'delivery' ? pending.deliveryAddress : '自提点：' + pending.pickupSiteId}}</view><button bindtap="submit" disabled="{{busy || loading}}" loading="{{busy}}">重试原订单</button><view wx:if="{{pending.deliveryTimeSlot}}">配送时段：{{pending.deliveryTimeSlot}}</view></view>
 <view class="card" wx:for="{{items}}" wx:key="productId">{{item.product.name}} × {{item.quantity}}<block wx:if="{{!item.product.purePointsOnly}}"><view wx:if="{{item.product.regularPrice > 0}}" class="regular-price">零售价 ¥{{item.product.regularPrice}} / 件</view><view class="member-highlight">会员价 ¥{{item.product.cashPrice}} / 件</view></block></view>

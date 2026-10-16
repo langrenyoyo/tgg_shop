@@ -16,6 +16,8 @@ function createSeed() {
       deliveryEnabled: true,
       deliveryFeeEnabled: true,
       deliveryFee: 3,
+      deliveryFreeThreshold: 39,
+      deliveryFeeTiers: [{ minAmount: 0, fee: 3 }, { minAmount: 39, fee: 0 }],
       deliveryCutoffHour: 5,
       deliveryTimeSlots: ["09:00-12:00", "14:00-18:00", "18:00-21:00"],
       deliveryTimeZone: "Asia/Shanghai",
@@ -68,6 +70,9 @@ function createSeed() {
       purePointsNoCashTopup: true,
       withdrawMinAmount: 1,
       withdrawFeeRate: 0.01,
+      withdrawDailyCountLimit: 1,
+      withdrawDailyAmountLimit: 500,
+      autoConfirmDeliveryDays: 7,
       dashboardAlertThresholds: {
         refundRate: 0.1,
         exceptionRate: 0.08,

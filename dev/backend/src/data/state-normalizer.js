@@ -23,6 +23,7 @@ function normalizeState(nextState) {
   nextState.stationAccounts = Array.isArray(nextState.stationAccounts) ? nextState.stationAccounts : seed.stationAccounts;
   nextState.stationAccounts = nextState.stationAccounts.map((account) => ({ wechatOpenid: "", ...account }));
   nextState.stationOrders = nextState.stationOrders || [];
+  nextState.stationPickupAttempts = nextState.stationPickupAttempts || [];
   nextState.stationOperationLogs = nextState.stationOperationLogs || [];
   nextState.users = (nextState.users || seed.users).map((user) => ({ status: "active", ...user }));
   return nextState;

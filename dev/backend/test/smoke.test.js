@@ -32,8 +32,10 @@ function assert(condition, message) {
 async function request(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   await attachAuth(path, headers);
+  const { timeoutMs = 5000, signal, ...fetchOptions } = options;
   const res = await fetch(`${BASE}${path}`, {
-    ...options,
+    ...fetchOptions,
+    signal: signal || AbortSignal.timeout(timeoutMs),
     headers: { "Content-Type": "application/json", ...headers },
   });
   const contentType = res.headers.get("content-type") || "";
@@ -392,7 +394,12 @@ async function run() {
       headers: { "x-admin-role": "order_admin" },
       body: "{}"
     });
-    assert(deliveredOrder.res.status === 200 && deliveredOrder.body.status === "completed", "delivery complete failed");
+    assert(deliveredOrder.res.status === 200 && deliveredOrder.body.status === "paid" && deliveredOrder.body.fulfillmentStatus === "delivered", "delivery completion failed");
+    const receivedOrder = await request(`/api/orders/${pureDeliveryOrder.body.id}/receive`, {
+      method: "POST",
+      body: "{}"
+    });
+    assert(receivedOrder.res.status === 200 && receivedOrder.body.status === "completed", "delivery receipt confirmation failed");
 
     const delayedDeliveryOrder = await request("/api/orders", {
       method: "POST",
@@ -779,6 +786,7 @@ async function run() {
       child.kill();
     });
     if (pgMemServer) {
+      await Promise.resolve(pgMemServer.close()).catch(() => {});
       pgMemServer = null;
       pgMemConnectionString = "";
     }
@@ -879,7 +887,9 @@ async function assertPersistedPg(orderId, refundId, exceptionId, addressId, with
     assert(persisted.inventoryLedger.some((item) => item.changeType === "refund_restore" && item.reason.includes(stockRestoreOrderId)), "inventory refund restore ledger was not persisted to PG state");
     assert(persisted.operationTickets.some((item) => item.linkedType === "refund" && item.linkedId === refundId), "linked refund ticket was not persisted to PG state");
   } finally {
-    await client.end();
+    // pg-mem's wire adapter does not implement the PostgreSQL Terminate
+    // message. Closing its listener below is the deterministic cleanup path.
+    if (usingRealPg) await client.end();
   }
 }
 

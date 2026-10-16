@@ -36,6 +36,26 @@ test("production requires real storage, authentication and payment configuration
   assert.equal(validateRuntimeConfig({}, false).ok, true);
 });
 
+test("PostgreSQL staging is held to production configuration requirements", () => {
+  const staging = { ...valid, NODE_ENV: "staging" };
+  assert.equal(validateRuntimeConfig(staging).ok, true);
+  assert.equal(validateRuntimeConfig({ ...staging, LFWIN_API_KEY: "" }).ok, false);
+  assert.equal(validateRuntimeConfig({ ...staging, TGG_ADMIN_PASSWORD_HASH: "" }).ok, false);
+});
+
+test("pg-mem bypass is limited to non-production isolated tests", () => {
+  const base = {
+    NODE_ENV: "test",
+    TGG_STORE_DRIVER: "pg",
+    TGG_PG_MEM: "1",
+    TGG_PG_URL: "postgres://localhost/test",
+    TGG_TEST_BYPASS_ENABLED: "1",
+    TGG_TASK_CALLBACK_TOKEN: "b".repeat(32)
+  };
+  assert.equal(validateRuntimeConfig(base).ok, true);
+  assert.equal(validateRuntimeConfig({ ...base, NODE_ENV: "production" }).ok, false);
+});
+
 test("task callback secret alias remains compatible during deployment migration", () => {
   const { TGG_TASK_CALLBACK_TOKEN, ...withoutCanonical } = valid;
   assert.equal(validateRuntimeConfig({ ...withoutCanonical, TGG_TASK_CALLBACK_SECRET: "b".repeat(64) }).ok, true);

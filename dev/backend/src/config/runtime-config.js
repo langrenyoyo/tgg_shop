@@ -13,9 +13,19 @@ function validateRuntimeConfig(env = process.env, strict) {
   // operator accidentally leaves NODE_ENV at staging. Treat it as production
   // for safety checks so missing payment and credential configuration fails
   // before the process starts.
+  // A persistent PostgreSQL store is strict by default.  Staging may opt out
+  // of provider startup checks explicitly, but it still keeps production-like
+  // behavior (no mock payments, no default auth secret, no default admin).
+  const incompleteStaging = env.NODE_ENV === "staging"
+    && String(env.TGG_ALLOW_INCOMPLETE_STAGING || "") === "1";
+  const isolatedPgTest = env.NODE_ENV !== "production" && String(env.TGG_PG_MEM || "") === "1";
   const strictMode = strict === undefined
-    ? env.NODE_ENV === "production" || driver === "pg"
+    ? env.NODE_ENV === "production" || (driver === "pg" && !incompleteStaging && !isolatedPgTest)
     : strict;
+  if (incompleteStaging && String(env.TGG_TEST_BYPASS_ENABLED || "") === "1") {
+    errors.push("TGG_ALLOW_INCOMPLETE_STAGING cannot be combined with TGG_TEST_BYPASS_ENABLED");
+  }
+  if (incompleteStaging) warnings.push("Incomplete staging mode is enabled; provider operations remain unavailable until configured");
 
   const port = Number(env.PORT || 5177);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -47,7 +57,7 @@ function validateRuntimeConfig(env = process.env, strict) {
     errors.push("TGG_UPLOAD_MAX_BYTES must be an integer between 1024 and 52428800");
   }
 
-  if (String(env.TGG_TEST_BYPASS_ENABLED || "") === "1" && driver === "pg") errors.push("TGG_TEST_BYPASS_ENABLED cannot be enabled with PostgreSQL storage");
+  if (String(env.TGG_TEST_BYPASS_ENABLED || "") === "1" && driver === "pg" && !isolatedPgTest) errors.push("TGG_TEST_BYPASS_ENABLED cannot be enabled with PostgreSQL storage");
   if (!["json", "sqlite", "pg"].includes(driver)) {
     errors.push(`Unsupported TGG_STORE_DRIVER: ${driver}`);
   }

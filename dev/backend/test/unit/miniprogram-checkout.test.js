@@ -19,7 +19,7 @@ for (const scenario of [
       "/api/me": { id: "alice", points: 1000, isMember: !scenario.nonmember },
       "/api/config": scenario.config,
       "/api/pickup-sites": scenario.sites,
-      "/api/products": [{ id: "apple", supportsPoints: true, pointsPrice: 10 }]
+      "/api/products": [{ id: "apple", supportsCash: true, supportsPoints: false, purePointsOnly: false, cashPrice: 1, pointsPrice: 10 }]
     };
     vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/checkout/index.js"), "utf8"), {
       Page: value => { page = value; },

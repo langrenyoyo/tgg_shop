@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
 const { createOrder } = require("../../src/domain/rules");
-const { shipOrder } = require("../../src/domain/fulfillment-rules");
+const { shipOrder, deliverOrder } = require("../../src/domain/fulfillment-rules");
 const orders = require("../../src/services/user-order-service");
 const payments = require("../../src/services/payment-service");
 const { handleOrderRoutes } = require("../../src/routes/order-routes");
@@ -22,13 +22,14 @@ test("cancellation restores stock once and blocks later payment", async () => {
   assert.equal(payments.mockPaymentCallback(state, payment.payNo).ok, false);
 });
 
-test("receipt requires own delivery order in shipping state", async () => {
+test("receipt requires own delivery order after delivery", async () => {
   const state = createSeed();
   const order = createOrder(state, "u_1001", { paymentMode: "pure_points", fulfillmentType: "delivery", deliveryAddress: "测试地址", items: [{ productId: "p_banana", quantity: 1 }] }).order;
   assert.equal((await orders.receive(state, "u_1002", order.id)).status, 404);
   assert.equal((await orders.receive(state, "u_1001", order.id)).ok, false);
   const staff = state.deliveryStaff.find(item => item.enabled && state.deliveryTeams.some(team => team.id === item.teamId && team.enabled));
   assert.equal(shipOrder(state, order.id, staff.id).ok, true);
+  assert.equal(deliverOrder(state, order.id).ok, true);
   assert.equal((await orders.receive(state, "u_1001", order.id)).ok, true);
   assert.equal(order.status, "completed");
 });

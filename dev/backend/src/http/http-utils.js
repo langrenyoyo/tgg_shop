@@ -71,7 +71,21 @@ async function readBody(req) {
 
 function publicUser(user) {
   if (!user) return null;
-  const { passwordHash, ...safeUser } = user;
+  // Keep the client contract explicit. User records may contain provider IDs,
+  // auth metadata, and future server-only fields that must never be serialized.
+  const safeUser = {
+    id: user.id,
+    nickname: user.nickname,
+    phone: user.phone,
+    role: user.role,
+    memberUntil: user.memberUntil,
+    points: user.points,
+    withdrawableBalance: user.withdrawableBalance,
+    inviteCode: user.inviteCode,
+    signinStreak: user.signinStreak,
+    status: user.status,
+    avatarUrl: user.avatarUrl
+  };
   return {
     ...safeUser,
     isMember: isMember(user),

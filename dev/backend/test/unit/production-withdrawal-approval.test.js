@@ -19,6 +19,7 @@ test("live PostgreSQL rejects withdrawal before freezing funds when Huifu is unc
 
   const state = createSeed();
   const user = state.users.find(item => item.id === "u_1001");
+  user.wechatOpenid = "wx-openid";
   user.withdrawableBalance = 100;
   const before = JSON.stringify(state);
   const result = requestWithdrawal(state, user, {
@@ -69,6 +70,7 @@ test("production withdrawal approval authorizes provider submission without payi
   const old = process.env.NODE_ENV; process.env.NODE_ENV = "production";
   try {
     const state = createSeed(), user = state.users.find(item => item.id === "u_1001");
+    user.wechatOpenid = "wx-openid";
     user.withdrawableBalance = 100;
     const requested = requestWithdrawal(state, user, { amount: 10, openid: "wx-openid", recipientName: "收款人", idempotencyKey: "withdraw-test" });
     assert.equal(requested.ok, true);

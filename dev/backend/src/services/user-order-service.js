@@ -1,6 +1,6 @@
 const { saveState } = require("../data/store");
 const { logOrderStatus } = require("../domain/rules");
-const { deliverOrder } = require("../domain/fulfillment-rules");
+const { confirmDeliveryOrder } = require("../domain/fulfillment-rules");
 const inventory = require("../repositories/inventory-repository");
 const payments = require("./payment-service");
 const { exclusive } = require("./operation-lock");
@@ -62,7 +62,7 @@ async function cancelOwned(state, userId, order) {
 async function receive(state, userId, orderId) {
   const order = state.orders.find(item => item.id === orderId && item.userId === userId);
   if (!order) return { ok: false, status: 404, error: "订单不存在" };
-  const result = deliverOrder(state, order.id);
+  const result = confirmDeliveryOrder(state, order.id, { operatorType: "user", operatorId: userId, reason: "用户确认收货" });
   if (result.ok && !result.idempotent) {
     const log = state.orderStatusLogs.find(item => item.orderId === order.id);
     if (log) { log.operatorType = "user"; log.operatorId = userId; log.reason = "用户确认收货"; }

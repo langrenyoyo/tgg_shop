@@ -62,6 +62,18 @@ test("lookup rejects code collisions, wrong site, wrong code, missing permission
   assert.equal(station.lookupPickup(state, account, { orderId: unreceived.id, pickupCode: unreceived.pickupCode }).status, 404);
 });
 
+test("pickup code failures are rate limited without counting successful lookup", () => {
+  const { state, account, order } = setup();
+  assert.equal(station.lookupPickup(state, account, { orderId: order.id, pickupCode: order.pickupCode }).ok, true);
+  assert.deepEqual(state.stationPickupAttempts || [], []);
+  for (let index = 0; index < 10; index++) {
+    const result = station.pickup(state, account, order.id, { pickupCode: "wrong", idempotencyKey: `bad-${index}` });
+    assert.equal(result.status, 400);
+  }
+  assert.equal(station.pickup(state, account, order.id, { pickupCode: "wrong", idempotencyKey: "bad-11" }).status, 429);
+  assert.equal(station.pickup(state, account, order.id, { pickupCode: order.pickupCode, idempotencyKey: "good-after-limit" }).status, 429);
+});
+
 test("refunds, exceptions and changed storage after lookup cannot be confirmed from stale results", () => {
   for (const change of ["refund", "exception", "storage"]) {
     const { state, account, order } = setup();

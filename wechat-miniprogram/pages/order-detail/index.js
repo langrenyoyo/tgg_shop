@@ -12,6 +12,7 @@ function nextStep(order) {
   if (order.status === "paid" && order.fulfillmentStatus === "pending_pickup") return ["ready", "received"].includes(order.stationStatus) ? "商品已到站，请前往下方自提点，向工作人员出示自提码。" : order.stationStatus === "exception" ? "站点正在处理商品异常，请等待通知或联系客服。" : "商品正在备货，请等待站点确认到货后再前往自提。";
   if (order.status === "paid" && order.fulfillmentStatus === "pending_ship") return "付款已确认，等待商家安排配送。";
   if (order.status === "paid" && order.fulfillmentStatus === "shipping") return "商品正在配送，请实际收到商品后再确认收货。";
+  if (order.status === "paid" && order.fulfillmentStatus === "delivered") return "商品已送达，请确认收货；超过自动确认期限后系统将自动完成订单。";
   return "请刷新查看最新订单进度。";
 }
 Page({

@@ -223,11 +223,16 @@ function lookupPickup(state, account, input = {}) {
   if (!canStation(account, "station:pickup")) return { ok: false, status: 403, error: "没有提货核验权限" };
   const code = typeof input.pickupCode === "string" ? input.pickupCode.trim() : "";
   const id = typeof input.orderId === "string" ? input.orderId.trim() : "";
+  if (!pickupAttemptAllowed(state, account.id, id)) return { ok: false, status: 429, error: "取货码错误次数过多，请 15 分钟后重试" };
   if (!code || code.length > 128) return { ok: false, status: 400, error: "请输入有效的提货码" };
   const matches = (state.orders || []).filter(order => siteOrderAllowed(account, order) && (!id || order.id === id) && String(order.pickupCode || "") === code && order.status === "paid" && order.fulfillmentStatus === "pending_pickup" && ["ready", "received"].includes(stationOrder(state, order)?.stationStatus));
-  if (!matches.length) return { ok: false, status: 404, error: "取货码不正确或订单尚未收货、已提货，请核对当前站点" };
+  if (!matches.length) {
+    recordPickupFailure(state, account.id, id);
+    return { ok: false, status: pickupAttemptAllowed(state, account.id, id) ? 404 : 429, error: pickupAttemptAllowed(state, account.id, id) ? "取货码不正确或订单尚未收货、已提货，请核对当前站点" : "取货码错误次数过多，请 15 分钟后重试" };
+  }
   if (matches.length !== 1) return { ok: false, status: 409, error: "提货码对应多张订单，请补充完整订单号", requiresOrderId: true };
   const order = matches[0], record = stationOrder(state, order);
+  clearPickupFailures(state, account.id, id || order.id);
   return { ok: true, order: safeOrder(order, record, state), pickupVersion: pickupVersion(order, record) };
 }
 
@@ -242,7 +247,11 @@ function pickup(state, account, orderId, input = {}) {
   const record = stationOrder(state, order);
   if (!record || !["received", "ready"].includes(record.stationStatus)) return failure(state, account, order, "pickup_verify", key, "订单尚未完成站点收货或当前不可提货");
   if (BLOCKED.has(order.status) || !RECEIVABLE.has(order.status)) return failure(state, account, order, "pickup_verify", key, "订单支付或状态不允许提货");
-  if (!input.pickupCode || String(input.pickupCode) !== String(order.pickupCode)) return failure(state, account, order, "pickup_verify", key, "取货码不正确");
+  if (!pickupAttemptAllowed(state, account.id, order.id)) return { ok: false, status: 429, error: "取货码错误次数过多，请 15 分钟后重试" };
+  if (!input.pickupCode || String(input.pickupCode) !== String(order.pickupCode)) {
+    recordPickupFailure(state, account.id, order.id);
+    return failure(state, account, order, "pickup_verify", key, pickupAttemptAllowed(state, account.id, order.id) ? "取货码不正确" : "取货码错误次数过多，请 15 分钟后重试", pickupAttemptAllowed(state, account.id, order.id) ? 400 : 429);
+  }
   // Older clients retain the original code-verification contract. New clients
   // acknowledge the exact packages displayed by the read-only lookup first.
   if (record.pickupLookupRequired || input.pickupVersion !== undefined || input.confirmedPackageIds !== undefined) {
@@ -252,6 +261,7 @@ function pickup(state, account, orderId, input = {}) {
   }
   const checked = verifyPickup(state, order.id, input.pickupCode, { operatorType: "station", operatorId: account.id });
   if (!checked.ok && !checked.idempotent) return failure(state, account, order, "pickup_verify", key, checked.error);
+  clearPickupFailures(state, account.id, order.id);
   record.stationStatus = "picked_up";
   record.pickedUpAt = new Date().toISOString();
   record.pickedUpBy = account.id;
@@ -264,9 +274,37 @@ function pickup(state, account, orderId, input = {}) {
   return result;
 }
 
-function failure(state, account, order, action, key, error) {
+function pickupAttemptAllowed(state, accountId, orderId = "") {
+  const now = Date.now();
+  const key = `${accountId}:${orderId || "lookup"}`;
+  const item = (state.stationPickupAttempts || []).find(record => record.key === key && now - Number(record.failedAt || 0) < 15 * 60 * 1000);
+  return !item || Number(item.count || 0) <= 10;
+}
+
+function recordPickupFailure(state, accountId, orderId = "") {
+  const now = Date.now();
+  const key = `${accountId}:${orderId || "lookup"}`;
+  state.stationPickupAttempts = (state.stationPickupAttempts || []).filter(item => now - Number(item.failedAt || 0) < 15 * 60 * 1000);
+  const item = state.stationPickupAttempts.find(record => record.key === key);
+  if (item) {
+    item.count = Number(item.count || 0) + 1;
+    item.failedAt = now;
+  } else {
+    state.stationPickupAttempts.push({ key, accountId, orderId, count: 1, failedAt: now });
+  }
+  saveState();
+}
+
+function clearPickupFailures(state, accountId, orderId = "") {
+  const key = `${accountId}:${orderId || "lookup"}`;
+  if (!Array.isArray(state.stationPickupAttempts)) return;
+  const remaining = state.stationPickupAttempts.filter(item => item.key !== key);
+  if (remaining.length !== state.stationPickupAttempts.length) state.stationPickupAttempts = remaining;
+}
+
+function failure(state, account, order, action, key, error, status = 400) {
   const record = stationOrder(state, order);
-  const result = { ok: false, status: 400, error };
+  const result = { ok: false, status, error };
   appendLog(state, { siteId: orderSiteId(order), orderId: order.id, operatorId: account.id, action, result: "failed", reason: error, idempotencyKey: key, response: result });
   saveState();
   return result;

@@ -111,6 +111,8 @@ function readState(database) {
   for (const row of database.prepare("SELECT config_key, config_value FROM app_config").all()) {
     config[row.config_key] = parseConfigValue(row.config_value);
   }
+  const stationPickupAttempts = Array.isArray(config.__stationPickupAttempts) ? config.__stationPickupAttempts : [];
+  delete config.__stationPickupAttempts;
 
   const users = database
     .prepare(
@@ -571,6 +573,7 @@ function readState(database) {
     deliveryStaff,
     stationAccounts,
     stationOrders,
+    stationPickupAttempts,
     stationOperationLogs,
     inviteRelations,
     signinSessions,
@@ -657,7 +660,7 @@ function insertState(database, state) {
     insertAdmin.run(account.id, account.username, account.name, account.passwordHash, JSON.stringify(account.roleIds), account.status, account.createdAt, account.updatedAt, account.lastLoginAt || null);
   }
   const insertConfig = database.prepare("INSERT INTO app_config (config_key, config_value) VALUES (?, ?)");
-  for (const [key, value] of Object.entries({ ...state.config, currentUserId: state.currentUserId })) {
+  for (const [key, value] of Object.entries({ ...state.config, __stationPickupAttempts: state.stationPickupAttempts || [], currentUserId: state.currentUserId })) {
     insertConfig.run(key, JSON.stringify(value));
   }
 

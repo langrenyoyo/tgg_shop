@@ -63,6 +63,7 @@ test("profile endpoint requires authentication before reading a request", async 
 test("authenticated profile route updates only the token owner and exposes it on subsequent reads", async t => {
   const state = resetState();
   const [user, other] = state.users;
+  user.passwordHash = require("../../src/domain/admin-accounts").hashAdminPassword("123456");
   const otherBefore = { ...other };
   const auth = require("../../src/services/auth-service");
   const session = auth.login(state, { userId: user.id, password: process.env.TGG_DEMO_PASSWORD || "123456" });
@@ -75,5 +76,7 @@ test("authenticated profile route updates only the token owner and exposes it on
   assert.equal(status, 200); assert.equal(body.id, user.id); assert.equal(body.avatarUrl, input.avatarUrl);
   await routeApi({ method: "GET", headers }, res, new URL("http://localhost/api/me"));
   assert.equal(status, 200); assert.equal(body.nickname, input.nickname);
+  assert.equal(Object.hasOwn(body, "passwordHash"), false);
+  assert.equal(Object.hasOwn(session.user, "passwordHash"), false);
   assert.deepEqual(other, otherBefore);
 });

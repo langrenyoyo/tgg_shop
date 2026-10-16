@@ -397,6 +397,18 @@ function bindGlobalActions() {
       return;
     }
 
+    const orderReceive = event.target.closest("[data-order-receive]")?.dataset.orderReceive;
+    if (orderReceive) {
+      api(`/api/orders/${encodeURIComponent(orderReceive)}/receive`, { method: "POST" })
+        .then(result => {
+          state.orders = state.orders.map(order => order.id === result.id ? result : order);
+          toast("已确认收货");
+          renderPage(state);
+        })
+        .catch(error => toast(error.message));
+      return;
+    }
+
     const cartQty = event.target.closest("[data-cart-qty]");
     if (cartQty) {
       changeCartQuantity(cartQty.dataset.cartQty, Number(cartQty.dataset.delta || 0));

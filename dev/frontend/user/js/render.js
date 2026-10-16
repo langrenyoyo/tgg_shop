@@ -146,7 +146,7 @@ function homeView(state) {
         <p>${homeEscape(banner.subtitle)}</p>
         <button type="button" class="mini-button" ${bannerProduct ? `data-buy="${homeEscape(bannerProduct.id)}" data-mode="${bannerProduct.purePointsOnly ? "pure_points" : "cash"}"` : 'data-tab="category"'}>立即选购</button>
       </div>
-      ${(state.home?.bannerImage || bannerProduct?.image) ? `<img src="${homeEscape(state.home?.bannerImage || bannerProduct.image)}" alt="${homeEscape(bannerProduct?.name || banner.title)}" decoding="async" />` : ""}
+      ${(state.home?.bannerImage || bannerProduct?.image) ? `<img src="${safeImageUrl(state.home?.bannerImage || bannerProduct.image)}" alt="${homeEscape(bannerProduct?.name || banner.title)}" decoding="async" />` : ""}
     </section>
     <section class="promo-rail">
       ${promotions.map((item) => `<button type="button" class="promo-card ${homeEscape(item.tone || "green")}" data-page="${homeEscape(item.page || "category")}"><strong>${homeEscape(item.title)}</strong><span>${homeEscape(item.text)}</span></button>`).join("")}
@@ -175,15 +175,15 @@ function earnView(state) {
       <button type="button" data-page="submissions">提交记录</button>
     </div>
     <div class="search">搜索任务 / 平台 / 关键词</div>
-    ${taskTypes.length ? `<div class="choice-row" style="margin-top:10px">${taskTypes.map((type) => `<button type="button" class="choice"><span>${type.name}</span></button>`).join("")}</div>` : ""}
+    ${taskTypes.length ? `<div class="choice-row" style="margin-top:10px">${taskTypes.map((type) => `<button type="button" class="choice"><span>${homeEscape(type.name)}</span></button>`).join("")}</div>` : ""}
     <button type="button" class="task-card" data-page="invite" style="margin-top:12px">
       <span class="dot">邀</span><span><h3>拉新任务 · 邀请好友</h3><p>奖励规则进入邀请页后查看。</p></span><span class="state">去完成</span>
     </button>
     <div class="task-list" style="margin-top:12px">
       ${(state.tasks || []).map((task) => `
-        <button type="button" class="task-card" data-task="${task.id}" data-page="taskDetail">
+        <button type="button" class="task-card" data-task="${homeEscape(task.id)}" data-page="taskDetail">
           <span class="dot">任</span>
-          <span><h3>${task.title}</h3><p>${task.category || ""} · 奖励进入详情页查看</p></span>
+          <span><h3>${homeEscape(task.title)}</h3><p>${homeEscape(task.category || "")} · 奖励进入详情页查看</p></span>
           <span class="state">${task.paused ? "暂停" : "去完成"}</span>
         </button>`).join("") || `<div class="empty">暂无任务</div>`}
     </div>
@@ -194,11 +194,11 @@ function taskDetailView(state) {
   const task = currentTask(state);
   const fields = taskFields(task);
   return `
-    <article class="notice"><strong>${task.title}</strong><p>任务奖励在详情页展示，审核通过后积分入账。</p></article>
+    <article class="notice"><strong>${homeEscape(task.title)}</strong><p>任务奖励在详情页展示，审核通过后积分入账。</p></article>
     <section class="field-card" style="margin-top:12px">
-      <h3>${task.title}</h3>
-      <p>预计奖励 ${task.rewardPoints || task.usersRatio || "待审核"} 积分 · 提交后进入人工审核。</p>
-      ${fields.length ? `<p class="muted">需提交：${fields.map(fieldLabel).join("、")}</p>` : ""}
+      <h3>${homeEscape(task.title)}</h3>
+      <p>预计奖励 ${homeEscape(task.rewardPoints || task.usersRatio || "待审核")} 积分 · 提交后进入人工审核。</p>
+      ${fields.length ? `<p class="muted">需提交：${fields.map(field => homeEscape(fieldLabel(field))).join("、")}</p>` : ""}
     </section>
     <section class="field-card"><h3>任务步骤</h3>${renderTaskContent(task)}</section>
     <button type="button" class="primary" style="width:100%;margin-top:18px" data-page="taskSubmit" ${task.paused ? "disabled" : ""}>${task.paused ? "任务已暂停" : "立即做任务"}</button>
@@ -209,7 +209,7 @@ function taskSubmitView(state) {
   const task = currentTask(state);
   const fields = taskFields(task);
   return `
-    <section class="notice"><strong>${task.title}</strong><p>请按要求填写资料，审核通过后积分入账。</p></section>
+    <section class="notice"><strong>${homeEscape(task.title)}</strong><p>请按要求填写资料，审核通过后积分入账。</p></section>
     <form class="form" style="margin-top:12px" data-submit-task>
       ${(fields.length ? fields : ["mobile", "images", "text1"]).map(fieldInput).join("")}
       <section class="field-card"><h3>提交说明</h3><p>任务列表不提前展示具体奖励，详情页和提交页展示奖励，避免用户只按奖励筛选。</p></section>
@@ -223,7 +223,7 @@ function submissionsView(state) {
     <div class="subtabs"><button type="button" class="active">全部</button><button type="button">审核中</button><button type="button">已通过</button></div>
     <div class="stack">
       ${(state.submissions || []).length
-        ? state.submissions.map((item) => `<article class="list-card"><h3>${homeEscape(item.taskTitle || item.taskId)}</h3><p>${statusLabel(item.status)} · ${formatDate(item.createdAt)}</p>${item.remarks ? `<p class="muted">${homeEscape(item.remarks)}</p>` : ""}</article>`).join("")
+        ? state.submissions.map((item) => `<article class="list-card"><h3>${homeEscape(item.taskTitle || item.taskId)}</h3><p>${homeEscape(statusLabel(item.status))} · ${homeEscape(formatDate(item.createdAt))}</p>${item.remarks ? `<p class="muted">${homeEscape(item.remarks)}</p>` : ""}</article>`).join("")
         : `<div class="empty">暂无任务提交记录</div>`}
     </div>
   `;
@@ -233,7 +233,7 @@ function inviteView(state) {
   return `
     <section class="soft-card" style="padding:22px;text-align:center;background:#e8fbf1">
       <p class="muted">我的邀请码</p>
-      <h1 style="margin:8px 0;color:var(--green)">${state.invite?.inviteCode || state.user?.inviteCode || "TGG6688"}</h1>
+      <h1 style="margin:8px 0;color:var(--green)">${homeEscape(state.invite?.inviteCode || state.user?.inviteCode || "TGG6688")}</h1>
       <button type="button" class="pill-button">复制</button>
     </section>
     <section class="field-card" style="margin-top:12px"><h3>奖励说明</h3><p>邀请成功奖励、任务佣金比例均由后台配置，按月卡和任务完成状态结算。</p></section>
@@ -292,24 +292,24 @@ function productView(product, state = {}) {
   const stock = Number(product.stock || 0);
   return `
     <article class="hero-product top-card product-detail-hero">
-      <img src="${homeEscape(product.image)}" alt="${homeEscape(product.name)}" loading="eager" decoding="async" />
+      <img src="${safeImageUrl(product.image)}" alt="${homeEscape(product.name)}" loading="eager" decoding="async" />
       <div class="body">
         <div class="detail-title-row"><span class="tag">${homeEscape(product.tag || (isPure ? "纯积分" : "会员价"))}</span><span class="stock-state ${stock <= 10 ? "warn" : ""}">${stock > 0 ? `库存 ${stock}` : "已售罄"}</span></div>
         <h2>${homeEscape(product.name)}</h2>
         <p class="muted">${productMetaLine(product, isPure)}</p>
-        <div class="service-tags">${productServiceTags(product, isPure).map((tag) => `<span>${tag}</span>`).join("")}</div>
+        <div class="service-tags">${productServiceTags(product, isPure).map((tag) => `<span>${homeEscape(tag)}</span>`).join("")}</div>
         <div class="price ${isPure ? "" : "member-highlight"}" style="margin-top:8px">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</div>
         ${!isPure && product.regularPrice > 0 ? `<p class="regular-price">零售价 ${money(product.regularPrice)}</p>` : ""}
       </div>
     </article>
-    <section class="notice detail-rule"><strong>${isPure ? "纯积分兑换" : "会员现金购"}</strong><p>${isPure ? "需先开通会员，不展示现金补差入口；积分不足时直接提示积分不足。" : "普通用户需先开通月会员，会员可使用现金购物和积分不足现金补差。"}</p></section>
-    ${memberLocked ? `<section class="member-lock"><strong>当前为普通用户</strong><span>开通月会员后可使用现金购买该商品；纯积分商品需先开通会员。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
+    <section class="notice detail-rule"><strong>${isPure ? "纯积分兑换" : "会员现金购"}</strong><p>${isPure ? "无需会员，使用积分直接兑换；不支持现金补差，积分不足时直接提示。" : "普通用户需先开通月会员，会员可使用现金购物和积分不足现金补差。"}</p></section>
+    ${memberLocked ? `<section class="member-lock"><strong>当前为普通用户</strong><span>开通月会员后可使用现金购买该商品。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
     <section class="field-card"><h3>履约服务</h3><div class="detail-service-grid"><span>最快 30 分钟送达</span><span>TGG 自建配送队</span><span>师大周边 5km</span><span>支持自提核销</span></div></section>
     <section class="field-card"><h3>商品介绍</h3><p>${homeEscape(product.unit || "")}</p><p style="white-space:pre-wrap">${homeEscape(product.description || "暂无商品介绍")}</p></section>
     <section class="field-card"><h3>商品保障</h3><p>商品由平台统一上架和库存管理；生鲜商品支持坏果包赔，售后进入退款/补偿流程。</p></section>
     <section class="total-bar">
-      <button type="button" class="chip active" data-cart-product="${product.id}" ${stock <= 0 ? "disabled" : ""}>${isPure ? "加入兑换车" : "加入购物车"}</button>
-      <button type="button" class="primary" data-buy="${product.id}" data-mode="${isPure ? "pure_points" : "cash"}" ${stock <= 0 ? "disabled" : ""}>${isPure ? "立即兑换" : memberLocked ? "开通会员购买" : "立即购买"}</button>
+      <button type="button" class="chip active" data-cart-product="${homeEscape(product.id)}" ${stock <= 0 ? "disabled" : ""}>${isPure ? "加入兑换车" : "加入购物车"}</button>
+      <button type="button" class="primary" data-buy="${homeEscape(product.id)}" data-mode="${isPure ? "pure_points" : "cash"}" ${stock <= 0 ? "disabled" : ""}>${isPure ? "立即兑换" : memberLocked ? "开通会员购买" : "立即购买"}</button>
     </section>
   `;
 }
@@ -322,7 +322,7 @@ function cartView(state) {
   const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly);
   return `
     <div class="stack cart-list">
-      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${homeEscape(item.image)}" alt="${homeEscape(item.name)}" loading="lazy" decoding="async" /><span><strong>${homeEscape(item.name)}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 需先开通会员" : "会员现金商品 · 自建配送"}</p>${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}<div class="qty"><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${homeEscape(item.id)}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
+      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${homeEscape(item.image)}" alt="${homeEscape(item.name)}" loading="lazy" decoding="async" /><span><strong>${homeEscape(item.name)}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 无需会员" : "会员现金商品 · 自建配送"}</p>${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}<div class="qty"><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${homeEscape(item.id)}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
     </div>
     ${mixed ? `<section class="notice" style="margin-top:10px"><strong>请分开结算</strong><p>纯积分兑换不提供现金补差入口，现金商品需会员购买。</p></section>` : ""}
     ${memberLocked ? `<section class="member-lock"><strong>下单需月会员</strong><span>所有商品均需先购买月会员后下单。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
@@ -351,15 +351,15 @@ function checkoutView(state, type) {
   return `
     <section class="checkout-head">
       <span>${delivery ? "送货上门" : "到店自提"}</span>
-      <strong>${delivery ? promise.title || "最快 30 分钟送达" : "自提点核销取货"}</strong>
-      <p>${delivery ? promise.subtitle || "TGG 自建配送队 · 师大周边 5km" : pickupSite.address || "师大东门生活服务中心 1 楼，凭核销码自提"}</p>
+      <strong>${homeEscape(delivery ? promise.title || "最快 30 分钟送达" : "自提点核销取货")}</strong>
+      <p>${homeEscape(delivery ? promise.subtitle || "TGG 自建配送队 · 师大周边 5km" : pickupSite.address || "师大东门生活服务中心 1 楼，凭核销码自提")}</p>
     </section>
     <section class="notice" style="margin-top:10px"><strong>${pureOnly ? "纯积分兑换订单" : "会员现金订单"}</strong><p>${pureOnly ? "提交后扣减积分，不展示现金补差入口；积分不足则下单失败。" : mixed ? "纯积分商品和现金商品需要分开结算。" : "现金支付仅会员可用，普通用户会被引导开通月会员。"}</p></section>
     <section class="choice-row checkout-choice" style="margin-top:10px">
       <button type="button" class="choice ${!delivery ? "active" : ""}" data-page="checkoutPickup"><span>到店自提</span></button>
       <button type="button" class="choice ${delivery ? "active" : ""}" data-page="checkoutDelivery"><span>送货上门</span></button>
     </section>
-    <section class="field-card"><h3>${delivery ? "收货地址" : "自提点"}</h3><p>${delivery ? addressLine(defaultAddress) || "请先新增默认地址" : pickupSite.name || "师大自提站"} · ${delivery ? "" : pickupSite.address || "后台配置自提点地址"}</p>${delivery ? `<button type="button" class="link" data-page="address">管理地址</button>` : ""}</section>
+    <section class="field-card"><h3>${delivery ? "收货地址" : "自提点"}</h3><p>${delivery ? addressLine(defaultAddress) || "请先新增默认地址" : homeEscape(pickupSite.name || "师大自提站")} · ${delivery ? "" : homeEscape(pickupSite.address || "后台配置自提点地址")}</p>${delivery ? `<button type="button" class="link" data-page="address">管理地址</button>` : ""}</section>
     <section class="field-card"><h3>配送时间</h3><p>${delivery ? `每天 ${cutoffHour}:00（${deliveryTimeZone}）截单，截单前当天配送，之后次日配送` : "到站后凭核销码取货"}</p>${delivery ? `<label class="delivery-slot-picker">配送时段<select data-delivery-slot>${slots.map((slot) => `<option value="${homeEscape(slot)}" ${slot === selectedSlot ? "selected" : ""}>${homeEscape(slot)}</option>`).join("")}</select></label>` : `<div class="slot-row">${slots.map((slot) => `<span class="state">${homeEscape(slot)}</span>`).join("")}</div>`}</section>
     <section class="field-card">
       <h3>商品清单</h3>
@@ -373,7 +373,7 @@ function checkoutView(state, type) {
 
 function ordersView(state) {
   const orders = [...(state.orders || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  const pendingCount = orders.filter((order) => ["pending_pickup", "pending_ship", "shipping"].includes(order.fulfillmentStatus) || ["expected", "in_transit", "ready", "received"].includes(order.stationStatus)).length;
+  const pendingCount = orders.filter((order) => ["pending_pickup", "pending_ship", "shipping", "delivered"].includes(order.fulfillmentStatus) || ["expected", "in_transit", "ready", "received"].includes(order.stationStatus)).length;
   const refundCount = orders.filter((order) => ["refunding", "refunded"].includes(order.status)).length;
   return `
     <div class="order-filter"><button type="button" class="active">全部 ${orders.length}</button><button type="button">待履约 ${pendingCount}</button><button type="button">退款 ${refundCount}</button></div>
@@ -386,20 +386,20 @@ function orderDetailView(state) {
   if (!order) return `<div class="empty">暂无订单详情</div>`;
   const payment = findOrderPayment(state, order);
   return `
-    <section class="order-detail-head"><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span><h2>${homeEscape(order.id)}</h2><p>${order.fulfillmentType === "pickup" ? "自提核销" : "TGG 自建配送"} · ${fulfillmentStatusLabel(order)}</p></section>
+    <section class="order-detail-head"><span class="state ${orderStatusTone(order)}">${homeEscape(orderStatusLabel(order.status))}</span><h2>${homeEscape(order.id)}</h2><p>${order.fulfillmentType === "pickup" ? "自提核销" : "TGG 自建配送"} · ${homeEscape(fulfillmentStatusLabel(order))}</p></section>
     <section class="order-summary"><span><strong>${orderAmountText(order)}</strong><em>订单金额</em></span><span><strong>${order.paymentMode === "pure_points" ? "纯积分" : "会员现金"}</strong><em>支付方式</em></span><span><strong>${order.fulfillmentType === "pickup" ? "自提" : "配送"}</strong><em>履约方式</em></span></section>
     ${orderRiskNotice(order)}
     <section class="field-card"><h3>订单进度</h3><div class="order-steps">${orderSteps(order, payment)}</div></section>
-    <section class="field-card"><h3>商品清单</h3><div class="order-item-lines">${order.items.map((item) => `<p><span>${homeEscape(item.title || item.name || item.productId)} x${item.quantity}</span></p>`).join("")}</div><p class="muted">${paymentHint(order)}</p></section>
+    <section class="field-card"><h3>商品清单</h3><div class="order-item-lines">${order.items.map((item) => `<p><span>${homeEscape(item.title || item.name || item.productId)} x${homeEscape(item.quantity)}</span></p>`).join("")}</div><p class="muted">${homeEscape(paymentHint(order))}</p></section>
     <section class="field-card"><h3>支付与账务</h3>${payment ? paymentDetail(payment) : `<p class="muted">${order.paymentMode === "pure_points" ? "纯积分订单无需现金支付单，积分已按订单状态扣减或退回。" : "暂无支付单，等待发起支付。"}</p>`}<p class="muted">退款时现金和积分将分别按原账务流水退回。</p></section>
     <section class="field-card"><h3>${order.fulfillmentType === "pickup" ? "自提信息" : "配送信息"}</h3>${fulfillmentDetail(order)}</section>
     ${refundStateNotice(order)}
-    <section class="total-bar"><button type="button" class="chip active" data-page="orders">返回订单</button><button type="button" class="primary" data-refund="${order.id}" ${canRequestRefund(order) ? "" : "disabled"}>${canRequestRefund(order) ? "申请退款" : "不可退款"}</button></section>
+    <section class="total-bar"><button type="button" class="chip active" data-page="orders">返回订单</button>${order.fulfillmentType === "delivery" && order.fulfillmentStatus === "delivered" && order.status === "paid" ? `<button type="button" class="primary" data-order-receive="${homeEscape(order.id)}">确认收货</button>` : ""}<button type="button" class="primary" data-refund="${homeEscape(order.id)}" ${canRequestRefund(order) ? "" : "disabled"}>${canRequestRefund(order) ? "申请退款" : "不可退款"}</button></section>
   `;
 }
 
 function pickupSiteView(state) {
-  return `<div class="stack">${(state.pickupSites || []).map((site) => `<article class="field-card"><h3>${site.name}</h3><p>${site.address}</p><p class="muted">${site.contactName || "站点代理"} · ${site.contactPhone || ""}</p></article>`).join("") || `<div class="empty">暂无自提点</div>`}</div>`;
+  return `<div class="stack">${(state.pickupSites || []).map((site) => `<article class="field-card"><h3>${homeEscape(site.name)}</h3><p>${homeEscape(site.address)}</p><p class="muted">${homeEscape(site.contactName || "站点代理")} · ${homeEscape(site.contactPhone || "")}</p></article>`).join("") || `<div class="empty">暂无自提点</div>`}</div>`;
 }
 
 function addressView(state) {
@@ -465,8 +465,8 @@ function membershipView(state) {
   const memberDaysLeft = getMemberDaysLeft(user);
   return `
     <section class="soft-card" style="padding:22px;background:#e8fbf1"><h2 style="margin:0;color:var(--green-dark)">月会员</h2><p class="muted">普通用户升级为会员需开通月会员；会员可现金购物，也可在积分不足时现金补差。</p></section>
-    <section class="field-card"><h3>当前状态</h3><p>${memberActive ? `会员剩余 ${memberDaysLeft} 天，有效期至 ${formatDate(user.memberUntil)}` : "当前为普通用户，需先购买月会员后下单。"}</p></section>
-    <section class="field-card"><h3>会员权益</h3><p>现金购物、积分不足现金补差、会员价商品。纯积分兑换需先开通会员。</p></section>
+    <section class="field-card"><h3>当前状态</h3><p>${memberActive ? `会员剩余 ${homeEscape(memberDaysLeft)} 天，有效期至 ${homeEscape(formatDate(user.memberUntil))}` : "当前为普通用户，需先购买月会员后下单。"}</p></section>
+    <section class="field-card"><h3>会员权益</h3><p>现金购物、积分不足现金补差、会员价商品。纯积分兑换无需会员。</p></section>
     <button type="button" class="primary" style="width:100%;margin-top:18px" data-action="member">${memberActive ? "续费 1 个月会员（30天）" : "开通 1 个月会员（30天）"}</button>
     ${Number(state.config?.membershipMonthlyPoints || 0) > 0 ? `<button type="button" class="secondary" style="width:100%;margin-top:10px" data-action="memberPoints">使用 ${Number(state.config.membershipMonthlyPoints)} 积分开通 30 天</button>` : ""}
   `;
@@ -494,45 +494,46 @@ function withdrawView(state) {
   return `
     <section class="field-card"><h3>可提现余额</h3><p style="font-size:22px;color:var(--green);font-weight:900">${money(balance)}</p><p class="muted">最低提现金额 ${money(state.config?.withdrawMinAmount || 1)}，手续费率 ${Number(state.config?.withdrawFeeRate || 0.01) * 100}%。</p></section>
     <button type="button" class="primary" style="width:100%;margin-top:12px" data-action="withdraw" ${balance < Number(state.config?.withdrawMinAmount || 1) ? "disabled" : ""}>申请提现 1 元</button>
-    <div class="stack" style="margin-top:12px">${(state.withdrawals || []).map((item) => `<article class="list-card"><h3>${money(item.amount)} · ${withdrawStatusLabel(item.status)}</h3><p>${item.channel || "wechat"} · 手续费 ${money(item.fee || 0)}</p></article>`).join("") || `<div class="empty">暂无提现记录</div>`}</div>
+    <div class="stack" style="margin-top:12px">${(state.withdrawals || []).map((item) => `<article class="list-card"><h3>${money(item.amount)} · ${homeEscape(withdrawStatusLabel(item.status))}</h3><p>${homeEscape(item.channel || "wechat")} · 手续费 ${money(item.fee || 0)}</p></article>`).join("") || `<div class="empty">暂无提现记录</div>`}</div>
   `;
 }
 
 function refundView(state) {
   const order = state.orders?.[0];
-  return `<section class="field-card"><h3>订单：${order?.id || "暂无订单"}</h3><p>${order ? order.items.map((item) => item.title || item.name).join("、") : "请先创建订单"}</p></section><section class="field-card"><h3>退款规则</h3><p>现金和积分分别原路退回，纯积分订单只退积分；后台财务复核后执行。</p></section><form class="form"><textarea placeholder="请填写退款原因"></textarea><button type="button" class="primary" data-refund="${order?.id || ""}">提交申请</button></form>`;
+  const items = order ? order.items.map((item) => homeEscape(item.title || item.name)).join("、") : "请先创建订单";
+  return `<section class="field-card"><h3>订单：${homeEscape(order?.id || "暂无订单")}</h3><p>${items}</p></section><section class="field-card"><h3>退款规则</h3><p>现金和积分分别原路退回，纯积分订单只退积分；后台财务复核后执行。</p></section><form class="form"><textarea placeholder="请填写退款原因"></textarea><button type="button" class="primary" data-refund="${homeEscape(order?.id || "")}">提交申请</button></form>`;
 }
 
 function pointsExchangeView(state) {
-  return `<section class="notice"><strong>纯积分兑换专区</strong><p>需先开通会员，不展示现金补差入口；积分不足直接提示。</p></section><div class="product-grid" style="margin-top:12px">${productCards(state.exchangeProducts || [], "points")}</div>`;
+  return `<section class="notice"><strong>纯积分兑换专区</strong><p>无需会员，使用积分直接兑换；不展示现金补差入口，积分不足直接提示。</p></section><div class="product-grid" style="margin-top:12px">${productCards(state.exchangeProducts || [], "points")}</div>`;
 }
 
 function ticketActionView(state, type, title, text, button) {
   const tickets = (state.supportTickets || []).filter((item) => item.type === type);
   return `
-    <section class="soft-card" style="padding:28px 20px;text-align:center;background:#e8fbf1"><h2 style="color:var(--green);margin:0 0 8px">${title}</h2><p class="muted">${text}</p></section>
+    <section class="soft-card" style="padding:28px 20px;text-align:center;background:#e8fbf1"><h2 style="color:var(--green);margin:0 0 8px">${homeEscape(title)}</h2><p class="muted">${homeEscape(text)}</p></section>
     <form class="form" style="margin-top:12px" data-ticket-form>
-      <input type="hidden" name="type" value="${type}" />
-      <input name="subject" placeholder="${title}" value="${title}" />
+      <input type="hidden" name="type" value="${homeEscape(type)}" />
+      <input name="subject" placeholder="${homeEscape(title)}" value="${homeEscape(title)}" />
       <input name="contactName" placeholder="联系人" value="${homeEscape(state.user?.nickname || "")}" />
       <input name="contactPhone" placeholder="联系电话" value="${homeEscape(state.user?.phone || "")}" />
       <textarea name="content" placeholder="请描述具体问题或合作需求" required></textarea>
-      <button type="submit" class="primary">${button}</button>
+      <button type="submit" class="primary">${homeEscape(button)}</button>
     </form>
-    <div class="stack" style="margin-top:12px">${tickets.map((item) => `<article class="list-card"><h3>${homeEscape(item.subject)} · ${ticketStatusLabel(item.status)}</h3><p>${homeEscape(item.content)}</p>${item.adminReply ? `<p class="muted">回复：${homeEscape(item.adminReply)}</p>` : ""}</article>`).join("") || `<div class="empty">暂无提交记录</div>`}</div>
+    <div class="stack" style="margin-top:12px">${tickets.map((item) => `<article class="list-card"><h3>${homeEscape(item.subject)} · ${homeEscape(ticketStatusLabel(item.status))}</h3><p>${homeEscape(item.content)}</p>${item.adminReply ? `<p class="muted">回复：${homeEscape(item.adminReply)}</p>` : ""}</article>`).join("") || `<div class="empty">暂无提交记录</div>`}</div>
   `;
 }
 
 function productCards(products = [], mode = "cash") {
   return products.map((product) => {
     const isPure = product.purePointsOnly || mode === "points";
-    return `<article class="product-card"><img src="${homeEscape(product.image)}" alt="${homeEscape(product.name)}" data-product-open="${product.id}" loading="lazy" decoding="async"><span class="tag">${homeEscape(product.tag || (isPure ? "兑换" : "会员价"))}</span><h3 data-product-open="${product.id}">${homeEscape(product.name)}</h3><p class="product-meta">${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${tag}</span>`).join("")}</div>${regularPriceHtml(product, isPure)}<div class="price-row"><strong class="price ${isPure ? "exchange-price" : "member-highlight"}">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${product.id}">${isPure ? "兑" : "+"}</button></div><p class="stock-hint">库存 ${product.stock ?? 0}</p></article>`;
+    return `<article class="product-card"><img src="${safeImageUrl(product.image)}" alt="${homeEscape(product.name)}" data-product-open="${homeEscape(product.id)}" loading="lazy" decoding="async"><span class="tag">${homeEscape(product.tag || (isPure ? "兑换" : "会员价"))}</span><h3 data-product-open="${homeEscape(product.id)}">${homeEscape(product.name)}</h3><p class="product-meta">${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${homeEscape(tag)}</span>`).join("")}</div>${regularPriceHtml(product, isPure)}<div class="price-row"><strong class="price ${isPure ? "exchange-price" : "member-highlight"}">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${homeEscape(product.id)}">${isPure ? "兑" : "+"}</button></div><p class="stock-hint">库存 ${product.stock ?? 0}</p></article>`;
   }).join("") || `<div class="empty">暂无商品</div>`;
 }
 
 function horizontalProduct(product) {
   const isPure = product.purePointsOnly;
-  return `<article class="horizontal-product"><img src="${homeEscape(product.image)}" alt="${homeEscape(product.name)}" data-product-open="${product.id}" loading="lazy" decoding="async" /><div class="horizontal-product-body"><div><span class="tag">${homeEscape(product.tag || (isPure ? "兑换" : "会员价"))}</span><span class="stock-state ${Number(product.stock || 0) <= 10 ? "warn" : ""}">库存 ${product.stock ?? 0}</span></div><strong data-product-open="${product.id}">${homeEscape(product.name)}</strong><p>${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${tag}</span>`).join("")}</div>${regularPriceHtml(product, isPure)}<div class="price-row"><strong class="price ${isPure ? "exchange-price" : "member-highlight"}">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${product.id}">${isPure ? "兑" : "+"}</button></div></div></article>`;
+  return `<article class="horizontal-product"><img src="${safeImageUrl(product.image)}" alt="${homeEscape(product.name)}" data-product-open="${homeEscape(product.id)}" loading="lazy" decoding="async" /><div class="horizontal-product-body"><div><span class="tag">${homeEscape(product.tag || (isPure ? "兑换" : "会员价"))}</span><span class="stock-state ${Number(product.stock || 0) <= 10 ? "warn" : ""}">库存 ${product.stock ?? 0}</span></div><strong data-product-open="${homeEscape(product.id)}">${homeEscape(product.name)}</strong><p>${productMetaLine(product, isPure)}</p><div class="service-tags">${productServiceTags(product, isPure).slice(0, 2).map((tag) => `<span>${homeEscape(tag)}</span>`).join("")}</div>${regularPriceHtml(product, isPure)}<div class="price-row"><strong class="price ${isPure ? "exchange-price" : "member-highlight"}">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</strong><button type="button" class="add" data-cart-product="${homeEscape(product.id)}">${isPure ? "兑" : "+"}</button></div></div></article>`;
 }
 
 function floatingCart(state) {
@@ -546,6 +547,13 @@ function floatingCart(state) {
 
 function homeEscape(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+}
+
+function safeImageUrl(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/^(?:https?:\/\/|\/(?!\/)|\.\/|\.\.\/)/i.test(raw)) return homeEscape(raw);
+  return "";
 }
 
 function homeSignature(state) {
@@ -586,27 +594,27 @@ function homeSignature(state) {
 }
 
 function categoryRow() {
-  return `<section class="category-row">${categories.slice(0, 5).map((name) => `<button type="button" class="link" data-tab="${name === "任务" ? "earn" : "category"}"><span class="cat-icon">${name[0]}</span><span class="cat-name">${name}</span></button>`).join("")}</section>`;
+  return `<section class="category-row">${categories.slice(0, 5).map((name) => `<button type="button" class="link" data-tab="${name === "任务" ? "earn" : "category"}"><span class="cat-icon">${homeEscape(name[0])}</span><span class="cat-name">${homeEscape(name)}</span></button>`).join("")}</section>`;
 }
 
 function orderCard(order, state = {}) {
   const payment = findOrderPayment(state, order);
-  return `<article class="order-card rich-order-card" data-order-open="${order.id}"><div class="order-card-head"><strong>${order.id}</strong><span class="state ${orderStatusTone(order)}">${orderStatusLabel(order.status)}</span></div><p class="order-card-items">${order.items.map((item) => `${item.title || item.name || item.productId} x${item.quantity}`).join("、")}</p><div class="order-card-meta"><span>${order.fulfillmentType === "pickup" ? "自提" : "自建配送"}</span><span>${fulfillmentStatusLabel(order)}</span><span>${orderAmountText(order)}</span></div><p class="muted">${paymentHint(order)}</p>${payment ? `<p class="muted">支付单：${payment.payNo || payment.id} · ${payment.status}</p>` : ""}${order.pickupCode ? `<div class="order-code"><span>核销码</span><strong>${order.pickupCode}</strong></div>` : ""}</article>`;
+  return `<article class="order-card rich-order-card" data-order-open="${homeEscape(order.id)}"><div class="order-card-head"><strong>${homeEscape(order.id)}</strong><span class="state ${orderStatusTone(order)}">${homeEscape(orderStatusLabel(order.status))}</span></div><p class="order-card-items">${order.items.map((item) => `${homeEscape(item.title || item.name || item.productId)} x${homeEscape(item.quantity)}`).join("、")}</p><div class="order-card-meta"><span>${order.fulfillmentType === "pickup" ? "自提" : "自建配送"}</span><span>${homeEscape(fulfillmentStatusLabel(order))}</span><span>${orderAmountText(order)}</span></div><p class="muted">${homeEscape(paymentHint(order))}</p>${payment ? `<p class="muted">支付单：${homeEscape(payment.payNo || payment.id)} · ${homeEscape(payment.status)}</p>` : ""}${order.pickupCode ? `<div class="order-code"><span>核销码</span><strong>${homeEscape(order.pickupCode)}</strong></div>` : ""}</article>`;
 }
 
 function paymentCard(payment) {
-  return `<article class="ledger-row"><span class="state ${payment.status === "paid" ? "" : "warn"}">${paymentStatusLabel(payment.status)}</span><span><strong>${payment.payNo || payment.id}</strong><p class="muted">${paySceneLabel(payment.payScene)} / ${channelLabel(payment.channel)} / ${payment.thirdTradeNo || "待回调"}</p></span><strong>${payment.amount ? money(payment.amount) : `${payment.pointAmount || 0}积分`}</strong></article>`;
+  return `<article class="ledger-row"><span class="state ${payment.status === "paid" ? "" : "warn"}">${homeEscape(paymentStatusLabel(payment.status))}</span><span><strong>${homeEscape(payment.payNo || payment.id)}</strong><p class="muted">${homeEscape(paySceneLabel(payment.payScene))} / ${homeEscape(channelLabel(payment.channel))} / ${homeEscape(payment.thirdTradeNo || "待回调")}</p></span><strong>${payment.amount ? money(payment.amount) : `${homeEscape(payment.pointAmount || 0)}积分`}</strong></article>`;
 }
 
 function paymentDetail(payment) {
-  return `<p><strong>${payment.payNo || payment.id}</strong></p><p class="muted">${paySceneLabel(payment.payScene)} · ${channelLabel(payment.channel)} · ${paymentStatusLabel(payment.status)}</p><p class="muted">三方单号：${payment.thirdTradeNo || "待回调"}</p><p class="muted">幂等键：${payment.idempotencyKey || "-"}</p>`;
+  return `<p><strong>${homeEscape(payment.payNo || payment.id)}</strong></p><p class="muted">${homeEscape(paySceneLabel(payment.payScene))} · ${homeEscape(channelLabel(payment.channel))} · ${homeEscape(paymentStatusLabel(payment.status))}</p><p class="muted">三方单号：${homeEscape(payment.thirdTradeNo || "待回调")}</p><p class="muted">幂等键：${homeEscape(payment.idempotencyKey || "-")}</p>`;
 }
 
 function fulfillmentDetail(order) {
   if (order.fulfillmentType === "pickup") {
-    return `<div class="fulfillment-panel"><div class="order-code large"><span>自提核销码</span><strong>${order.pickupCode || "支付后生成"}</strong></div><p><strong>${fulfillmentStatusLabel(order)}</strong></p><p>到达自提点后由代理核销；自提点由后台统一配置。</p><p class="muted">核销失败或订单异常时进入客服工单/异常补偿队列。</p></div>`;
+    return `<div class="fulfillment-panel"><div class="order-code large"><span>自提核销码</span><strong>${homeEscape(order.pickupCode || "支付后生成")}</strong></div><p><strong>${homeEscape(fulfillmentStatusLabel(order))}</strong></p><p>到达自提点后由代理核销；自提点由后台统一配置。</p><p class="muted">核销失败或订单异常时进入客服工单/异常补偿队列。</p></div>`;
   }
-  return `<div class="fulfillment-panel"><p><strong>${fulfillmentStatusLabel(order)}</strong></p><p>TGG 自建配送团队送货上门，不对接第三方物流。</p>${deliveryTimeline(order)}${order.deliveryDate ? `<p class="muted">预计配送：${order.deliveryDate}</p>` : ""}</div>`;
+  return `<div class="fulfillment-panel"><p><strong>${homeEscape(fulfillmentStatusLabel(order))}</strong></p><p>TGG 自建配送团队送货上门，不对接第三方物流。</p>${deliveryTimeline(order)}${order.deliveryDate ? `<p class="muted">预计配送：${homeEscape(order.deliveryDate)}</p>` : ""}</div>`;
 }
 
 function deliveryTimeline(order) {
@@ -616,7 +624,7 @@ function deliveryTimeline(order) {
     ["配送中", ["shipping", "delivered", "completed"].includes(status)],
     ["已送达", ["delivered", "completed"].includes(status)]
   ];
-  return `<div class="timeline">${steps.map(([label, active]) => `<span class="timeline-step ${active ? "active" : ""}"><i></i>${label}</span>`).join("")}</div>`;
+  return `<div class="timeline">${steps.map(([label, active]) => `<span class="timeline-step ${active ? "active" : ""}"><i></i>${homeEscape(label)}</span>`).join("")}</div>`;
 }
 
 function orderSteps(order, payment) {
@@ -643,14 +651,14 @@ function taskFields(task = {}) {
 
 function fieldInput(field) {
   const label = fieldLabel(field);
-  if (["name", "mobile", "phone"].includes(field)) return `<input name="${field === "phone" ? "mobile" : field}" placeholder="${label}" />`;
+  if (["name", "mobile", "phone"].includes(field)) return `<input name="${homeEscape(field === "phone" ? "mobile" : field)}" placeholder="${homeEscape(label)}" />`;
   if (["imgea", "images", "screenshot"].includes(field)) return `<input name="images" placeholder="截图链接，多个图片用逗号隔开" />`;
-  return `<textarea name="${field}" placeholder="${label}"></textarea>`;
+  return `<textarea name="${homeEscape(field)}" placeholder="${homeEscape(label)}"></textarea>`;
 }
 
 function renderTaskContent(task = {}) {
   if (Array.isArray(task.content) && task.content.length) {
-    return task.content.map((block) => `<p>${stripHtml(block.txt || "")}</p>${(block.img_list || []).slice(0, 3).map((src) => `<img src="${src}" alt="任务步骤" style="width:100%;border-radius:8px;margin-top:8px">`).join("")}`).join("");
+    return task.content.map((block) => `<p>${stripHtml(block.txt || "")}</p>${(block.img_list || []).slice(0, 3).map((src) => `<img src="${safeImageUrl(src)}" alt="任务步骤" style="width:100%;border-radius:8px;margin-top:8px">`).join("")}`).join("");
   }
   return `<p>1. 按要求完成注册、浏览或发布。</p><p>2. 保留手机号、账号或截图凭证。</p><p>3. 提交后等待后台审核。</p>`;
 }
@@ -681,7 +689,7 @@ function productMetaLine(product, isPure = product.purePointsOnly) {
 }
 
 function productServiceTags(product, isPure = product.purePointsOnly) {
-  return product.serviceTags || (isPure ? ["需先开通会员", "不支持现金补差"] : ["会员现金购", "自建配送"]);
+  return product.serviceTags || (isPure ? ["无需会员", "不支持现金补差"] : ["会员现金购", "自建配送"]);
 }
 
 function lineTotalText(item) {
@@ -746,7 +754,7 @@ function refundStateNotice(order) {
 }
 
 function orderRiskNotice(order) {
-  if (["cancelled", "closed"].includes(order.status)) return `<section class="exception-note"><strong>订单已${orderStatusLabel(order.status)}</strong><p>如已扣减积分或现金但订单未履约，请联系客服进入异常补偿处理。</p></section>`;
+  if (["cancelled", "closed"].includes(order.status)) return `<section class="exception-note"><strong>订单已${homeEscape(orderStatusLabel(order.status))}</strong><p>如已扣减积分或现金但订单未履约，请联系客服进入异常补偿处理。</p></section>`;
   return "";
 }
 

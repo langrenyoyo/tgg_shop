@@ -120,7 +120,10 @@ async function flushPgState() {
 
 async function closePgPool() {
   if (!pool) return;
-  await pool.end();
+  // pg-mem's wire adapter rejects the PostgreSQL Terminate message. The
+  // isolated smoke process closes its listener after the child exits, so do
+  // not send an unsupported termination packet in that test-only mode.
+  if (process.env.TGG_PG_MEM !== "1") await pool.end();
   pool = null;
   initialized = false;
   expectedPayload = null;

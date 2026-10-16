@@ -15,7 +15,9 @@ function isolatedNonProduction(env = process.env) {
 }
 
 function productionLike(env = process.env) {
-  return env.NODE_ENV === "production" || String(env.TGG_STORE_DRIVER || "json") === "pg";
+  const isolatedPgTest = env.NODE_ENV !== "production" && env.TGG_PG_MEM === "1";
+  return env.NODE_ENV === "production"
+    || (String(env.TGG_STORE_DRIVER || "json") === "pg" && !isolatedPgTest);
 }
 
 function cashPaymentsEnabled(env = process.env) {

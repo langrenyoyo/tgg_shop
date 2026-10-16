@@ -1,8 +1,13 @@
+const crypto = require("node:crypto");
 const { nextId, saveState } = require("../data/store");
 const { createException } = require("../domain/exception-rules");
 const { settleProviderRefund } = require("../domain/refund-rules");
 const { createLfwinClient } = require("./lfwin-payment-client");
 const refundRepository = require("../repositories/refund-repository");
+
+function createMerchantRefundNo() {
+  return `RFD${Date.now()}${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+}
 
 function prepareRefundApproval(state, refundId) {
   const refund = refundRepository.findById(state, refundId);
@@ -16,7 +21,7 @@ function prepareRefundApproval(state, refundId) {
   }
   const now = new Date().toISOString();
   refund.status = "approved";
-  refund.merchantRefundNo ||= `RFD${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  refund.merchantRefundNo ||= createMerchantRefundNo();
   refund.providerOrderNo = payment.metadata.lfwin.providerOrderNo;
   refund.providerMerchantOrderNo = payment.payNo;
   refund.updatedAt = now;
@@ -38,7 +43,7 @@ async function submitRefund(state, refundId, options = {}, client = createLfwinC
 
   refund.providerOrderNo = payment.metadata.lfwin.providerOrderNo;
   refund.providerMerchantOrderNo = payment.payNo;
-  refund.merchantRefundNo ||= `RFD${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  refund.merchantRefundNo ||= createMerchantRefundNo();
   refund.status = "sending";
   refund.updatedAt = new Date().toISOString();
   await saveState();

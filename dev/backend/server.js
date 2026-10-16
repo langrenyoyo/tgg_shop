@@ -16,12 +16,14 @@ const { whenReady, getStoreDriver, isPgReady, shutdownStore, getState } = requir
 const { settleMonthlyPointRewards } = require("./src/services/monthly-point-reward-service");
 const { withPersistence } = require("./src/data/persistence-scope");
 const { createTaskSweep } = require("./src/services/task-sweep-service");
+const { autoConfirmDeliveryOrders } = require("./src/domain/fulfillment-rules");
 const printWorker = require("./src/services/print-service").createWorker();
 let printTimer = null;
 
 const PORT = Number(process.env.PORT || 5177);
 let rewardSweepTimer = null;
 let taskSweepTimer = null;
+let deliveryConfirmTimer = null;
 const taskSweep = createTaskSweep();
 
 const server = http.createServer(async (req, res) => {
@@ -74,6 +76,10 @@ async function start() {
       console.error(error.stack || error.message);
     });
   }, 15 * 60 * 1000);
+  sweepAutoConfirmDeliveries("startup").catch((error) => console.error(error.stack || error.message));
+  deliveryConfirmTimer = setInterval(() => {
+    sweepAutoConfirmDeliveries("interval").catch((error) => console.error(error.stack || error.message));
+  }, 15 * 60 * 1000);
   server.listen(PORT, () => {
     console.log(`TGG Shop dev server: http://localhost:${PORT}`);
     console.log(`User app: http://localhost:${PORT}/user`);
@@ -96,11 +102,18 @@ process.on("SIGTERM", shutdown);
 async function shutdown() {
   if (rewardSweepTimer) clearInterval(rewardSweepTimer);
   if (taskSweepTimer) clearInterval(taskSweepTimer);
+  if (deliveryConfirmTimer) clearInterval(deliveryConfirmTimer);
   if (printTimer) clearInterval(printTimer);
   await printWorker.stop().catch(() => {});
   await taskSweep.stop().catch(() => {});
   await shutdownStore().catch(() => {});
   server.close(() => process.exit(0));
+}
+
+async function sweepAutoConfirmDeliveries(source) {
+  const result = await withPersistence(() => autoConfirmDeliveryOrders(getState(), new Date()));
+  if (result.confirmed.length) console.log(`Delivery auto-confirm sweep (${source}): confirmed=${result.confirmed.length}`);
+  return result;
 }
 
 function runTaskSweep() {

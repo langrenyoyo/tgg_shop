@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const { nextId, saveState } = require("../data/store");
 const userRepository = require("../repositories/user-repository");
 const productRepository = require("../repositories/product-repository");
@@ -20,6 +21,28 @@ function calcDeliveryDate(config, createdAt = new Date()) {
   const target = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
   if (Number(parts.hour) >= cutoffHour) target.setUTCDate(target.getUTCDate() + 1);
   return target.toISOString().slice(0, 10);
+}
+
+function deliveryFeeFor(config, merchandiseCashAmount) {
+  if (!config.deliveryFeeEnabled) return 0;
+  const amount = Number(merchandiseCashAmount || 0);
+  const tiers = Array.isArray(config.deliveryFeeTiers)
+    ? config.deliveryFeeTiers
+      .map(item => ({ minAmount: Number(item?.minAmount), fee: Number(item?.fee) }))
+      .filter(item => Number.isFinite(item.minAmount) && item.minAmount >= 0 && Number.isFinite(item.fee) && item.fee >= 0)
+      .sort((a, b) => a.minAmount - b.minAmount)
+    : [];
+  if (tiers.length) {
+    const match = tiers.filter(item => amount >= item.minAmount).at(-1);
+    if (match) return roundMoney(match.fee);
+  }
+  const freeThreshold = Number(config.deliveryFreeThreshold);
+  if (Number.isFinite(freeThreshold) && freeThreshold > 0 && amount >= freeThreshold) return 0;
+  return roundMoney(Math.max(0, Number(config.deliveryFee || 0)));
+}
+
+function createPickupCode() {
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 function assertCanCreateOrder(state, user, payload) {
@@ -96,7 +119,7 @@ function assertCanCreateOrder(state, user, payload) {
 
   if (fulfillmentType === "delivery" && state.config.deliveryFeeEnabled && paymentMode !== "pure_points") {
     if (!isMember(user) && paymentMode !== "pure_points") return { ok: false, error: "配送费现金支付需要会员" };
-    deliveryFee = Number(state.config.deliveryFee || 0);
+    deliveryFee = deliveryFeeFor(state.config, cashAmount);
     cashAmount += deliveryFee;
   }
 
@@ -163,7 +186,7 @@ function createOrder(state, userId, payload) {
           contactPhone: pickupSite.contactPhone
         }
       : null,
-    pickupCode: isPurePoints ? String(Math.floor(100000 + Math.random() * 900000)) : null,
+    pickupCode: isPurePoints ? createPickupCode() : null,
     addressId: check.addressId,
     deliveryAddress: payload.deliveryAddress || null,
     deliveryDate: check.fulfillmentType === "delivery" ? calcDeliveryDate(state.config) : null,
@@ -231,7 +254,7 @@ function payOrder(state, orderId) {
   order.status = "paid";
   const previousFulfillmentStatus = order.fulfillmentStatus;
   order.fulfillmentStatus = order.fulfillmentType === "pickup" ? "pending_pickup" : "pending_ship";
-  order.pickupCode = order.fulfillmentType === "pickup" ? String(Math.floor(100000 + Math.random() * 900000)) : null;
+  order.pickupCode = order.fulfillmentType === "pickup" ? createPickupCode() : null;
   ledgerRepository.addPaymentEntry(state, {
     id: nextId("pay"),
     orderId,
@@ -276,6 +299,8 @@ function roundMoney(value) {
 module.exports = {
   isMember,
   calcDeliveryDate,
+  deliveryFeeFor,
+  createPickupCode,
   createOrder,
   payOrder,
   logOrderStatus

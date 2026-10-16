@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
 const { createOrder } = require("../../src/domain/rules");
-const { verifyPickup, shipOrder, deliverOrder } = require("../../src/domain/fulfillment-rules");
+const { verifyPickup, shipOrder, deliverOrder, confirmDeliveryOrder, autoConfirmDeliveryOrders } = require("../../src/domain/fulfillment-rules");
 const adminService = require("../../src/services/admin-service");
 
 test("pickup order requires correct pickup code and completes order", () => {
@@ -101,11 +101,33 @@ test("delivery order flows pending_ship to shipping to delivered", () => {
   const delivered = deliverOrder(state, created.order.id);
   assert.equal(delivered.ok, true);
   assert.equal(delivered.order.fulfillmentStatus, "delivered");
-  assert.equal(delivered.order.status, "completed");
+  assert.equal(delivered.order.status, "paid");
+  assert.ok(delivered.order.deliveredAt);
 
   const duplicateDeliver = deliverOrder(state, created.order.id);
   assert.equal(duplicateDeliver.ok, true);
   assert.equal(duplicateDeliver.idempotent, true);
+
+  const confirmed = confirmDeliveryOrder(state, created.order.id, { operatorType: "user", operatorId: "u_1001" });
+  assert.equal(confirmed.ok, true);
+  assert.equal(confirmed.order.status, "completed");
+  assert.equal(confirmDeliveryOrder(state, created.order.id).idempotent, true);
+});
+
+test("delivery is auto-confirmed only after the configured deadline", () => {
+  const state = createSeed();
+  const created = createOrder(state, "u_1001", {
+    paymentMode: "pure_points",
+    fulfillmentType: "delivery",
+    deliveryAddress: "测试配送地址",
+    items: [{ productId: "p_bokchoy", quantity: 1 }]
+  });
+  assert.equal(shipOrder(state, created.order.id, "staff_001").ok, true);
+  assert.equal(deliverOrder(state, created.order.id).ok, true);
+  created.order.deliveredAt = "2026-10-01T00:00:00.000Z";
+  const result = autoConfirmDeliveryOrders(state, new Date("2026-10-09T00:00:00.000Z"));
+  assert.equal(result.confirmed.length, 1);
+  assert.equal(created.order.status, "completed");
 });
 
 test("pickup endpoint rejects delivery order", () => {

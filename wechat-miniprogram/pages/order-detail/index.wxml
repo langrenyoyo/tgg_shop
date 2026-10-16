@@ -7,7 +7,7 @@
 <button wx:if="{{order.status === 'pending_payment'}}" bindtap="pay" disabled="{{busy}}" loading="{{busy}}">继续支付</button>
 <button wx:if="{{order.status === 'pending_payment'}}" bindtap="queryPayment" disabled="{{busy}}">已付款，查询结果</button>
 <button wx:if="{{order.status === 'pending_payment'}}" data-action="cancel" bindtap="action" disabled="{{busy}}">取消订单</button>
-<button wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'shipping'}}" data-action="receive" bindtap="action" disabled="{{busy}}">确认收货</button>
+<button wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'delivered'}}" data-action="receive" bindtap="action" disabled="{{busy}}">确认收货</button>
 <view wx:for="{{order.refunds}}" wx:key="id" class="card"><view>退款单 {{item.id}}</view><view>{{item.statusText}}</view><view>{{item.refundPointAmount}} 积分 + ¥{{item.refundCashAmount}}</view><view>{{item.reason}}</view></view>
 <view wx:if="{{order.fulfillmentType === 'pickup'}}">自提点：{{order.pickupSiteSnapshot.name}}<view>{{order.pickupSiteSnapshot.address}}</view></view>
 <view wx:else>配送地址：{{order.deliveryAddress}}<view>配送时间：{{order.deliveryDate}} {{order.deliveryTimeSlot}}</view></view>

@@ -680,7 +680,7 @@ document.body.addEventListener("click", (event) => {
 
   const deliverOrder = event.target.closest("[data-order-deliver]");
   if (deliverOrder) {
-    const confirmation = requestSensitiveReason("确认订单送达", `订单 ${deliverOrder.dataset.orderDeliver} 将完成履约并标记完成。`, "配送员反馈已送达");
+    const confirmation = requestSensitiveReason("确认订单送达", `订单 ${deliverOrder.dataset.orderDeliver} 将标记为已送达，等待用户确认收货或自动确认。`, "配送员反馈已送达");
     if (!confirmation.ok) return;
     api(`/api/admin/orders/${deliverOrder.dataset.orderDeliver}/deliver`, { method: "POST", body: JSON.stringify({ reason: confirmation.reason }) })
       .then(loadDashboard)
@@ -1103,7 +1103,13 @@ document.body.addEventListener("submit", (event) => {
   if (submitButton?.disabled || form.querySelector("fieldset:disabled")) return;
   const formData = new FormData(form);
   const group = form.dataset.configForm || "settings";
-  const payload = buildConfigPayload(group, formData);
+  let payload;
+  try {
+    payload = buildConfigPayload(group, formData);
+  } catch (error) {
+    window.alert(error.message || "配置格式无效");
+    return;
+  }
   const titles = {
     member: ["确认保存会员支付", "月会员价格和支付超时将立即影响用户下单。"],
     delivery: ["确认保存履约配送", "自提、送货上门、配送费和配送时段将立即影响用户下单。"],
@@ -1229,6 +1235,8 @@ function buildConfigPayload(group, formData) {
       deliveryEnabled: formData.get("deliveryEnabled") === "on",
       deliveryFeeEnabled: formData.get("deliveryFeeEnabled") === "on",
       deliveryFee: Number(formData.get("deliveryFee")),
+      deliveryFreeThreshold: Number(formData.get("deliveryFreeThreshold")),
+      deliveryFeeTiers: JSON.parse(String(formData.get("deliveryFeeTiersJson") || "[]")),
       deliveryCutoffHour: Number(formData.get("deliveryCutoffHour")),
       deliveryTimeSlots: parseListField(formData.get("deliveryTimeSlots")),
       purePointsNoCashTopup: true
@@ -1258,6 +1266,9 @@ function buildConfigPayload(group, formData) {
     finance: () => ({
       withdrawMinAmount: Number(formData.get("withdrawMinAmount")),
       withdrawFeeRate: Number(formData.get("withdrawFeeRatePercent")) / 100,
+      withdrawDailyCountLimit: Number(formData.get("withdrawDailyCountLimit")),
+      withdrawDailyAmountLimit: Number(formData.get("withdrawDailyAmountLimit")),
+      autoConfirmDeliveryDays: Number(formData.get("autoConfirmDeliveryDays")),
       purePointsNoCashTopup: true
     }),
     dashboard: () => ({

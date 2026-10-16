@@ -44,7 +44,7 @@ export function renderDashboard(state, ui) {
         ${queueLink("待退款", summary.pendingRefundCount, "refund:approve", "financeRefund")}${queueLink("异常补偿", summary.pendingExceptionCount, "exception:read", "exceptions")}${queueLink("支付流水", summary.paymentLedgerCount, "ledger:read", "ledger")}</div></section></div>
     <div class="dashboard-grid dashboard-grid-bottom"><section class="panel"><div class="panel-head"><h2>成交额趋势</h2><span>人民币 · 退款前</span></div>${dashboardChart(analytics.series, "gmv", "成交额", e)}</section><section class="panel"><div class="panel-head"><h2>积分净额趋势</h2><span>收入减支出</span></div>${dashboardChart(analytics.series, "pointNet", "积分净额", e)}</section></div>
     <div class="dashboard-grid dashboard-grid-bottom">${breakdown("订单状态分布", selected?.orderStatusCounts, "orderStatus", orderStatusLabels)}${breakdown("履约状态分布", selected?.fulfillmentCounts, "fulfillmentStatus", fulfillmentLabels)}</div>
-    <section class="table-panel dashboard-table" id="dashboard-orders">${table("最近订单", ["订单号", "用户", "商品", "支付", "履约", "状态", "金额/积分", "操作"], orders.slice(0, 20).map(order => [e(order.id), e(order.userId), (order.items || []).map(item => `${e(item.title || item.name || item.productId)} × ${item.quantity}`).join("<br>"), e(({ cash: "现金支付", pure_points: "纯积分兑换", points_plus_cash: "积分+现金补差" })[order.paymentMode] || order.paymentMode), badge(order.stationStatus === "ready" || order.stationStatus === "received" ? "ready" : order.fulfillmentStatus, "orange"), badge(order.status), paymentText(order), orderActionButtons(order)]))}<p class="muted-text">符合筛选条件 ${orders.length} 笔，展示最新 20 笔。</p></section>
+    <section class="table-panel dashboard-table" id="dashboard-orders">${table("最近订单", ["订单号", "用户", "商品", "支付", "履约", "状态", "金额/积分", "操作"], orders.slice(0, 20).map(order => [order.id, order.userId, (order.items || []).map(item => `${item.title || item.name || item.productId} x ${item.quantity}`).join(" / "), ({ cash: "现金支付", pure_points: "纯积分兑换", points_plus_cash: "积分+现金补差" })[order.paymentMode] || order.paymentMode, badge(order.stationStatus === "ready" || order.stationStatus === "received" ? "ready" : order.fulfillmentStatus, "orange"), badge(order.status), paymentText(order), orderActionButtons(order)]))}<p class="muted-text">符合筛选条件 ${orders.length} 笔，展示最新 20 笔。</p></section>
     ${dashboardQueues(state, ui)}
     ${can("config:read") && can("config:write") ? dashboardThresholds(analytics.alertThresholds || {}, e) : ""}
   </div>`;
@@ -69,7 +69,7 @@ function dashboardViews(state, e) {
 }
 
 function dashboardQueues(state, ui) {
-  const { escapeHtml: e, can, gatedAction: gate, simpleTable: table, badge } = ui;
+  const { escapeHtml: e, can, gatedAction: gate, simpleTable: table, badge, trustedHtml: safeHtml } = ui;
   const approvals = state.approvalRequests || [];
   const queueFilters = state.dashboardQueueFilters || {};
   const refunds = (state.refunds || []).filter(item => item.status === "pending_review" && !approvals.some(request => request.action === "refund.approve" && request.targetId === item.id && request.status === "pending")
@@ -81,11 +81,11 @@ function dashboardQueues(state, ui) {
     const count = items.filter(item => selected.has(item.id)).length;
     const controls = can(permission) ? `<div class="dashboard-batch-bar"><span class="dashboard-batch-summary">已选 ${count} 笔</span><button class="action" data-dashboard-batch-select-all="${kind}" data-dashboard-batch-ids="${e(JSON.stringify(items.map(item => item.id)))}">全选</button><button class="action" data-dashboard-batch-clear="${kind}">清空</button><button class="action danger-action" data-dashboard-batch-run="${kind}" ${count ? "" : "disabled"}>${kind === "refunds" ? "批量提交复核" : "批量标记补偿"}</button></div>` : "";
     const filters = kind === "refunds" ? filterButtons("refundType", [["all", "全部退款"], ["linked", "关联订单"], ["cash_only", "仅现金"], ["points_involved", "包含积分"]]) : filterButtons("exceptionType", [["all", "全部异常"], ...[...new Set((state.exceptions || []).map(item => item.type))].map(type => [type, type])]);
-    return `<section class="table-panel">${filters}${controls}${table(title, ["选择", ...headers], items.map(item => [`<input type="checkbox" aria-label="选择 ${e(item.id)}" data-dashboard-batch-toggle="${e(item.id)}" data-dashboard-batch-kind="${kind}" ${selected.has(item.id) ? "checked" : ""} ${can(permission) ? "" : "disabled"}>`, ...row(item)]))}</section>`;
+    return `<section class="table-panel">${filters}${controls}${table(title, ["选择", ...headers], items.map(item => [safeHtml(`<input type="checkbox" aria-label="选择 ${e(item.id)}" data-dashboard-batch-toggle="${e(item.id)}" data-dashboard-batch-kind="${kind}" ${selected.has(item.id) ? "checked" : ""} ${can(permission) ? "" : "disabled"}>`), ...row(item)]))}</section>`;
   };
   return `<div class="dashboard-grid dashboard-queue-grid">${state.dashboardBatchMessage ? `<p role="status">${e(state.dashboardBatchMessage)}</p>` : ""}
-    ${can("refund:approve") ? queue("refunds", "待退款复核队列", refunds, "approval:request", ["退款单", "订单", "现金 / 积分", "状态", "操作"], item => [e(item.id), e(item.orderId), `¥${Number(item.refundCashAmount || 0).toFixed(2)} / ${item.refundPointAmount || 0}`, badge(item.status), gate("approval:request", `<button class="action" data-refund-approve="${e(item.id)}">提交复核</button>`)]) : ""}
-    ${can("exception:read") ? queue("exceptions", "异常补偿队列", exceptions, "exception:write", ["异常单", "类型", "业务单号", "状态", "操作"], item => [e(item.id), e(item.type), e(item.bizNo || "—"), badge(item.status), gate("exception:write", `<button class="action" data-exception-resolve="${e(item.id)}" data-action="${e(item.action || "manual_compensation")}">标记补偿</button>`)]) : ""}
+    ${can("refund:approve") ? queue("refunds", "待退款复核队列", refunds, "approval:request", ["退款单", "订单", "现金 / 积分", "状态", "操作"], item => [item.id, item.orderId, `¥${Number(item.refundCashAmount || 0).toFixed(2)} / ${item.refundPointAmount || 0}`, badge(item.status), gate("approval:request", `<button class="action" data-refund-approve="${e(item.id)}">提交复核</button>`)]) : ""}
+    ${can("exception:read") ? queue("exceptions", "异常补偿队列", exceptions, "exception:write", ["异常单", "类型", "业务单号", "状态", "操作"], item => [item.id, item.type, item.bizNo || "—", badge(item.status), gate("exception:write", `<button class="action" data-exception-resolve="${e(item.id)}" data-action="${e(item.action || "manual_compensation")}">标记补偿</button>`)]) : ""}
   </div>`;
 }
 

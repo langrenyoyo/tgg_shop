@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
 const { issueToken, requireAdminPermission, resolveUser } = require("../../src/domain/auth");
 const authService = require("../../src/services/auth-service");
+const { hashAdminPassword } = require("../../src/domain/admin-accounts");
 const { handleAdminRoutes } = require("../../src/routes/admin-routes");
 
 function reqWithRole(state, roleId) {
@@ -141,4 +142,37 @@ test("failed admin login locks role temporarily", () => {
   assert.ok(state.authLoginAttempts.find((item) => item.subjectType === "admin" && item.subjectId === "finance_admin").lockedUntil);
   const locked = authService.adminLogin(state, { roleId: "finance_admin", password: "123456" });
   assert.equal(locked.status, 423);
+});
+
+test("persistent users cannot use a shared password and can use an individual hash", t => {
+  const previous = {
+    driver: process.env.TGG_STORE_DRIVER,
+    mode: process.env.TGG_STORE_MODE,
+    secret: process.env.TGG_AUTH_SECRET,
+    demoHash: process.env.TGG_DEMO_PASSWORD_HASH,
+    demoPassword: process.env.TGG_DEMO_PASSWORD
+  };
+  t.after(() => {
+    for (const [key, value] of Object.entries({
+      TGG_STORE_DRIVER: previous.driver,
+      TGG_STORE_MODE: previous.mode,
+      TGG_AUTH_SECRET: previous.secret,
+      TGG_DEMO_PASSWORD_HASH: previous.demoHash,
+      TGG_DEMO_PASSWORD: previous.demoPassword
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  process.env.TGG_STORE_DRIVER = "pg";
+  process.env.TGG_STORE_MODE = "memory";
+  process.env.TGG_AUTH_SECRET = "persistent-user-test-secret";
+  delete process.env.TGG_DEMO_PASSWORD_HASH;
+  delete process.env.TGG_DEMO_PASSWORD;
+
+  const state = createSeed();
+  assert.equal(authService.login(state, { userId: "u_1001", password: "123456" }).ok, false);
+  state.users[0].passwordHash = hashAdminPassword("user-specific-secret");
+  const result = authService.login(state, { userId: state.users[0].id, password: "user-specific-secret" });
+  assert.equal(result.ok, true);
 });

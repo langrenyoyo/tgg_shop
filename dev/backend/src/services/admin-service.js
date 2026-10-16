@@ -772,6 +772,15 @@ function updateConfig(state, input, actor = {}) {
       return { ok: false, status: 400, error: "请填写 1 至 12 个有效配送时段（HH:mm-HH:mm，结束晚于开始）" };
     }
   }
+  if (Object.prototype.hasOwnProperty.call(input, "deliveryFeeTiers")) {
+    const tiers = input.deliveryFeeTiers;
+    const valid = Array.isArray(tiers) && tiers.length >= 1 && tiers.length <= 12
+      && tiers.every(item => Number.isFinite(Number(item?.minAmount)) && Number(item.minAmount) >= 0
+        && Number.isFinite(Number(item?.fee)) && Number(item.fee) >= 0)
+      && tiers.map(item => Number(item.minAmount)).every((value, index, values) => index === 0 || value > values[index - 1])
+      && Number(tiers[0]?.minAmount) === 0;
+    if (!valid) return { ok: false, status: 400, error: "配送费档位必须从 0 元起按递增金额配置" };
+  }
   if (Object.prototype.hasOwnProperty.call(input, "homeCategoryShortcuts")) {
     const shortcuts = input.homeCategoryShortcuts;
     const valid = Array.isArray(shortcuts) && shortcuts.length >= 1 && shortcuts.length <= 8
@@ -789,6 +798,7 @@ function updateConfig(state, input, actor = {}) {
     membershipMonthlyPoints: value => Number.isInteger(value) && value >= 0,
     membershipPointCashRate: value => value > 0,
     deliveryFee: value => value >= 0,
+    deliveryFreeThreshold: value => value >= 0,
     deliveryCutoffHour: value => Number.isInteger(value) && value >= 0 && value <= 23,
     rankingRefreshMinutes: value => value > 0,
     inviteRewardPoints: value => Number.isInteger(value) && value >= 0,
@@ -800,7 +810,10 @@ function updateConfig(state, input, actor = {}) {
     paymentTimeoutMinutes: value => value === 0 || value >= 1,
     stationPickupHoldHours: value => Number.isInteger(value) && value >= 1 && value <= 720,
     cashOrderMaxAmount: value => value > 0,
-    cashDailyMaxAmount: value => value > 0
+    cashDailyMaxAmount: value => value > 0,
+    withdrawDailyCountLimit: value => Number.isInteger(value) && value >= 0,
+    withdrawDailyAmountLimit: value => value >= 0,
+    autoConfirmDeliveryDays: value => Number.isInteger(value) && value >= 1 && value <= 365
   };
   for (const [key, validate] of Object.entries(numericRules)) {
     if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
@@ -814,6 +827,7 @@ function updateConfig(state, input, actor = {}) {
     "membershipMonthlyPoints",
     "membershipPointCashRate",
     "deliveryFee",
+    "deliveryFreeThreshold",
     "deliveryCutoffHour",
     "rankingRefreshMinutes",
     "inviteRewardPoints",
@@ -825,7 +839,10 @@ function updateConfig(state, input, actor = {}) {
     "paymentTimeoutMinutes",
     "stationPickupHoldHours",
     "cashOrderMaxAmount",
-    "cashDailyMaxAmount"
+    "cashDailyMaxAmount",
+    "withdrawDailyCountLimit",
+    "withdrawDailyAmountLimit",
+    "autoConfirmDeliveryDays"
   ];
   const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "stationSortMode", "stationShelfPrefix"];
 
@@ -866,6 +883,12 @@ function updateConfig(state, input, actor = {}) {
       .map(item => item.trim())
       .filter(item => /^(?:[01]\d|2[0-3]):[0-5]\d\s*-\s*(?:[01]\d|2[0-3]):[0-5]\d$/.test(item))
       .slice(0, 12);
+  }
+  if (Array.isArray(input.deliveryFeeTiers)) {
+    state.config.deliveryFeeTiers = input.deliveryFeeTiers.map(item => ({
+      minAmount: Math.round(Number(item.minAmount) * 100) / 100,
+      fee: Math.round(Number(item.fee) * 100) / 100
+    }));
   }
   if (Array.isArray(input.deliveryServiceAreaKeywords)) {
     state.config.deliveryServiceAreaKeywords = input.deliveryServiceAreaKeywords
@@ -1278,7 +1301,7 @@ function completeDeliveryOrder(state, orderId, actor = {}, reason = "") {
   const result = deliverOrder(state, orderId);
   if (result.ok) {
     logOperation(state, actor, "order.deliver", "order", orderId, {
-      completedAt: result.order?.completedAt || "",
+      deliveredAt: result.order?.deliveredAt || "",
       idempotent: Boolean(result.idempotent),
       reason: cleanReason(reason)
     });

@@ -14,6 +14,8 @@ const { handleStationRoutes } = require("./station-routes");
 const { handlePospalRoutes } = require("./pospal-routes");
 const { handleTestRoutes } = require("./test-routes");
 const { handlePrintRoutes } = require("./print-routes");
+const rateLimit = require("../http/rate-limit");
+const checkRateLimit = rateLimit.checkRateLimit || (() => ({ ok: true }));
 
 const routeHandlers = [
   handleAuthRoutes,
@@ -40,6 +42,8 @@ async function routeApi(req, res, url) {
 }
 
 async function dispatchApi(req, res, url, send) {
+  const rate = checkRateLimit(req, url);
+  if (!rate.ok) return send(res, rate.status, { error: rate.error }, { "Retry-After": String(rate.retryAfter) });
   const state = getState();
   const userAuth = resolveUser(req, state);
   const user = userAuth.ok ? userAuth.user : null;

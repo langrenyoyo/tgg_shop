@@ -33,7 +33,9 @@ function configuredAdminPasswordHash() {
 const defaultPasswordHashCache = new Map();
 
 function requiresProvisionedAdminCredentials() {
-  return process.env.NODE_ENV === "production" || String(process.env.TGG_STORE_DRIVER || "json") === "pg";
+  const isolatedPgTest = process.env.NODE_ENV !== "production" && process.env.TGG_PG_MEM === "1";
+  return process.env.NODE_ENV === "production"
+    || (String(process.env.TGG_STORE_DRIVER || "json") === "pg" && !isolatedPgTest);
 }
 
 function isDefaultPasswordHash(hash) {

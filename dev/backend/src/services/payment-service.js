@@ -1,6 +1,7 @@
+const crypto = require("node:crypto");
 const { nextId, saveState } = require("../data/store");
 const { createException } = require("../domain/exception-rules");
-const { logOrderStatus } = require("../domain/rules");
+const { logOrderStatus, createPickupCode } = require("../domain/rules");
 const ledgerRepository = require("../repositories/ledger-repository");
 const inventoryRepository = require("../repositories/inventory-repository");
 const orderRepository = require("../repositories/order-repository");
@@ -14,6 +15,10 @@ const { isolatedNonProduction, cashPaymentsEnabled } = require("../config/runtim
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
+}
+
+function createPaymentNo() {
+  return `PAY${Date.now()}${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
 }
 
 function createGoodsPayment(state, orderId, input = {}) {
@@ -37,7 +42,7 @@ function createGoodsPayment(state, orderId, input = {}) {
   const now = new Date().toISOString();
   const payment = {
     id: nextId("pay"),
-    payNo: `PAY${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    payNo: createPaymentNo(),
     orderId: order.id,
     userId: order.userId,
     payScene: order.paymentMode === "points_plus_cash" ? "cash_diff" : "goods_cash",
@@ -84,7 +89,7 @@ function createMemberPayment(state, user, input = {}) {
   const now = new Date().toISOString();
   const payment = {
     id: nextId("pay"),
-    payNo: `PAY${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    payNo: createPaymentNo(),
     orderId: null,
     userId: user.id,
     payScene: "member_open",
@@ -404,7 +409,7 @@ function applyPaidPayment(state, payment) {
   const previousFulfillmentStatus = order.fulfillmentStatus;
   order.status = "paid";
   order.fulfillmentStatus = order.fulfillmentType === "pickup" ? "pending_pickup" : "pending_ship";
-  order.pickupCode = order.fulfillmentType === "pickup" ? String(Math.floor(100000 + Math.random() * 900000)) : null;
+  order.pickupCode = order.fulfillmentType === "pickup" ? createPickupCode() : null;
 
   if (order.paymentMode === "points_plus_cash" && order.pointAmount > 0 && !order.pointsReserved) {
     const user = userRepository.findById(state, order.userId);
