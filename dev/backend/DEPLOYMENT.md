@@ -54,7 +54,7 @@ Linux/macOS:
 TGG_ENV_FILE=.env.production npm start
 ```
 
-Environment variables override file values; `TGG_LOAD_DOTENV=0` disables file loading. Without `TGG_ENV_FILE`, the server retains its existing `.env` behavior. Production must run with `NODE_ENV=production`. Startup validates settings before importing storage or provider clients. A PostgreSQL URL does not migrate existing JSON data; back up and migrate/verify data before changing the running service.
+Environment variables override file values; `TGG_LOAD_DOTENV=0` disables file loading. Production and every PostgreSQL deployment must set an explicit `TGG_ENV_FILE` (the supplied systemd unit uses `/etc/tgg-shop/tgg-shop.env`) and `TGG_LOAD_DOTENV=0`; the server refuses to fall back to a checkout-local `.env` for persistent storage. Production must run with `NODE_ENV=production`. Startup validates settings before importing storage or provider clients. A PostgreSQL URL does not migrate existing JSON data; back up and migrate/verify data before changing the running service.
 
 Production requires all three task platform connection settings. Missing credentials prevent startup rather than enabling local mock tasks. Partially configured connections are rejected in development too. The supplied provider documentation permits HTTP; use HTTPS when supported by the provider.
 

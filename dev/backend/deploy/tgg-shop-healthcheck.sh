@@ -2,7 +2,13 @@
 set -eu
 
 APP_ROOT=${TGG_APP_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
-ENV_FILE=${TGG_ENV_FILE:-"$APP_ROOT/.env"}
+if [ -n "${TGG_ENV_FILE:-}" ]; then
+  ENV_FILE=$TGG_ENV_FILE
+elif [ -f /etc/tgg-shop/tgg-shop.env ]; then
+  ENV_FILE=/etc/tgg-shop/tgg-shop.env
+else
+  ENV_FILE="$APP_ROOT/.env"
+fi
 HEALTH_URL=${TGG_HEALTH_URL:-https://shop.taoguoguo.cc/api/health}
 NODE_BIN=${TGG_NODE_BIN:-$(command -v node || true)}
 

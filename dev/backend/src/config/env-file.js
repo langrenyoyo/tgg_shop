@@ -17,7 +17,13 @@ function readEnvFile(file) {
 
 function loadEnv(env = process.env) {
   if (env.TGG_LOAD_DOTENV === "0") return;
-  const file = path.resolve(__dirname, "../..", env.TGG_ENV_FILE || ".env");
+  const explicitFile = String(env.TGG_ENV_FILE || "").trim();
+  // Persistent stores and production processes must select their environment
+  // file explicitly. Silently loading a checkout-local .env can mix secrets
+  // with systemd settings and make an audit validate a different config than
+  // the running service.
+  if (!explicitFile && (env.NODE_ENV === "production" || env.TGG_STORE_DRIVER === "pg")) return;
+  const file = path.resolve(__dirname, "../..", explicitFile || ".env");
   if (!fs.existsSync(file) && !env.TGG_ENV_FILE) return;
   for (const [key, value] of Object.entries(readEnvFile(file))) {
     if (!(key in env)) env[key] = value;

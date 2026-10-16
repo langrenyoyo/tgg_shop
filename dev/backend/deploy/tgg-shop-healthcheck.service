@@ -6,4 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=root
+EnvironmentFile=/etc/tgg-shop/tgg-shop.env
+Environment=TGG_ENV_FILE=/etc/tgg-shop/tgg-shop.env
+Environment=TGG_LOAD_DOTENV=0
 ExecStart=/bin/sh /www/wwwroot/tgg_shop/dev/backend/deploy/tgg-shop-healthcheck.sh

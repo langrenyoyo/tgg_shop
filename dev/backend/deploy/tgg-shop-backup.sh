@@ -2,7 +2,13 @@
 set -eu
 
 APP_ROOT=${TGG_APP_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
-ENV_FILE=${TGG_ENV_FILE:-"$APP_ROOT/.env"}
+if [ -n "${TGG_ENV_FILE:-}" ]; then
+  ENV_FILE=$TGG_ENV_FILE
+elif [ -f /etc/tgg-shop/tgg-shop.env ]; then
+  ENV_FILE=/etc/tgg-shop/tgg-shop.env
+else
+  ENV_FILE="$APP_ROOT/.env"
+fi
 SYSTEM_ENV_FILE=${TGG_SYSTEM_ENV_FILE:-/etc/tgg-shop/tgg-shop.env}
 BACKUP_ROOT=${TGG_BACKUP_ROOT:-/www/backup/tgg-shop/postgres}
 RETENTION_DAYS=${TGG_BACKUP_RETENTION_DAYS:-14}

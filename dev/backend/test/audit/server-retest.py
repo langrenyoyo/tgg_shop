@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='tgg-retest-') as temporary:
  mirror=pathlib.Path(temporary)
  root=mirror/'dev/backend'
  def ignore(directory,names):
-  ignored=shutil.ignore_patterns('node_modules','.env*','.git')(directory,names)
+  ignored={name for name in names if name in {'node_modules','.git'} or (name.startswith('.env') and name != '.env.example')}
   if pathlib.Path(directory)==deployed/'dev/backend': ignored.add('data')
   return ignored
  shutil.copytree(deployed/'dev/backend',root,ignore=ignore)

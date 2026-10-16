@@ -84,6 +84,21 @@ test("explicit environment files preserve process overrides and missing explicit
   assert.throws(() => loadEnv({ TGG_ENV_FILE: path.join(root, "missing") }), /ENOENT/);
 });
 
+test("persistent PostgreSQL processes do not silently load a checkout-local env file", t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-env-pg-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const previousCwd = process.cwd();
+  try {
+    process.chdir(root);
+    fs.writeFileSync(path.join(root, ".env"), "TGG_AUTH_SECRET=checkout-secret\n");
+    const env = { NODE_ENV: "staging", TGG_STORE_DRIVER: "pg" };
+    loadEnv(env);
+    assert.equal(env.TGG_AUTH_SECRET, undefined);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
 test("production initialization generates distinct secrets once and never prints or overwrites them", t => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-config-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
