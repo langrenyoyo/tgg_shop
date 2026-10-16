@@ -47,3 +47,10 @@ test("timed-out payment cancels pending order and restores stock", () => {
   assert.equal(state.exceptions[0].payload.orderCancelled, true);
   assert.equal(state.exceptions[0].payload.stockRestored, 2);
 });
+
+test("payment timeout sweep can be explicitly disabled", () => {
+  const state = createSeed();
+  state.config.paymentTimeoutMinutes = 0;
+  const result = paymentService.cancelTimedOutPayments(state, { now: "2999-01-01T00:00:00.000Z" });
+  assert.deepEqual(result, { ok: true, timeoutMinutes: 0, cancelled: [] });
+});

@@ -17,10 +17,13 @@ const { settleMonthlyPointRewards } = require("./src/services/monthly-point-rewa
 const { withPersistence } = require("./src/data/persistence-scope");
 const { createTaskSweep } = require("./src/services/task-sweep-service");
 const { autoConfirmDeliveryOrders } = require("./src/domain/fulfillment-rules");
+const paymentService = require("./src/services/payment-service");
 const printWorker = require("./src/services/print-service").createWorker();
 let printTimer = null;
+let paymentTimeoutTimer = null;
 
 const PORT = Number(process.env.PORT || 5177);
+const HOST = String(process.env.TGG_BIND_HOST || "127.0.0.1").trim() || "127.0.0.1";
 let rewardSweepTimer = null;
 let taskSweepTimer = null;
 let deliveryConfirmTimer = null;
@@ -71,6 +74,7 @@ const server = http.createServer(async (req, res) => {
 async function start() {
   await whenReady();
   await sweepMonthlyRewards("startup");
+  await sweepTimedOutPayments("startup");
   rewardSweepTimer = setInterval(() => {
     sweepMonthlyRewards("interval").catch((error) => {
       console.error(error.stack || error.message);
@@ -80,8 +84,11 @@ async function start() {
   deliveryConfirmTimer = setInterval(() => {
     sweepAutoConfirmDeliveries("interval").catch((error) => console.error(error.stack || error.message));
   }, 15 * 60 * 1000);
-  server.listen(PORT, () => {
-    console.log(`TGG Shop dev server: http://localhost:${PORT}`);
+  paymentTimeoutTimer = setInterval(() => {
+    sweepTimedOutPayments("interval").catch((error) => console.error(error.stack || error.message));
+  }, 15 * 60 * 1000);
+  server.listen(PORT, HOST, () => {
+    console.log(`TGG Shop dev server: http://${HOST}:${PORT}`);
     console.log(`User app: http://localhost:${PORT}/user`);
     console.log(`Admin app: http://localhost:${PORT}/admin`);
     console.log(`Station app: http://localhost:${PORT}/station`);
@@ -103,11 +110,20 @@ async function shutdown() {
   if (rewardSweepTimer) clearInterval(rewardSweepTimer);
   if (taskSweepTimer) clearInterval(taskSweepTimer);
   if (deliveryConfirmTimer) clearInterval(deliveryConfirmTimer);
+  if (paymentTimeoutTimer) clearInterval(paymentTimeoutTimer);
   if (printTimer) clearInterval(printTimer);
   await printWorker.stop().catch(() => {});
   await taskSweep.stop().catch(() => {});
   await shutdownStore().catch(() => {});
   server.close(() => process.exit(0));
+}
+
+async function sweepTimedOutPayments(source) {
+  const result = await withPersistence(() => paymentService.cancelTimedOutPayments(getState()));
+  if (result.cancelled.length > 0) {
+    console.log(`Payment timeout sweep (${source}): cancelled=${result.cancelled.length}`);
+  }
+  return result;
 }
 
 async function sweepAutoConfirmDeliveries(source) {

@@ -303,7 +303,11 @@ function parseMiniPayment(response) {
 }
 
 function cancelTimedOutPayments(state, input = {}) {
-  const timeoutMinutes = Math.max(1, Number(input.timeoutMinutes || state.config?.paymentTimeoutMinutes || 30));
+  const configuredTimeout = input.timeoutMinutes !== undefined
+    ? input.timeoutMinutes
+    : state.config?.paymentTimeoutMinutes;
+  if (Number(configuredTimeout) === 0) return { ok: true, timeoutMinutes: 0, cancelled: [] };
+  const timeoutMinutes = Math.max(1, Number(configuredTimeout || 30));
   const now = new Date(input.now || Date.now());
   const cutoff = now.getTime() - timeoutMinutes * 60 * 1000;
   const cancelled = [];

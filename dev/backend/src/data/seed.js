@@ -72,6 +72,7 @@ function createSeed() {
       withdrawFeeRate: 0.01,
       withdrawDailyCountLimit: 1,
       withdrawDailyAmountLimit: 500,
+      paymentTimeoutMinutes: 30,
       autoConfirmDeliveryDays: 7,
       dashboardAlertThresholds: {
         refundRate: 0.1,
