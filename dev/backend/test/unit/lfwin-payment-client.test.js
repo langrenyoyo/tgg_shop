@@ -68,6 +68,44 @@ test("LFWin callback settles only the matching payment once", () => {
   assert.equal(repeat.idempotent, true);
 });
 
+test("payment query and close expose only sanitized provider fields", async () => {
+  const state = createSeed();
+  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini", idempotencyKey: "provider-payload-test" }).payment;
+  payment.metadata.lfwin = { providerOrderNo: "LF_SAFE" };
+  const client = {
+    queryPayment: async () => ({ orderid: "LF_SAFE", paystatus: "0", paymoney: "19.90", secret: "query-secret" }),
+    closePayment: async () => ({ orderid: "LF_SAFE", status: "closed", secret: "close-secret" })
+  };
+
+  const queried = await paymentService.queryLfwinPayment(state, payment.payNo, client);
+  assert.equal(queried.ok, true);
+  assert.deepEqual(queried.provider, { orderId: "LF_SAFE", status: "0", amount: "19.90" });
+  assert.equal(queried.provider.secret, undefined);
+
+  const closed = await paymentService.closeLfwinPayment(state, payment.payNo, client);
+  assert.equal(closed.ok, true);
+  assert.deepEqual(closed.provider, { orderId: "LF_SAFE", status: "closed", amount: null });
+  assert.equal(closed.provider.secret, undefined);
+});
+
+test("payment provider failures do not expose provider error text", async () => {
+  const state = createSeed();
+  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini", idempotencyKey: "provider-error-test" }).payment;
+  payment.metadata.lfwin = { providerOrderNo: "LF_ERROR", submissionState: "submitted" };
+  const result = await paymentService.queryLfwinPayment(state, payment.payNo, {
+    queryPayment: async () => {
+      const error = new Error("provider private message");
+      error.providerResponse = { status: "10001", secret: "provider-secret" };
+      throw error;
+    }
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "查询支付结果失败，请稍后重试");
+  assert.equal(result.providerStatus, "10001");
+  assert.equal(JSON.stringify(result).includes("provider private message"), false);
+  assert.equal(JSON.stringify(result).includes("provider-secret"), false);
+});
+
 test("LFWin callback rejects an amount mismatch", () => {
   const state = createSeed();
   const orderResult = createOrder(state, "u_1001", {

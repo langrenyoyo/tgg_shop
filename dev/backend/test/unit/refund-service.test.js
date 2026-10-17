@@ -34,6 +34,14 @@ test("provider refund approval and query settle cash only after provider success
     assert.equal(submitted.ok, true);
     assert.equal(refund.status, "refunding");
     assert.equal(state.paymentLedger.some(item => item.idempotencyKey === `refund:${refund.id}:cash`), false);
+    assert.deepEqual(submitted.provider, {
+      status: "10000",
+      orderId: "PROVIDER-ORDER-1",
+      merchantRefundNo: refund.merchantRefundNo,
+      refundOrderId: "PROVIDER-REFUND-1",
+      amount: refund.refundCashAmount
+    });
+    assert.equal(submitted.provider.secret, undefined);
     const queried = await refundService.queryRefund(state, refund.id, client);
     assert.equal(queried.ok, true);
     assert.equal(refund.status, "refunded");

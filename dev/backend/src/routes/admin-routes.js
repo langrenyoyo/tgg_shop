@@ -380,7 +380,7 @@ async function handleAdminRoutes(ctx) {
     const check = adminService.requirePermission(req, state, "withdraw:approve");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
     const result = await withdrawalService.submitWithdrawal(state, providerSubmitMatch[1]);
-    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.withdrawal : { error: result.error, detail: result.detail });
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.withdrawal : { error: result.error, providerStatus: result.providerStatus });
   }
 
   const approveWithdrawalMatch = url.pathname.match(/^\/api\/admin\/withdrawals\/([^/]+)\/approve$/);

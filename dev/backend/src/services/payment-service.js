@@ -176,9 +176,10 @@ async function initiateLfwinLocked(state, payment, input, client) {
     };
   } catch (error) {
     payment.metadata.lfwin.submissionState = "unknown";
-    createPaymentException(state, payment, "payment_initiation_uncertain", "支付平台收单结果待核对，请按商户单号查单", { error: error.message });
+    const failure = providerFailure(error, "支付发起结果待核对，请查询付款结果");
+    createPaymentException(state, payment, "payment_initiation_uncertain", "支付平台收单结果待核对，请按商户单号查单", { error: failure.providerStatus || "provider_error" });
     await saveState();
-    return { ok: false, status: 502, error: error.message };
+    return failure;
   }
 }
 
@@ -200,9 +201,9 @@ async function queryLfwinPayment(state, payNo, client = createLfwinClient()) {
       await saveState();
     }
     if (String(response.paystatus) === "1") return applyLfwinPaymentNotification(state, response, client);
-    return { ok: true, payment, provider: response };
+    return { ok: true, payment, provider: publicPaymentProvider(response) };
   } catch (error) {
-    return { ok: false, status: 502, error: error.message };
+    return providerFailure(error, "查询支付结果失败，请稍后重试");
   }
 }
 
@@ -217,9 +218,9 @@ async function closeLfwinPayment(state, payNo, client = createLfwinClient()) {
       merchantOrderNo: payment.payNo,
       orderTime: payment.createdAt
     });
-    return { ok: true, payment, provider };
+    return { ok: true, payment, provider: publicPaymentProvider(provider) };
   } catch (error) {
-    return { ok: false, status: 502, error: error.message };
+    return providerFailure(error, "关闭支付订单失败，请稍后重试");
   }
 }
 
@@ -300,6 +301,22 @@ function parseMiniPayment(response) {
   const fields = { timeStamp: String(data.timeStamp || ""), nonceStr: data.nonceStr, package: data.package, signType: data.signType || "RSA", paySign: data.paySign };
   if (!/^\d+$/.test(fields.timeStamp) || !fields.nonceStr || !String(fields.package || "").startsWith("prepay_id=") || !fields.paySign || !["RSA", "MD5", "HMAC-SHA256"].includes(fields.signType)) return null;
   return fields;
+}
+
+function publicPaymentProvider(response = {}) {
+  return {
+    orderId: response.orderid || null,
+    status: response.paystatus ?? response.status ?? null,
+    amount: response.paymoney ?? response.pri_paymoney ?? null
+  };
+}
+
+function providerFailure(error, message) {
+  const rawStatus = error?.providerResponse?.status;
+  const providerStatus = rawStatus !== undefined && /^[A-Za-z0-9_-]{1,32}$/.test(String(rawStatus))
+    ? String(rawStatus)
+    : undefined;
+  return { ok: false, status: 502, error: message, ...(providerStatus ? { providerStatus } : {}) };
 }
 
 function cancelTimedOutPayments(state, input = {}) {

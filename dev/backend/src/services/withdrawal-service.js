@@ -80,7 +80,14 @@ async function submitWithdrawal(state, id) {
     authorization_notify_url: process.env.HF_AUTHORIZATION_NOTIFY_URL,
     user_recv_type: process.env.HF_USER_RECV_TYPE || "CONFIRM_PAGE"
   }, process.env);
-  if (!result.ok) return { ok: false, status: 502, error: "服务商提交失败", detail: result.body };
+  if (!result.ok) {
+    return {
+      ok: false,
+      status: 502,
+      error: "服务商提交失败",
+      providerStatus: Number.isInteger(result.httpStatus) ? result.httpStatus : undefined
+    };
+  }
   w.status = "processing"; w.providerStatus = "PROCESSING"; w.submittedAt = new Date().toISOString(); w.updatedAt = w.submittedAt;
   const data = result.body?.data || result.body?.result || result.body || {};
   w.providerMerchantOrderId = data.order_id || merchantOrderId;

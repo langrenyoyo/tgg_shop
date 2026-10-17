@@ -85,6 +85,33 @@ test("production withdrawal approval authorizes provider submission without payi
   } finally { if (old === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = old; }
 });
 
+test("provider submission failure does not expose the raw provider response", async t => {
+  const state = createSeed();
+  const user = state.users.find(item => item.id === "u_1001");
+  user.withdrawableBalance = 100;
+  const requested = requestWithdrawal(state, user, { amount: 10, openid: "wx-openid", recipientName: "收款人" });
+  assert.equal(requested.ok, true);
+  requested.withdrawal.status = "approved";
+
+  t.mock.method(huifu, "isConfigured", () => true);
+  t.mock.method(huifu, "submit", async () => ({
+    ok: false,
+    httpStatus: 400,
+    body: { code: "provider-secret-code", message: "internal provider detail", secret: "do-not-leak" }
+  }));
+
+  const result = await withdrawalService.submitWithdrawal(state, requested.withdrawal.id);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 502);
+  assert.equal(result.providerStatus, 400);
+  assert.equal(Object.hasOwn(result, "detail"), false);
+  assert.equal(JSON.stringify(result).includes("provider-secret-code"), false);
+  assert.equal(JSON.stringify(result).includes("internal provider detail"), false);
+  assert.equal(JSON.stringify(result).includes("do-not-leak"), false);
+  assert.equal(requested.withdrawal.status, "approved");
+});
+
 test("withdrawal callback rejects unknown and reverse terminal states, while duplicate terminal is idempotent", () => {
   const state = createSeed(), user = state.users.find(item => item.id === "u_1001"); user.withdrawableBalance = 100;
   const requested = requestWithdrawal(state, user, { amount: 10, openid: "wx-openid", recipientName: "收款人", idempotencyKey: "callback-test" });

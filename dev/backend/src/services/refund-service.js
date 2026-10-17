@@ -70,10 +70,10 @@ async function submitRefund(state, refundId, options = {}, client = createLfwinC
     if (refund.status === "refunded") {
       const result = settleProviderRefund(state, refund.id);
       if (!result.ok) return result;
-      return { ...result, provider: response };
+      return { ...result, provider: publicRefundProvider(response) };
     }
     await saveState();
-    return { ok: true, refundOrder: refund, provider: response, awaitingProvider: true };
+    return { ok: true, refundOrder: refund, provider: publicRefundProvider(response), awaitingProvider: true };
   } catch (error) {
     refund.status = "unknown";
     refund.updatedAt = new Date().toISOString();
@@ -81,7 +81,7 @@ async function submitRefund(state, refundId, options = {}, client = createLfwinC
       type: "refund_initiation_uncertain",
       bizNo: refund.id,
       action: "查询服务商退款结果，不得自动重复发起",
-      payload: { refundId: refund.id, merchantRefundNo: refund.merchantRefundNo, error: String(error.message || "provider error") }
+      payload: { refundId: refund.id, merchantRefundNo: refund.merchantRefundNo, error: "provider_error" }
     });
     await saveState();
     return { ok: false, status: 502, error: "退款发起结果未知，请查询服务商结果" };
@@ -109,14 +109,14 @@ async function queryRefund(state, refundId, client = createLfwinClient()) {
     refund.providerStatus = String(response.refundstatus || response.refund_status || response.status || "");
     if (providerCompleted(response)) {
       const result = settleProviderRefund(state, refund.id);
-      return result.ok ? { ...result, provider: response } : result;
+      return result.ok ? { ...result, provider: publicRefundProvider(response) } : result;
     }
     if (providerFailed(response)) return markRefundFailed(state, refund, "服务商拒绝退款");
     refund.status = "refunding";
     refund.lastQueryAt = new Date().toISOString();
     refund.updatedAt = refund.lastQueryAt;
     await saveState();
-    return { ok: true, refundOrder: refund, provider: response, awaitingProvider: true };
+    return { ok: true, refundOrder: refund, provider: publicRefundProvider(response), awaitingProvider: true };
   } catch {
     return { ok: false, status: 502, error: "查询服务商退款结果失败" };
   }
@@ -163,6 +163,16 @@ function providerCompleted(payload) {
 function providerFailed(payload) {
   const value = String(payload.refundstatus ?? payload.refund_status ?? payload.refundStatus ?? payload.status ?? "").toUpperCase();
   return ["-1", "FAIL", "FAILED", "CLOSED", "CANCELLED"].includes(value);
+}
+
+function publicRefundProvider(response = {}) {
+  return {
+    status: response.refundstatus || response.refund_status || response.status || null,
+    orderId: response.orderid || null,
+    merchantRefundNo: response.mch_refund_no || null,
+    refundOrderId: response.refund_orderid || response.refundid || response.refund_no || response.refundNo || null,
+    amount: response.refundmoney ?? null
+  };
 }
 
 function markRefundFailed(state, refund, reason) {
