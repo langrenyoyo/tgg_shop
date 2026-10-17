@@ -7,12 +7,20 @@ const RULES = [
 ];
 
 function clientKey(req) {
-  if (!req?.socket?.remoteAddress && !req?.connection?.remoteAddress) return null;
-  if (process.env.TGG_TRUST_PROXY === "1") {
+  const remoteAddress = req?.socket?.remoteAddress || req?.connection?.remoteAddress;
+  if (!remoteAddress) return null;
+  // Only a local reverse proxy may supply the client address. If the backend
+  // is exposed directly, an attacker must not choose the rate-limit key.
+  if (process.env.TGG_TRUST_PROXY === "1" && isLoopbackAddress(remoteAddress)) {
     const forwarded = String(req.headers?.["x-forwarded-for"] || req.headers?.["x-real-ip"] || "").split(",")[0].trim();
     if (forwarded) return forwarded;
   }
-  return req.socket?.remoteAddress || req.connection?.remoteAddress || "unknown";
+  return remoteAddress;
+}
+
+function isLoopbackAddress(value) {
+  const address = String(value || "").replace(/^::ffff:/i, "");
+  return address === "127.0.0.1" || address === "::1";
 }
 
 function checkRateLimit(req, url, now = Date.now()) {
