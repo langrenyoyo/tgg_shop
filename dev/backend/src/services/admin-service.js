@@ -641,7 +641,17 @@ function listRefunds(state) {
 }
 
 function listWithdrawals(state) {
-  return state.withdrawRequests;
+  const fields = [
+    "id", "userId", "amount", "fee", "arrivalAmount", "channel", "status",
+    "provider", "providerStatus", "providerMerchantOrderId", "providerOrderId",
+    "providerResultCode", "providerErrorCode", "providerErrorMessage",
+    "transferState", "recipientName", "submittedAt", "callbackAt", "lastQueryAt",
+    "createdAt", "updatedAt"
+  ];
+  return (state.withdrawRequests || []).map((withdrawal) => Object.fromEntries(
+    fields.filter(key => Object.prototype.hasOwnProperty.call(withdrawal, key))
+      .map(key => [key, withdrawal[key]])
+  ));
 }
 
 function listUsers(state) {
@@ -675,8 +685,9 @@ function listOrders(state, options = {}) {
 }
 
 function listAddresses(state) {
+  const fields = ["id", "userId", "receiverName", "mobile", "province", "city", "district", "detail", "inServiceRange", "isDefault", "createdAt", "updatedAt"];
   return (state.addresses || []).map((address) => ({
-    ...address,
+    ...Object.fromEntries(fields.filter(key => Object.prototype.hasOwnProperty.call(address, key)).map(key => [key, address[key]])),
     userName: userRepository.findById(state, address.userId)?.nickname || address.userId || "-"
   }));
 }
