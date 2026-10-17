@@ -13,7 +13,7 @@ async function handleAccountRoutes(ctx) {
     try { body = huifu.decodeCallback(await readBody(req)); }
     catch { return send(ctx.res, 400, { error: "提现回调格式错误" }); }
     const result = withdrawalService.handleCallback(state, body);
-    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { success: true, withdrawal: result.withdrawal } : { error: result.error });
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { success: true } : { error: result.error });
   }
 
   if (req.method === "GET" && url.pathname === "/api/pickup-sites") {
@@ -54,7 +54,7 @@ async function handleAccountRoutes(ctx) {
 
   if (req.method === "POST" && url.pathname === "/api/withdrawals") {
     const result = accountService.requestWithdrawal(state, user, await readBody(req));
-    return send(ctx.res, result.ok ? 201 : result.status, result.ok ? result.withdrawal : { error: result.error });
+    return send(ctx.res, result.ok ? 201 : result.status, result.ok ? accountService.publicWithdrawal(result.withdrawal) : { error: result.error });
   }
 
   if (req.method === "GET" && url.pathname === "/api/points-ledger") {

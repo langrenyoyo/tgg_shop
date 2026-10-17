@@ -95,10 +95,20 @@ function deleteAddress(state, userId, addressId) {
 }
 
 function listWithdrawals(state, userId) {
-  return state.withdrawRequests.filter((item) => item.userId === userId);
+  return state.withdrawRequests.filter((item) => item.userId === userId).map(publicWithdrawal);
 }
 function getWithdrawal(state, userId, withdrawalId) {
-  return state.withdrawRequests.find((item) => item.userId === userId && item.id === withdrawalId) || null;
+  const withdrawal = state.withdrawRequests.find((item) => item.userId === userId && item.id === withdrawalId);
+  return withdrawal ? publicWithdrawal(withdrawal) : null;
+}
+function publicWithdrawal(withdrawal = {}) {
+  const fields = [
+    "id", "amount", "fee", "arrivalAmount", "channel", "status", "recipientName",
+    "transferState", "createdAt", "updatedAt", "submittedAt", "callbackAt", "lastQueryAt"
+  ];
+  return Object.fromEntries(fields
+    .filter(key => Object.prototype.hasOwnProperty.call(withdrawal, key))
+    .map(key => [key, withdrawal[key]]));
 }
 
 function requestWithdrawal(state, user, input) {
@@ -291,6 +301,7 @@ module.exports = {
   deleteAddress,
   listWithdrawals,
   getWithdrawal,
+  publicWithdrawal,
   requestWithdrawal,
   getPointLedger,
   getRanking,
