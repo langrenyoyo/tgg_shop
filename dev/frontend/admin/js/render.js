@@ -348,7 +348,13 @@ function users(state) {
 }
 
 function addressBook(state) {
-  return `<section class="table-panel">${simpleTable("用户地址管理", ["用户", "收货人", "电话", "地址", "默认"], (state.addresses || []).map((item) => [item.userId, item.name || item.contactName || "-", item.phone || item.contactPhone || "-", item.address || "-", item.isDefault ? "是" : "否"]))}</section>`;
+  return `<section class="table-panel">${simpleTable("用户地址管理", ["用户", "收货人", "电话", "地址", "默认"], (state.addresses || []).map((item) => [
+    item.userName || item.userId || "-",
+    item.receiverName || item.name || item.contactName || "-",
+    item.mobile || item.phone || item.contactPhone || "-",
+    [item.province, item.city, item.district, item.detail || item.address].filter(Boolean).join(" ") || "-",
+    item.isDefault ? "是" : "否"
+  ]))}</section>`;
 }
 
 function inviteAudit(state) {

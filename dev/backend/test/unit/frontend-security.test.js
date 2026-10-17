@@ -28,3 +28,9 @@ test("admin tables escape ordinary cells and explicitly mark trusted controls", 
   assert.match(adminSource, /function trustedHtml\(value\)/);
   assert.match(adminSource, /return trustedHtml\(`<span class="status/);
 });
+
+test("admin address table uses the persisted address field names", () => {
+  assert.match(adminSource, /item\.receiverName \|\| item\.name \|\| item\.contactName/);
+  assert.match(adminSource, /item\.mobile \|\| item\.phone \|\| item\.contactPhone/);
+  assert.match(adminSource, /item\.province, item\.city, item\.district, item\.detail \|\| item\.address/);
+});
