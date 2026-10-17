@@ -646,8 +646,18 @@ function listWithdrawals(state) {
 
 function listUsers(state) {
   return state.users.map((user) => ({
-    ...user,
+    id: user.id,
+    nickname: user.nickname,
+    phone: user.phone,
+    role: user.role,
+    memberUntil: user.memberUntil,
+    points: user.points,
+    withdrawableBalance: user.withdrawableBalance,
+    inviteCode: user.inviteCode,
+    signinStreak: user.signinStreak,
     status: user.status || "active",
+    avatarUrl: user.avatarUrl,
+    ...(user.createdAt ? { createdAt: user.createdAt } : {}),
     isMember: Boolean(user.memberUntil && new Date(user.memberUntil).getTime() > Date.now()),
     memberDaysLeft: user.memberUntil ? Math.max(0, Math.ceil((new Date(user.memberUntil).getTime() - Date.now()) / 86400000)) : 0
   }));

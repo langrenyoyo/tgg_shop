@@ -57,3 +57,22 @@ test("historical ad configuration stays stored but cannot be exposed or changed"
   assert.equal(result.status, 410);
   assert.deepEqual(state, before);
 });
+
+test("public config excludes POSPAL integration state and unknown internal fields", () => {
+  const config = activeConfig({
+    membershipMonthlyPrice: 19.9,
+    pospalIntegration: {
+      externalOrders: [{ raw: { orderNo: "POS-1", phone: "13800138000" } }],
+      externalSales: [{ raw: { customerName: "private customer" } }]
+    },
+    rolePermissionOverrides: { super_admin: ["*"] },
+    futureSecret: "must-not-be-public"
+  });
+
+  assert.equal(config.membershipMonthlyPrice, 19.9);
+  assert.equal(config.pospalIntegration, undefined);
+  assert.equal(config.rolePermissionOverrides, undefined);
+  assert.equal(config.futureSecret, undefined);
+  assert.equal(JSON.stringify(config).includes("POS-1"), false);
+  assert.equal(JSON.stringify(config).includes("13800138000"), false);
+});
