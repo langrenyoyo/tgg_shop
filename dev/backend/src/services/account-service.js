@@ -6,16 +6,35 @@ const { productionLike } = require("../config/runtime-safety");
 const huifu = require("./withdrawal-provider/huifu-bafang");
 
 function listPickupSites(state) {
-  return state.pickupSites.filter((site) => site.enabled);
+  return (state.pickupSites || [])
+    .filter((site) => site.enabled)
+    .map(publicPickupSite);
 }
 
 function listDeliveryTeams(state) {
-  return state.deliveryTeams
+  return (state.deliveryTeams || [])
     .filter((team) => team.enabled)
-    .map((team) => ({
-      ...team,
-      staff: state.deliveryStaff.filter((staff) => staff.teamId === team.id && staff.enabled)
-    }));
+    .map((team) => publicDeliveryTeam(team, state.deliveryStaff || []));
+}
+
+// Keep public fulfillment responses separate from internal operational records.
+function publicPickupSite(site = {}) {
+  return {
+    id: site.id,
+    name: site.name,
+    address: site.address
+  };
+}
+
+function publicDeliveryTeam(team = {}, deliveryStaff = []) {
+  return {
+    id: team.id,
+    name: team.name,
+    serviceArea: team.serviceArea,
+    staff: deliveryStaff
+      .filter((staff) => staff.teamId === team.id && staff.enabled)
+      .map((staff) => ({ id: staff.id, name: staff.name }))
+  };
 }
 
 function listAddresses(state, userId) {

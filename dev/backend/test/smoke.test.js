@@ -287,9 +287,13 @@ async function run() {
 
     const pickupSites = await request("/api/pickup-sites");
     assert(pickupSites.res.status === 200 && pickupSites.body[0].address.includes("师大"), "pickup site API failed");
+    assert(!Object.prototype.hasOwnProperty.call(pickupSites.body[0], "contactPhone"), "public pickup site must hide contact phone");
+    assert(!Object.prototype.hasOwnProperty.call(pickupSites.body[0], "contactName"), "public pickup site must hide contact name");
 
     const deliveryTeams = await request("/api/delivery/teams");
     assert(deliveryTeams.res.status === 200 && deliveryTeams.body[0].staff.length >= 1, "delivery team API failed");
+    assert(!Object.prototype.hasOwnProperty.call(deliveryTeams.body[0], "enabled"), "public delivery team must hide internal status");
+    assert(!Object.prototype.hasOwnProperty.call(deliveryTeams.body[0].staff[0], "phone"), "public delivery staff must hide phone");
 
     const addresses = await request("/api/addresses");
     assert(addresses.res.status === 200, "address list API failed");

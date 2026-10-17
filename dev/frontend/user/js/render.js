@@ -399,7 +399,7 @@ function orderDetailView(state) {
 }
 
 function pickupSiteView(state) {
-  return `<div class="stack">${(state.pickupSites || []).map((site) => `<article class="field-card"><h3>${homeEscape(site.name)}</h3><p>${homeEscape(site.address)}</p><p class="muted">${homeEscape(site.contactName || "站点代理")} · ${homeEscape(site.contactPhone || "")}</p></article>`).join("") || `<div class="empty">暂无自提点</div>`}</div>`;
+  return `<div class="stack">${(state.pickupSites || []).map((site) => `<article class="field-card"><h3>${homeEscape(site.name)}</h3><p>${homeEscape(site.address)}</p></article>`).join("") || `<div class="empty">暂无自提点</div>`}</div>`;
 }
 
 function addressView(state) {

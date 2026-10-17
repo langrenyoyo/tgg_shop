@@ -1601,14 +1601,26 @@ paths:
       responses:
         "200":
           description: Pickup sites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicPickupSite'
 
   /api/delivery/teams:
     get:
       tags: [Catalog]
-      summary: List enabled self-built delivery teams and staff
+      summary: List enabled self-built delivery teams and public staff names
       responses:
         "200":
           description: Delivery teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicDeliveryTeam'
 
   /api/addresses:
     get:
@@ -3174,6 +3186,33 @@ components:
       schema:
         type: string
   schemas:
+    PublicPickupSite:
+      type: object
+      additionalProperties: false
+      required: [id, name, address]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        address: { type: string }
+    PublicDeliveryStaff:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    PublicDeliveryTeam:
+      type: object
+      additionalProperties: false
+      required: [id, name, serviceArea, staff]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        serviceArea: { type: string }
+        staff:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicDeliveryStaff'
     PrinterSettings:
       type: object
       required: [name, sn, fulfillmentType, paperWidth, copies, enabled, autoPrint, reason]
