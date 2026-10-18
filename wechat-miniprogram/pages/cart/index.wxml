@@ -8,5 +8,5 @@
   </view>
   <view wx:if="{{loading}}" class="empty-state">正在加载购物车…</view>
   <view wx:if="{{!loading && !error && !items.length}}" class="empty-cart"><view class="empty-cart-icon"><image src="/assets/icons/cart-active.png"/></view><view class="title">购物车还是空的</view><view class="muted">去发现喜欢的好物，给生活添点新鲜</view><navigator class="btn btn-primary" url="/pages/shop/index" open-type="switchTab">去逛逛商城</navigator></view>
-  <view wx:if="{{items.length}}" class="checkout-bar"><view class="checkout-note">好物已备好<text>价格与配送信息将在结算时确认</text></view><button bindtap="checkout" disabled="{{loading || error}}" class="btn btn-primary">去结算 ›</button></view>
+  <view wx:if="{{items.length}}" class="checkout-bar"><view class="checkout-note"><view>已选 {{selectedCount}} 件</view><view class="cart-total">合计 ¥{{totalCash}}</view><view wx:if="{{totalPoints}}" class="cart-points-total">纯积分商品 {{totalPoints}} 积分</view><text>价格与配送信息将在结算时确认</text></view><button bindtap="checkout" disabled="{{loading || error}}" class="btn btn-primary">去结算 ›</button></view>
 </view>

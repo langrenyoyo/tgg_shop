@@ -44,6 +44,7 @@ Page({
     const page = e.currentTarget.dataset.page;
     if (page === "membership") return this.goMembership();
     if (page === "pointsExchange") return this.goExchange();
+    if (page === "dailySignin") return this.goTasks();
     if (page === "invite") return this.goInvite();
     if (page === "earn") return this.goTasks();
     this.goShop();
@@ -55,7 +56,7 @@ Page({
     wx.setStorageSync("tgg_shop_entry", { category, search: "" });
     this.goShop();
   },
-  search(e) { wx.setStorageSync("tgg_shop_entry", { category: "全部", search: e.detail.value }); this.goShop(); },
+  search(e) { wx.setStorageSync("tgg_shop_entry", { category: "", search: e.detail.value }); this.goShop(); },
   goMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
   goInvite() { wx.navigateTo({ url: "/pages/invite/index" }); },
 

@@ -17,7 +17,7 @@ test("mini manifest keeps component injection enabled for the WeChat quality aud
 const nativeTags = new Set([
   "view", "text", "image", "scroll-view", "button", "input", "textarea",
   "navigator", "picker", "radio", "radio-group", "checkbox", "checkbox-group",
-  "label", "form", "rich-text", "block", "template", "import", "include", "wxs"
+  "label", "form", "rich-text", "block", "template", "import", "include", "wxs", "swiper", "swiper-item"
 ]);
 
 for (const page of manifest.pages) {

@@ -825,6 +825,13 @@ function updateConfig(state, input, actor = {}) {
       }) && new Set(shortcuts.map((item, index) => String(item?.key || `category-${index}`).trim())).size === shortcuts.length;
     if (!valid) return { ok: false, status: 400, error: "首页分类至少需要 1 项，最多 8 项，且名称、分类、Logo 和标识必须有效" };
   }
+  if (Object.prototype.hasOwnProperty.call(input, "homeCarouselImages")) {
+    const images = input.homeCarouselImages;
+    const validImage = image => (typeof image === "string" && ((/^\/(assets|uploads)\/[\w.%/-]+$/.test(image) && !image.includes("..")) || /^https?:\/\/[^\s"'<>\\]+$/i.test(image)));
+    if (!Array.isArray(images) || ![3, 5].includes(images.length) || images.some(image => !validImage(String(image).trim()))) {
+      return { ok: false, status: 400, error: "首页轮播图必须配置 3 张或 5 张有效图片" };
+    }
+  }
   const numericRules = {
     membershipMonthlyPrice: value => value >= 0,
     membershipMonthlyPoints: value => Number.isInteger(value) && value >= 0,
@@ -909,6 +916,7 @@ function updateConfig(state, input, actor = {}) {
       state.config.homeBannerImage = image;
     }
   }
+  if (Array.isArray(input.homeCarouselImages)) state.config.homeCarouselImages = input.homeCarouselImages.map(image => String(image).trim());
   if (Array.isArray(input.deliveryTimeSlots)) {
     state.config.deliveryTimeSlots = input.deliveryTimeSlots
       .map(String)

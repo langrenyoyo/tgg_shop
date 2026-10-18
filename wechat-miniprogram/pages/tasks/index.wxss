@@ -12,6 +12,7 @@ button::after { border: 0; }
 .choice.selected { background: #00a865; color: #fff; }
 .task-card { display: flex; align-items: center; gap: 18rpx; padding: 26rpx 22rpx; border-radius: 26rpx; background: #fff; box-shadow: 0 6rpx 24rpx rgba(32,59,48,.025); }
 .invite-card { margin-top: 24rpx; background: #e6f0db; border: 2rpx solid #dce8ce; }.invite-card .description { color: #80946f; }.invite-card .dot { background: #d4e6c0; }.invite-card .state { background: #fff; color: #57753b; }
+.signin-card { margin-top: 24rpx; border: 2rpx solid #b8e4c8; }.signin-button { margin: 0; border: 0; padding: 12rpx 18rpx; }
 .task-list { margin-top: 24rpx; }.task-list .task-card { margin-bottom: 18rpx; }
 .icon-column { flex: 0 0 72rpx; }.dot { width: 72rpx; height: 72rpx; line-height: 72rpx; border-radius: 22rpx; color: #009359; background: #e7f4e6; text-align: center; font-size: 28rpx; font-weight: 700; }
 .task-main { flex: 1; min-width: 0; }

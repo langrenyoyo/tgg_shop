@@ -3,7 +3,7 @@ const { request } = cartApi;
 const resolveAssetUrl = cartApi.resolveAssetUrl || (value => value);
 const cart = require("../../utils/cart");
 Page({
-  data: { items: [], error: "", loading: false },
+  data: { items: [], error: "", loading: false, totalCash: 0, totalPoints: 0, selectedCount: 0 },
   onShow() { this.load(); },
   onUnload() { this.version = (this.version || 0) + 1; },
   owner() { return wx.getStorageSync("tgg_user")?.id || "guest"; },
@@ -14,11 +14,12 @@ Page({
   async load() {
     const version = this.version = (this.version || 0) + 1;
     const owner = this.ownerId = this.owner();
-    this.setData({ items: [], loading: true, error: "" });
+    this.setData({ items: [], totalCash: 0, totalPoints: 0, selectedCount: 0, loading: true, error: "" });
     try {
       const products = await request("/api/products");
       if (version !== this.version || owner !== this.owner()) return;
-      this.setData({ items: cart.read().map(item => { const product = products.find(p => p.id === item.productId) || null; return { ...item, product: product ? { ...product, image: resolveAssetUrl(product.image) } : null }; }), error: "" });
+      const items = cart.read().map(item => { const product = products.find(p => p.id === item.productId) || null; return { ...item, product: product ? { ...product, image: resolveAssetUrl(product.image) } : null }; });
+      this.setData({ items, ...cartTotals(items), error: "" });
     } catch (error) { if (version === this.version && owner === this.owner()) this.setData({ error: error.message }); }
     finally { if (version === this.version) this.setData({ loading: false }); }
   },
@@ -52,3 +53,15 @@ Page({
     wx.navigateTo({ url: "/pages/checkout/index" });
   }
 });
+
+function cartTotals(items) {
+  return items.reduce((result, item) => {
+    if (!item.selected || !item.product) return result;
+    const quantity = Number(item.quantity) || 0;
+    result.selectedCount += quantity;
+    if (item.product.purePointsOnly) result.totalPoints += (Number(item.product.pointsPrice) || 0) * quantity;
+    else result.totalCash += (Number(item.product.cashPrice) || 0) * quantity;
+    result.totalCash = Math.round(result.totalCash * 100) / 100;
+    return result;
+  }, { totalCash: 0, totalPoints: 0, selectedCount: 0 });
+}

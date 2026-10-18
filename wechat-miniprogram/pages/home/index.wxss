@@ -34,3 +34,4 @@
 .home-category-icon image { width: 66rpx; height: 66rpx; }
 .home-category-icon text { color: #159661; font-weight: 700; font-size: 30rpx; }
 .section-caption { font-size: 21rpx; font-weight: 400; color: #8b9988; margin-top: 4rpx; }
+.home-carousel { width: 100%; height: 420rpx; border-radius: 28rpx; overflow: hidden; }.home-carousel-image { width: 100%; height: 100%; display: block; }.hero { position: relative; display: block; margin: 24rpx 0 28rpx; padding: 0; background: transparent; color: #fff; overflow: hidden; }.hero-copy { position: absolute; left: 28rpx; top: 28rpx; z-index: 2; max-width: 56%; color: #fff; text-shadow: 0 2rpx 10rpx rgba(0,0,0,.3); }.hero-stamp { position: absolute; right: 24rpx; bottom: 24rpx; z-index: 2; color: #fff; background: rgba(0,0,0,.35); padding: 8rpx 16rpx; border-radius: 999rpx; font-size: 22rpx; }

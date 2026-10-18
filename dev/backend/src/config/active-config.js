@@ -14,11 +14,11 @@ const publicConfigKeys = new Set([
   "deliveryRequireSavedAddress", "cashOrderMaxAmount", "cashDailyMaxAmount",
   "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired",
   "stationSortMode", "stationPickupHoldHours", "stationShelfPrefix",
-  "rankingRefreshMinutes", "inviteRewardPoints", "inviteCommissionRate",
+  "rankingRefreshMinutes", "dailySigninRewardPoints", "inviteRewardPoints", "inviteCommissionRate",
   "monthlyPointRewardEnabled", "monthlyPointRewardSettlementHour",
   "monthlyPointRewardSettlementMinute", "monthlyPointRewardRules",
   "homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId",
-  "homeBannerImage", "homeServiceBadges", "homeCategoryShortcuts",
+  "homeBannerImage", "homeCarouselImages", "homeServiceBadges", "homeCategoryShortcuts",
   "homePromotionEntries", "homeDeliveryPromise", "purePointsNoCashTopup",
   "withdrawMinAmount", "withdrawFeeRate", "withdrawDailyCountLimit",
   "withdrawDailyAmountLimit", "paymentTimeoutMinutes", "autoConfirmDeliveryDays"

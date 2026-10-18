@@ -1,7 +1,7 @@
 page {
   background: #f5f8f5;
   color: #203b30;
-  font-size: 28rpx;
+  font-size: 30rpx;
   line-height: 1.5;
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
 }
@@ -13,6 +13,7 @@ page {
 .btn { border: 0; border-radius: 999rpx; padding: 20rpx 28rpx; line-height: 1.4; font-size: 28rpx; font-weight: 600; }
 .btn-primary { background: #00a865; color: #fff; }
 .btn-light { background: #edf5ef; color: #32654b; }
+.member-panel { border: 2rpx solid #b8e4c8; }.member-panel > view { margin-bottom: 8rpx; }.member-open-button { width: 100%; margin-top: 16rpx; }
 .input, .textarea { width: 100%; box-sizing: border-box; border: 1rpx solid #e2eae2; border-radius: 18rpx; padding: 20rpx; background: #fff; }
 .textarea { min-height: 180rpx; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx; }
@@ -37,16 +38,16 @@ button[disabled] { opacity: .5; }
 .product-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 6rpx; }
 .product-bottom { flex-wrap: wrap; }
 .product-stepper { display: flex; align-items: center; justify-content: flex-end; gap: 8rpx; margin-left: auto; flex-shrink: 0; min-height: 60rpx; }
-.product-stepper button { width: 52rpx; height: 52rpx; padding: 0; margin: 0; border-radius: 50%; line-height: 48rpx; font-size: 36rpx; font-weight: 500; }
+.product-stepper button { width: 68rpx; height: 68rpx; min-width: 68rpx; padding: 0; margin: 0; border-radius: 50%; line-height: 64rpx; font-size: 42rpx; font-weight: 500; }
 .product-stepper .step-plus { background: #00b96b; color: #fff; }
 .product-stepper .step-minus { background: #effaf3; color: #00995b; border: 2rpx solid #b6e8cb; }
 .product-stepper button[disabled] { background: #e6ebe7; color: #9ba89e; }
 .product-tile .product-stepper { position: absolute; right: 20rpx; bottom: 16rpx; min-height: 60rpx; padding: 4rpx; gap: 6rpx; border-radius: 36rpx; background: #f0f9f3; border: 1rpx solid #e1f1e7; }
-.product-tile .product-stepper button { width: 56rpx; height: 56rpx; line-height: 52rpx; }
+.product-tile .product-stepper button { width: 68rpx; height: 68rpx; line-height: 64rpx; }
 .product-tile .step-plus { background: #00ad65; box-shadow: 0 4rpx 10rpx rgba(0,173,101,.18); }
 .product-tile .step-minus { background: #fff; border-color: #d4eade; }
 .product-tile .step-count { min-width: 34rpx; }
-.step-count { min-width: 26rpx; text-align: center; color: #203b30; font-size: 25rpx; font-weight: 600; }
+.step-count { min-width: 34rpx; text-align: center; color: #203b30; font-size: 28rpx; font-weight: 600; }
 .detail-cart-controls { display: flex; align-items: center; justify-content: space-between; margin: 24rpx 0; }
 .product-price { color: #e6783d; font-size: 34rpx; font-weight: 700; overflow-wrap: break-word; min-width: 0; }
 .product-price.points-price { color: #009b60; }

@@ -4,6 +4,7 @@
     <button class="tab {{activeTab === 'tasks' ? 'active' : ''}}" bindtap="showTasks">做任务</button>
     <button class="tab {{activeTab === 'submissions' ? 'active' : ''}}" bindtap="showSubmissions">提交记录</button>
   </view>
+  <view class="task-card signin-card"><view class="icon-column"><view class="dot">签</view></view><view class="task-main"><view class="task-title">签到领积分</view><view class="description">连续签到 {{signinStatus.streak || 0}} 天，每日奖励 {{signinStatus.rewardPoints || 10}} 积分</view></view><button class="state signin-button" bindtap="claimSignin" loading="{{signinLoading}}" disabled="{{signinLoading || signinStatus.signedToday}}">{{signinStatus.signedToday ? '今日已签' : '立即签到'}}</button></view>
   <block wx:if="{{activeTab === 'tasks'}}">
     <input class="search" placeholder="搜索任务 / 平台 / 关键词" value="{{search}}" bindinput="setSearch" bindconfirm="reload" confirm-type="search" />
     <view class="choice-row">

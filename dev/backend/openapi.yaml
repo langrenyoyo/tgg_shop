@@ -1546,6 +1546,22 @@ paths:
         "200":
           description: Invite stats
 
+  /api/daily-signin/status:
+    get:
+      tags: [Growth]
+      summary: Get daily sign-in status
+      responses:
+        "200":
+          description: Current sign-in date, streak, reward and signed state
+
+  /api/daily-signin/claim:
+    post:
+      tags: [Growth]
+      summary: Claim the daily sign-in reward
+      responses:
+        "200":
+          description: Idempotent sign-in result
+
   /api/signin/status:
     get:
       tags: [Growth]
@@ -2228,6 +2244,14 @@ paths:
                 homeBannerImage:
                   type: string
                   description: Relative /assets or /uploads path, or an HTTP(S) image URL. Use HTTPS for mini-program production.
+                homeCarouselImages:
+                  type: array
+                  minItems: 3
+                  maxItems: 5
+                  description: Exactly 3 or 5 display-only homepage carousel images.
+                  items:
+                    type: string
+                    description: Relative /assets or /uploads path, or an HTTP(S) image URL.
                 homeServiceBadges:
                   type: array
                   items: { type: string }

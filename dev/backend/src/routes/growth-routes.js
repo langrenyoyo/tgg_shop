@@ -19,6 +19,12 @@ async function handleGrowthRoutes(ctx) {
     return send(ctx.res, 200, growthService.getInviteStats(state, user));
   }
 
+  if (req.method === "GET" && url.pathname === "/api/daily-signin/status") return send(ctx.res, 200, growthService.getDailySigninStatus(state, user));
+  if (req.method === "POST" && url.pathname === "/api/daily-signin/claim") {
+    const result = growthService.claimDailySignin(state, user);
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result : { error: result.error });
+  }
+
   // Retire old clients without consuming tickets or changing historical balances.
   if (["/api/signin/status", "/api/signin/start", "/api/signin/ad_complete", "/api/signin/lottery_spin"].includes(url.pathname)) {
     return send(ctx.res, 410, { error: "广告签到功能已下线", code: "AD_FEATURE_REMOVED" });

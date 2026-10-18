@@ -285,7 +285,7 @@ function products(state) {
 
 function pointsExchange(state) {
   const products = (state.products || []).filter((item) => item.purePointsOnly);
-  return `<section class="table-panel"><div class="panel-head"><p>纯积分商品需先开通会员，不支持现金补差。</p>${gatedAction("points_product:write", '<button class="action" data-product-new-pure>新增纯积分商品</button>')}</div>${simpleTable("纯积分兑换设置", ["商品", "积分价", "库存", "状态", "操作"], products.map((item) => [item.name || item.id, item.pointsPrice || 0, item.stock ?? 0, badge(item.status), productActionButtons(item)]))}</section>`;
+  return `<section class="table-panel"><div class="panel-head"><p>纯积分兑换无需会员，不支持现金补差。</p>${gatedAction("points_product:write", '<button class="action" data-product-new-pure>新增纯积分商品</button>')}</div>${simpleTable("纯积分兑换设置", ["商品", "积分价", "库存", "状态", "操作"], products.map((item) => [item.name || item.id, item.pointsPrice || 0, item.stock ?? 0, badge(item.status), productActionButtons(item)]))}</section>`;
 }
 
 function homeOps(state) {
@@ -300,23 +300,26 @@ function homeOps(state) {
     { key: "snack", category: "零食", name: "零食", icon: "/assets/icons/category-snack.png", enabled: true, sort: 3 },
     { key: "drink", category: "饮料", name: "饮料", icon: "/assets/icons/category-drink.png", enabled: true, sort: 4 }
   ];
+  const promotionEntries = (config.homePromotionEntries || []).map(item => item.title === "新人礼包" && item.page === "membership" ? { ...item, title: "签到领积分", text: "每日签到有奖励", page: "dailySignin" } : item);
   const field = (label, name, value, required = false) => `<label>${label}<input name="${name}" value="${escapeAttr(value || "")}" ${required ? "required" : ""}></label>`;
   return `<section class="panel"><div class="panel-head"><h2>首页运营配置</h2><span>保存后在用户首页生效</span></div>
     ${state.homeMessage ? `<p role="status">${escapeHtml(state.homeMessage)}</p>` : ""}
     <form class="admin-form" data-config-form="home"><fieldset class="editor-fields" ${can("config:write") ? "" : "disabled"}>
-      <div class="editor-grid">${field("Banner 标题", "homeBannerTitle", config.homeBannerTitle, true)}${field("Banner 副标题", "homeBannerSubtitle", config.homeBannerSubtitle)}
-        <label>推荐商品<select name="homeBannerProductId" required>${config.homeBannerProductId && !products.some(item => item.id === config.homeBannerProductId) ? `<option value="${escapeAttr(config.homeBannerProductId)}">${escapeHtml(config.homeBannerProductId)}（当前不可见）</option>` : ""}${products.map(item => `<option value="${escapeAttr(item.id)}" ${item.id === config.homeBannerProductId ? "selected" : ""}>${escapeHtml(item.name)}${item.status === "on" ? "" : "（已下架）"}</option>`).join("")}</select></label>
-        ${field("服务标签（逗号分隔）", "homeServiceBadges", (config.homeServiceBadges || []).join("，"))}
-        <label class="wide">首页 Banner 图片地址<input name="homeBannerImage" value="${escapeAttr(config.homeBannerImage || "")}" placeholder="上传图片或填写 https 图片地址 / 本地图片路径"></label>
-        <div class="product-upload wide"><label>上传首页 Banner 图片<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-home-banner-image-upload></label><span data-home-banner-upload-message role="status">支持 PNG / JPEG / GIF / WebP，最大 10 MB</span></div>
-      </div>
+      <div class="editor-grid"><label>轮播图数量<select name="homeCarouselCount"><option value="3" ${(config.homeCarouselImages || []).length === 5 ? "" : "selected"}>3 张</option><option value="5" ${(config.homeCarouselImages || []).length === 5 ? "selected" : ""}>5 张</option></select></label>${field("服务标签（逗号分隔）", "homeServiceBadges", (config.homeServiceBadges || []).join("，"))}</div>
+      <p class="muted-text">首页轮播图仅展示，不绑定商品，也不会跳转。请配置 3 张或 5 张图片。</p>
+      <div class="carousel-image-editors">${carouselImageEditors(config.homeCarouselImages, config.homeBannerImage).join("")}</div>
       <h3>首页分类入口</h3><p class="muted-text">可修改首页分类名称和 Logo；“商品分类值”用于匹配商品分类，建议保持与商品分类一致。</p>
       <div class="category-shortcut-editors">${categoryShortcuts.map(homeCategoryShortcutEditor).join("")}</div>
       <h3>配送服务承诺</h3><div class="editor-grid">${field("承诺标题", "homePromiseTitle", promise.title)}${field("承诺副标题", "homePromiseSubtitle", promise.subtitle)}${field("截单说明", "homePromiseCutoffText", promise.cutoffText)}${field("配送费说明", "homePromiseDeliveryFeeText", promise.deliveryFeeText)}${field("服务范围", "homePromiseServiceAreaText", promise.serviceAreaText)}</div>
       <div class="panel-head"><h3>活动入口</h3><button class="action" type="button" data-promotion-add>新增入口</button></div>
-      <div class="promotion-editors" data-promotion-rows>${(config.homePromotionEntries || []).map(promotionEditor).join("")}</div>
+      <div class="promotion-editors" data-promotion-rows>${promotionEntries.map(promotionEditor).join("")}</div>
       <button class="action" type="submit">保存首页配置</button><button class="action muted-action" type="reset">重置填写</button>
     </fieldset></form>${can("config:write") ? "" : `<p class="muted-text">当前角色仅可查看，保存需要配置修改权限。</p>`}</section>`;
+}
+
+function carouselImageEditors(images = [], legacyImage = "") {
+  const source = Array.isArray(images) && images.length ? images : [legacyImage, "", ""];
+  return Array.from({ length: 5 }, (_, index) => `<label class="wide carousel-image-row" data-home-carousel-row><span>轮播图 ${index + 1}</span><input name="homeCarouselImage" value="${escapeAttr(source[index] || "")}" placeholder="上传图片或填写 https 图片地址" ${index > 2 ? "data-carousel-optional" : "required"}><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-home-carousel-image-upload><span data-home-carousel-upload-message role="status">${index > 2 ? "5 张模式下填写" : "必填，支持 PNG / JPEG / GIF / WebP"}</span></label>`);
 }
 
 function homeCategoryShortcutEditor(item = {}) {
@@ -332,7 +335,7 @@ function homeCategoryShortcutEditor(item = {}) {
 }
 
 export function promotionEditor(item = {}) {
-  const pages = [["category", "商品分类"], ["membership", "会员中心"], ["pointsExchange", "纯积分兑换"], ["earn", "赚积分"], ["invite", "邀请好友"]];
+  const pages = [["category", "商品分类"], ["membership", "会员中心"], ["pointsExchange", "纯积分兑换"], ["earn", "赚积分"], ["dailySignin", "签到"], ["invite", "邀请好友"]];
   if (item.page && !pages.some(([page]) => page === item.page)) pages.push([item.page, item.page]);
   return `<div class="promotion-editor" data-promotion-row>
     <label>入口标题<input name="promotionTitle" value="${escapeAttr(item.title || "")}" required></label>

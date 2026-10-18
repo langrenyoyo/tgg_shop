@@ -1159,10 +1159,11 @@ function readProductForm(form) {
 
 document.body.addEventListener("change", async event => {
   const homeForm = event.target.closest('[data-config-form="home"]');
-  if (homeForm && event.target.matches("[data-home-banner-image-upload]")) {
+  if (homeForm && event.target.matches("[data-home-carousel-image-upload]")) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const message = homeForm.querySelector("[data-home-banner-upload-message]");
+    const row = event.target.closest("[data-home-carousel-row]");
+    const message = row.querySelector("[data-home-carousel-upload-message]");
     if (file.size > 10 * 1024 * 1024) { message.textContent = "图片不能超过 10 MB"; return; }
     if (homeForm.dataset.uploading) return;
     homeForm.dataset.uploading = "1";
@@ -1170,8 +1171,8 @@ document.body.addEventListener("change", async event => {
     try {
       const body = new FormData(); body.append("file", file);
       const result = await api("/api/admin/home-images", { method: "POST", body });
-      homeForm.querySelector('[name="homeBannerImage"]').value = result.data[0].url;
-      message.textContent = "首页图片上传成功，保存首页配置后生效";
+      row.querySelector('[name="homeCarouselImage"]').value = result.data[0].url;
+      message.textContent = "轮播图上传成功，保存首页配置后生效";
     } catch (error) { message.textContent = error.message; }
     finally { delete homeForm.dataset.uploading; }
     return;
@@ -1281,10 +1282,7 @@ function buildConfigPayload(group, formData) {
       purePointsNoCashTopup: true
     }),
     home: () => ({
-      homeBannerTitle: String(formData.get("homeBannerTitle") || ""),
-      homeBannerSubtitle: String(formData.get("homeBannerSubtitle") || ""),
-      homeBannerProductId: String(formData.get("homeBannerProductId") || ""),
-      homeBannerImage: String(formData.get("homeBannerImage") || ""),
+      homeCarouselImages: formData.getAll("homeCarouselImage").map(value => String(value || "").trim()).slice(0, Number(formData.get("homeCarouselCount") || 3)),
       homeServiceBadges: parseListField(formData.get("homeServiceBadges")),
       homeCategoryShortcuts: formData.getAll("categoryKey").map((key, index) => ({
         key: String(key || "").trim(),

@@ -24,6 +24,12 @@ function categoryShortcuts(config) {
 
 function getHome(state, user) {
   const config = state.config || {};
+  const carouselImages = Array.isArray(config.homeCarouselImages) ? config.homeCarouselImages.filter(Boolean).slice(0, 5) : [];
+  const promotionEntries = (config.homePromotionEntries || [
+    { title: "签到领积分", text: "每日签到有奖励", tone: "green", page: "dailySignin" },
+    { title: "会员专享", text: "现金购权益", tone: "orange", page: "membership" },
+    { title: "纯积分兑换", text: "无需现金", tone: "blue", page: "pointsExchange" }
+  ]).map(item => item.title === "新人礼包" && item.page === "membership" ? { ...item, title: "签到领积分", text: "每日签到有奖励", page: "dailySignin" } : item);
   return {
     user: publicUser(user),
     bannerProduct: productRepository.findActiveById(state, config.homeBannerProductId || "p_strawberry") || null,
@@ -38,15 +44,12 @@ function getHome(state, user) {
       serviceAreaText: "\u5f53\u524d\u5730\u5740\u5728\u670d\u52a1\u8303\u56f4\u5185"
     },
     serviceBadges: config.homeServiceBadges || ["\u81ea\u5efa\u914d\u9001", "\u574f\u679c\u5305\u8d54", "\u4f4e\u4ef7\u4f1a\u5458\u8d2d"],
-    promotionEntries: (config.homePromotionEntries || [
-      { title: "\u65b0\u4eba\u793c\u5305", text: "\u9996\u5355\u914d\u9001\u5238", tone: "green", page: "membership" },
-      { title: "\u4f1a\u5458\u4e13\u4eab", text: "\u73b0\u91d1\u8d2d\u6743\u76ca", tone: "orange", page: "membership" },
-      { title: "\u7eaf\u79ef\u5206\u5151", text: "\u65e0\u9700\u73b0\u91d1", tone: "blue", page: "pointsExchange" }
-    ]).filter(item => item.page !== "signin"),
-    banners: [{ title: config.homeBannerTitle || "\u65f6\u4ee4\u9c9c\u679c\u5b63", subtitle: config.homeBannerSubtitle || "\u65b0\u9c9c\u5230\u7ad9 \u4f4e\u81f3 5 \u6298", productId: config.homeBannerProductId || "p_strawberry" }],
+    promotionEntries: promotionEntries.filter(item => item.page !== "signin"),
+    banners: (carouselImages.length ? carouselImages : [config.homeBannerImage || ""]).map((image, index) => ({ image, title: index === 0 ? config.homeBannerTitle || "\u65f6\u4ee4\u9c9c\u679c\u5b63" : "", subtitle: index === 0 ? config.homeBannerSubtitle || "\u65b0\u9c9c\u5230\u7ad9" : "" })),
     recommendProducts: productRepository.listRecommended(state),
     pointsExchangeEntry: { title: "\u7eaf\u79ef\u5206\u5151\u6362", path: "/api/points-exchange" },
-    bannerImage: config.homeBannerImage || ""
+    bannerImage: carouselImages[0] || config.homeBannerImage || "",
+    carouselImages
   };
 }
 

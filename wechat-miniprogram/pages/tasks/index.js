@@ -2,7 +2,7 @@ const { request } = require("../../utils/api");
 Page({
   data: {
     categories: [], tasks: [], currentCid: "", search: "", page: 1, hasMore: true,
-    activeTab: "tasks", loading: false, error: "",
+    activeTab: "tasks", loading: false, error: "", signinStatus: null, signinLoading: false,
     submissions: [], visibleSubmissions: [], recordStatus: "",
     recordFilters: [{ id: "", name: "全部" }, { id: "reviewing", name: "审核中" }, { id: "approved", name: "已通过" }, { id: "rejected", name: "已驳回" }]
   },
@@ -10,6 +10,7 @@ Page({
     const view = wx.getStorageSync("tgg_task_view");
     if (view === "submissions") { this.setData({ activeTab: view }); wx.removeStorageSync("tgg_task_view"); }
     this.load();
+    this.loadSignin();
   },
   onUnload() { this.loadVersion = (this.loadVersion || 0) + 1; },
   async load() {
@@ -54,4 +55,21 @@ Page({
   updateRecords() { this.setData({ visibleSubmissions: this.data.submissions.filter(item => !this.data.recordStatus || item.status === this.data.recordStatus) }); },
   openTask(e) { wx.navigateTo({ url: "/pages/task-detail/index?id=" + encodeURIComponent(e.currentTarget.dataset.id) }); },
   openInvite() { wx.navigateTo({ url: "/pages/invite/index" }); }
+  ,async loadSignin() {
+    if (!wx.getStorageSync("tgg_token")) return this.setData({ signinStatus: null });
+    try { this.setData({ signinStatus: await request("/api/daily-signin/status") }); } catch { this.setData({ signinStatus: null }); }
+  },
+  async claimSignin() {
+    if (!wx.getStorageSync("tgg_token")) return wx.navigateTo({ url: "/pages/login/index" });
+    if (this.data.signinLoading || this.data.signinStatus?.signedToday) return;
+    this.setData({ signinLoading: true });
+    try {
+      const status = await request("/api/daily-signin/claim", { method: "POST", data: {} });
+      this.setData({ signinStatus: status });
+      const user = wx.getStorageSync("tgg_user");
+      if (user) wx.setStorageSync("tgg_user", { ...user, points: Number(user.points || 0) + Number(status.rewardPoints || 0), signinStreak: status.streak });
+      wx.showToast({ title: `签到成功，+${status.rewardPoints}积分`, icon: "none" });
+    } catch (error) { wx.showToast({ title: error.message || "签到失败，请重试", icon: "none" }); }
+    finally { this.setData({ signinLoading: false }); }
+  }
 });

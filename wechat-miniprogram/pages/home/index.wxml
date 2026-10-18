@@ -5,10 +5,7 @@
     <view class="brand-mark">TGG<text>SHOP</text></view>
   </view>
   <view class="search-box"><view class="search-icon"></view><input placeholder="搜一搜，发现今天的新鲜好物" placeholder-style="color:#91a08f" bindconfirm="search" confirm-type="search"/></view>
-  <view class="hero">
-    <view class="hero-copy"><view class="hero-kicker">FRESH EVERY DAY</view><view class="hero-title">{{home.banners[0].title || '时令鲜果季'}}</view><view class="hero-subtitle">{{home.banners[0].subtitle || '把新鲜，装进每一天'}}</view><button class="hero-button" bindtap="openBanner">立即选购 <text>›</text></button></view>
-    <view class="hero-art"><image src="{{home.bannerImage || home.bannerProduct.image || '/assets/fresh-strawberry.jpg'}}" mode="aspectFill"/><view class="hero-stamp">今日份新鲜</view></view>
-  </view>
+  <view class="hero"><swiper class="home-carousel" indicator-dots="{{true}}" autoplay="{{true}}" interval="4500" circular="{{true}}"><swiper-item wx:for="{{home.banners}}" wx:key="index"><image class="home-carousel-image" src="{{item.image || home.bannerImage || '/assets/fresh-strawberry.jpg'}}" mode="aspectFill"/></swiper-item></swiper><view class="hero-copy"><view class="hero-kicker">FRESH EVERY DAY</view><view class="hero-title">{{home.banners[0].title || '时令鲜果季'}}</view><view class="hero-subtitle">{{home.banners[0].subtitle || '把新鲜，装进每一天'}}</view></view><view class="hero-stamp">今日份新鲜</view></view>
   <view class="quick-actions">
     <view class="quick-item" bindtap="goTasks"><view class="quick-icon mint"><image src="/assets/icons/tasks-active.png"/></view><view>做任务</view><text>积分慢慢攒</text></view>
     <view class="quick-item" bindtap="goInvite"><view class="quick-icon peach"><image src="/assets/icons/gift.png"/></view><view>邀请好友</view><text>一起享好物</text></view>

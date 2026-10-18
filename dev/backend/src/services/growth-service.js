@@ -1,3 +1,30 @@
+const { nextId, saveState } = require("../data/store");
+const ledgerRepository = require("../repositories/ledger-repository");
+const { getLocalTime } = require("../time-zone");
+
+function signinDateKey(value, timeZone = "Asia/Shanghai") {
+  const parts = getLocalTime(value, timeZone);
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+function getDailySigninStatus(state, user) {
+  const dateKey = signinDateKey(Date.now(), state.config?.deliveryTimeZone || "Asia/Shanghai");
+  const entry = (state.pointLedger || []).find(item => item.userId === user.id && item.changeType === "signin" && item.idempotencyKey === `signin:${user.id}:${dateKey}`);
+  return { date: dateKey, signedToday: Boolean(entry), streak: Number(user.signinStreak || 0), rewardPoints: Number(state.config?.dailySigninRewardPoints || 10) };
+}
+
+function claimDailySignin(state, user) {
+  const status = getDailySigninStatus(state, user);
+  if (status.signedToday) return { ok: true, idempotent: true, ...status };
+  const points = status.rewardPoints;
+  user.points = Number(user.points || 0) + points;
+  user.signinStreak = Number(user.signinStreak || 0) + 1;
+  const now = new Date().toISOString();
+  ledgerRepository.addPointEntry(state, { id: nextId("pt"), userId: user.id, changeType: "signin", direction: "in", points, balanceAfter: user.points, bizNo: status.date, idempotencyKey: `signin:${user.id}:${status.date}`, createdAt: now });
+  saveState();
+  return { ok: true, idempotent: false, date: status.date, signedToday: true, streak: user.signinStreak, rewardPoints: points };
+}
+
 function getInviteInfo(state, user) {
   const invitedCount = (state.inviteRelations || []).filter(relation => relation.inviterUserId === user.id).length;
   const totalCommission = state.pointLedger
@@ -51,4 +78,4 @@ function getInviteStats(state, user) {
   };
 }
 
-module.exports = { getInviteInfo, listInviteUsers, getInviteStats };
+module.exports = { getInviteInfo, listInviteUsers, getInviteStats, getDailySigninStatus, claimDailySignin };

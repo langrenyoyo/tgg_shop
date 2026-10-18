@@ -32,6 +32,7 @@ function createSeed() {
       stationPickupHoldHours: 48,
       stationShelfPrefix: "S-",
       rankingRefreshMinutes: 5,
+      dailySigninRewardPoints: 10,
       inviteRewardPoints: 3,
       inviteCommissionRate: 0.1,
       monthlyPointRewardEnabled: true,
@@ -56,7 +57,7 @@ function createSeed() {
         { key: "drink", category: "饮料", name: "饮料", icon: "/assets/icons/category-drink.png", enabled: true }
       ],
       homePromotionEntries: [
-        { title: "新人礼包", text: "首单配送券", tone: "green", page: "membership" },
+        { title: "签到领积分", text: "每日签到有奖励", tone: "green", page: "dailySignin" },
         { title: "会员专享", text: "现金购权益", tone: "orange", page: "membership" },
         { title: "纯积分兑", text: "无需现金", tone: "blue", page: "pointsExchange" }
       ],

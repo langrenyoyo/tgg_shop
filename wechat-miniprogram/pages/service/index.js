@@ -1,5 +1,5 @@
 const { request } = require("../../utils/api");
-const TITLES = { payments: "支付记录", ranking: "积分排行榜", withdraw: "提现", customerService: "在线客服", feedback: "意见反馈", business: "商务合作", recruiting: "招聘岗位", pickupSite: "自提点" };
+const TITLES = { payments: "支付记录", ranking: "积分排行榜", withdraw: "提现", customerService: "在线客服", feedback: "意见反馈", business: "商务合作", recruiting: "代理申请", pickupSite: "自提点" };
 Page({
   data: { type: "payments", title: "支付记录", rows: [], balance: 0, config: {}, loading: true, error: "", submitting: false },
   onLoad(query) { this.type = query.type || "payments"; this.setData({ type: this.type, title: TITLES[this.type] || "用户服务" }); this.load(); },
