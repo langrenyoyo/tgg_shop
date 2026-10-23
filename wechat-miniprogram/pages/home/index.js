@@ -73,7 +73,11 @@ Page({
 function emptyHome() { return { user: {}, pickupSite: {}, categories: [], categoryShortcuts: [], banners: [{ title: "时令鲜果季", subtitle: "每日新鲜到家" }], recommendProducts: [] }; }
 function normalizeHome(home) {
   const value = home && typeof home === "object" && !Array.isArray(home) ? home : {};
-  const banners = Array.isArray(value.banners) ? value.banners.filter(item => item && typeof item === "object") : [];
+  const banners = Array.isArray(value.banners)
+    ? value.banners
+      .filter(item => item && typeof item === "object")
+      .map(item => ({ ...item, image: resolveAssetUrl(item.image || "") }))
+    : [];
   if (!banners.length) banners.push({ title: "时令鲜果季", subtitle: "每日新鲜到家" });
   const products = Array.isArray(value.recommendProducts) ? value.recommendProducts.filter(item => item && item.id && String(item.name || "").trim()) : [];
   const categoryDefaults = [

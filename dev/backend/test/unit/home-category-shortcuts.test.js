@@ -13,11 +13,14 @@ test("native home resolves uploaded logos while keeping bundled icons and catego
   let page;
   const storage = new Map();
   const state = createSeed();
-  admin.updateConfig(state, { homeCategoryShortcuts: [
-    { key: "fresh", category: "水果", name: "鲜果", icon: "/uploads/fresh.png", sort: 1 },
-    { key: "daily", category: "日用", name: "日用", icon: "/assets/icons/category-daily.png", sort: 2 },
-    { key: "hidden", category: "蔬菜", name: "蔬菜", enabled: false, sort: 0 }
-  ] }, actor);
+  admin.updateConfig(state, {
+    homeCarouselImages: ["/uploads/home-1.png", "/uploads/home-2.png", "/uploads/home-3.png"],
+    homeCategoryShortcuts: [
+      { key: "fresh", category: "水果", name: "鲜果", icon: "/uploads/fresh.png", sort: 1 },
+      { key: "daily", category: "日用", name: "日用", icon: "/assets/icons/category-daily.png", sort: 2 },
+      { key: "hidden", category: "蔬菜", name: "蔬菜", enabled: false, sort: 0 }
+    ]
+  }, actor);
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/home/index.js"), "utf8"), {
     Page: value => { page = value; },
     wx: { getStorageSync: () => null, setStorageSync: (key, value) => storage.set(key, value), switchTab: () => {} },
@@ -29,6 +32,11 @@ test("native home resolves uploaded logos while keeping bundled icons and catego
   assert.equal(page.data.home.categories[0].name, "鲜果");
   assert.equal(page.data.home.categories[0].icon, "https://shop.example/uploads/fresh.png");
   assert.equal(page.data.home.categories[1].icon, "/assets/icons/category-daily.png");
+  assert.deepEqual(page.data.home.banners.map(item => item.image), [
+    "https://shop.example/uploads/home-1.png",
+    "https://shop.example/uploads/home-2.png",
+    "https://shop.example/uploads/home-3.png"
+  ]);
   page.goCategory({ currentTarget: { dataset: page.data.home.categories[0] } });
   assert.equal(storage.get("tgg_shop_entry").category, "水果");
 });

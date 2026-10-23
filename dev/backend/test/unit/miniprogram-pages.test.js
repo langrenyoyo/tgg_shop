@@ -12,6 +12,15 @@ test("mini manifest keeps component injection enabled for the WeChat quality aud
   assert.equal(manifest.lazyCodeLoading, "requiredComponents");
 });
 
+test("mini manifest excludes retired bounty pages and references existing page files", () => {
+  assert.equal(manifest.pages.some(page => page.includes("bounty")), false);
+  for (const page of manifest.pages) {
+    for (const extension of [".js", ".json", ".wxml"]) {
+      assert.equal(fs.existsSync(path.join(root, page + extension)), true, `${page}${extension} is missing`);
+    }
+  }
+});
+
 // Check the components actually referenced by templates. A syntactically valid
 // WXML tag can still fail at runtime when it has no native/custom registration.
 const nativeTags = new Set([
