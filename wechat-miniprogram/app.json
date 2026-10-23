@@ -18,6 +18,7 @@
     "pages/points/index",
     "pages/address/index",
     "pages/service/index",
+    "pages/customer-service/index",
     "pages/station-login/index",
     "pages/station/index"
   ],

@@ -30,6 +30,7 @@ Page({
   },
   quantity(e) {
     if (!this.canEdit()) return;
+    if (e.currentTarget.dataset.disabled) return;
     const items = cart.read(); const item = items.find(row => row.productId === e.currentTarget.dataset.id);
     const delta = Number(e.currentTarget.dataset.delta);
     if (!item || ![-1, 1].includes(delta)) return;

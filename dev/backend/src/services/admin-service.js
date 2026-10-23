@@ -832,6 +832,11 @@ function updateConfig(state, input, actor = {}) {
       return { ok: false, status: 400, error: "首页轮播图必须配置 3 张或 5 张有效图片" };
     }
   }
+  if (Object.prototype.hasOwnProperty.call(input, "customerServiceQrCode")) {
+    const image = String(input.customerServiceQrCode || "").trim();
+    const validImage = !image || ((/^\/(assets|uploads)\/[\w.%/-]+$/.test(image) && !image.includes("..")) || /^https:\/\/[^\s"'<>\\]+$/i.test(image));
+    if (!validImage) return { ok: false, status: 400, error: "企业客服二维码必须是 HTTPS 地址或已上传图片" };
+  }
   const numericRules = {
     membershipMonthlyPrice: value => value >= 0,
     membershipMonthlyPoints: value => Number.isInteger(value) && value >= 0,
@@ -883,7 +888,7 @@ function updateConfig(state, input, actor = {}) {
     "withdrawDailyAmountLimit",
     "autoConfirmDeliveryDays"
   ];
-  const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "stationSortMode", "stationShelfPrefix"];
+  const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "customerServiceQrCode", "stationSortMode", "stationShelfPrefix"];
 
   for (const key of booleanKeys) {
     if (Object.prototype.hasOwnProperty.call(input, key)) state.config[key] = Boolean(input[key]);

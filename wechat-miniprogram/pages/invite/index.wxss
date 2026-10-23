@@ -1,1 +1,2 @@
-/* shared */
+.invite-actions { display: flex; flex-direction: column; gap: 16rpx; margin-top: 20rpx; margin-bottom: 18rpx; }
+.invite-actions button { width: 100%; margin: 0; }

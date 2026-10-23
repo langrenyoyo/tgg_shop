@@ -308,6 +308,12 @@ function homeOps(state) {
       <div class="editor-grid"><label>轮播图数量<select name="homeCarouselCount"><option value="3" ${(config.homeCarouselImages || []).length === 5 ? "" : "selected"}>3 张</option><option value="5" ${(config.homeCarouselImages || []).length === 5 ? "selected" : ""}>5 张</option></select></label>${field("服务标签（逗号分隔）", "homeServiceBadges", (config.homeServiceBadges || []).join("，"))}</div>
       <p class="muted-text">首页轮播图仅展示，不绑定商品，也不会跳转。请配置 3 张或 5 张图片。</p>
       <div class="carousel-image-editors">${carouselImageEditors(config.homeCarouselImages, config.homeBannerImage).join("")}</div>
+      <h3>企业客服</h3>
+      <div class="product-upload wide" data-customer-service-qr-row>
+        <label>客服微信二维码地址<input name="customerServiceQrCode" value="${escapeAttr(config.customerServiceQrCode || "")}" placeholder="上传二维码或填写 HTTPS 图片地址"></label>
+        <label>上传客服二维码<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-customer-service-qr-upload></label>
+        <span data-customer-service-qr-message role="status">用户长按二维码可添加客服微信</span>
+      </div>
       <h3>首页分类入口</h3><p class="muted-text">可修改首页分类名称和 Logo；“商品分类值”用于匹配商品分类，建议保持与商品分类一致。</p>
       <div class="category-shortcut-editors">${categoryShortcuts.map(homeCategoryShortcutEditor).join("")}</div>
       <h3>配送服务承诺</h3><div class="editor-grid">${field("承诺标题", "homePromiseTitle", promise.title)}${field("承诺副标题", "homePromiseSubtitle", promise.subtitle)}${field("截单说明", "homePromiseCutoffText", promise.cutoffText)}${field("配送费说明", "homePromiseDeliveryFeeText", promise.deliveryFeeText)}${field("服务范围", "homePromiseServiceAreaText", promise.serviceAreaText)}</div>

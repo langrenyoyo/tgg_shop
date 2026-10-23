@@ -1195,6 +1195,24 @@ document.body.addEventListener("change", async event => {
     finally { delete homeForm.dataset.uploading; }
     return;
   }
+  if (homeForm && event.target.matches("[data-customer-service-qr-upload]")) {
+    const file = event.target.files?.[0];
+    const row = event.target.closest("[data-customer-service-qr-row]");
+    if (!file || !row) return;
+    const message = row.querySelector("[data-customer-service-qr-message]");
+    if (file.size > 10 * 1024 * 1024) { message.textContent = "图片不能超过 10 MB"; return; }
+    if (homeForm.dataset.uploading) return;
+    homeForm.dataset.uploading = "1";
+    message.textContent = "二维码上传中…";
+    try {
+      const body = new FormData(); body.append("file", file);
+      const result = await api("/api/admin/home-images", { method: "POST", body });
+      row.querySelector('[name="customerServiceQrCode"]').value = result.data[0].url;
+      message.textContent = "二维码上传成功，保存首页配置后生效";
+    } catch (error) { message.textContent = error.message; }
+    finally { delete homeForm.dataset.uploading; }
+    return;
+  }
   const form = event.target.closest("[data-product-create-form]");
   if (!form) return;
   if (event.target.name === "productType") {
@@ -1283,6 +1301,7 @@ function buildConfigPayload(group, formData) {
     }),
     home: () => ({
       homeCarouselImages: formData.getAll("homeCarouselImage").map(value => String(value || "").trim()).slice(0, Number(formData.get("homeCarouselCount") || 3)),
+      customerServiceQrCode: String(formData.get("customerServiceQrCode") || "").trim(),
       homeServiceBadges: parseListField(formData.get("homeServiceBadges")),
       homeCategoryShortcuts: formData.getAll("categoryKey").map((key, index) => ({
         key: String(key || "").trim(),

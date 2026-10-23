@@ -58,6 +58,7 @@ Page({
   },
   search(e) { wx.setStorageSync("tgg_shop_entry", { category: "", search: e.detail.value }); this.goShop(); },
   goMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
+  goCustomerService() { wx.navigateTo({ url: "/pages/customer-service/index" }); },
   goInvite() { wx.navigateTo({ url: "/pages/invite/index" }); },
 
   goTasks() {

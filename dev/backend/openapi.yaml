@@ -2082,7 +2082,7 @@ paths:
   /api/admin/home-images:
     post:
       tags: [Admin]
-      summary: Upload a homepage banner or category Logo image
+      summary: Upload a homepage, category Logo, or customer-service QR image
       description: Requires config:write. Accepts PNG, JPEG, GIF or WebP files up to 10 MB and verifies the image signature.
       security:
         - AdminBearerAuth: []
@@ -2252,6 +2252,9 @@ paths:
                   items:
                     type: string
                     description: Relative /assets or /uploads path, or an HTTP(S) image URL.
+                customerServiceQrCode:
+                  type: string
+                  description: Customer-service WeChat QR image. Empty until configured; otherwise an HTTPS URL or an uploaded image path.
                 homeServiceBadges:
                   type: array
                   items: { type: string }

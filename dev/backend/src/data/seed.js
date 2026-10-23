@@ -48,6 +48,8 @@ function createSeed() {
       homeBannerTitle: "时令鲜果季",
       homeBannerSubtitle: "新鲜到站，会员现金购物更优惠",
       homeBannerProductId: "p_strawberry",
+      homeCarouselImages: ["/assets/strawberry.jpg", "/assets/grapes.jpg", "/assets/apple.jpg"],
+      customerServiceQrCode: "",
       homeServiceBadges: ["自建配送", "坏果包赔", "低价会员购"],
       homeCategoryShortcuts: [
         { key: "fruit", category: "水果", name: "水果", icon: "/assets/icons/category-fruit.png", enabled: true },

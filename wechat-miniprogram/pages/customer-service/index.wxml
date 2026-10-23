@@ -1,0 +1,14 @@
+<view class="page customer-service-page">
+  <view class="customer-service-heading">
+    <view class="title">企业客服</view>
+    <view class="customer-service-subtitle">获取更高收益，请添加企业客服</view>
+  </view>
+  <view class="qr-panel">
+    <view class="qr-instruction">长按二维码，添加客服微信</view>
+    <view wx:if="{{loading}}" class="qr-status">二维码加载中…</view>
+    <image wx:elif="{{qrCode}}" class="customer-service-qr" src="{{qrCode}}" mode="aspectFit" show-menu-by-longpress bindtap="preview" aria-label="客服微信二维码"/>
+    <view wx:else class="qr-status">{{error}}</view>
+    <button wx:if="{{error}}" class="btn btn-light retry-button" bindtap="load">重新加载</button>
+  </view>
+  <button class="btn btn-primary contact-button" open-type="contact" show-message-card>在线联系企业客服</button>
+</view>

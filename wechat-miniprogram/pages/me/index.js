@@ -52,6 +52,7 @@ Page({
   },
   goAddress() { wx.navigateTo({ url: "/pages/address/index" }); },
   goStation() { wx.navigateTo({ url: "/pages/station-login/index" }); },
+  goCustomerService() { wx.navigateTo({ url: "/pages/customer-service/index" }); },
   goService(e) { wx.navigateTo({ url: "/pages/service/index?type=" + encodeURIComponent(e.currentTarget.dataset.type) }); },
 
   async logout() {

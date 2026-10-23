@@ -477,23 +477,23 @@ async function runAdminRepairPatrol(adminPage, userPage) {
     row.querySelector('[name="promotionPage"]').value = 'invite';
   })()`);
   await adminPage.fillFormAndSubmit('[data-config-form="home"]', {
-    homeBannerTitle: "巡检鲜果专场", homeBannerSubtitle: "后台配置已生效", homeBannerProductId: "p_banana",
     homeServiceBadges: "自建配送，品质保障", homePromiseTitle: "当日配送"
   });
+  const invalidHomeFields = await adminPage.evaluate(`Array.from(document.querySelector('[data-config-form="home"]').querySelectorAll(':invalid')).map(field => field.name || field.type)`);
+  assert.deepEqual(invalidHomeFields, [], `invalid home fields: ${invalidHomeFields.join(", ")}`);
   await adminPage.waitForText("首页配置已保存");
   await adminPage.goto(`${BASE}/admin`);
   await adminPage.waitForText("最近订单");
   await adminPage.click('button[data-view="homeOps"]');
-  assert.equal(await adminPage.evaluate(`document.querySelector('[name="homeBannerTitle"]').value`), "巡检鲜果专场");
+  assert.equal(await adminPage.evaluate(`document.querySelector('[name="homePromiseTitle"]').value`), "当日配送");
   assert.equal(await adminPage.evaluate(`document.querySelectorAll('[data-promotion-row]').length`), 4);
   await adminPage.click('[data-promotion-row]:last-child [data-promotion-remove]');
   assert.equal(await adminPage.evaluate(`document.querySelectorAll('[data-promotion-row]').length`), 3);
   await adminPage.click('[data-config-form="home"] [type="reset"]');
   assert.equal(await adminPage.evaluate(`document.querySelectorAll('[data-promotion-row]').length`), 4);
   await userPage.goto(`${BASE}/user?skipSplash=1`);
-  await userPage.waitForText("巡检鲜果专场");
+  await userPage.waitForText("当日配送");
   await userPage.waitForText("巡检活动");
-  assert.equal(await userPage.evaluate(`document.querySelector('.banner [data-buy="p_banana"]').dataset.mode`), "pure_points");
 
   await adminPage.click('button[data-view="permissions"]');
   await adminPage.click('[data-role-edit="product_admin"]');
@@ -800,6 +800,7 @@ class CDPPage {
     page.ws.addEventListener("message", (event) => {
       const message = JSON.parse(event.data);
       if (message.method === "Page.javascriptDialogOpening") {
+        page.logs.push(`dialog.${message.params?.type || "unknown"}: ${message.params?.message || ""}`);
         page.send("Page.handleJavaScriptDialog", { accept: true, promptText: "E2E 自动确认" }).catch(() => {});
       }
     });

@@ -19,6 +19,7 @@ const publicConfigKeys = new Set([
   "monthlyPointRewardSettlementMinute", "monthlyPointRewardRules",
   "homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId",
   "homeBannerImage", "homeCarouselImages", "homeServiceBadges", "homeCategoryShortcuts",
+  "customerServiceQrCode",
   "homePromotionEntries", "homeDeliveryPromise", "purePointsNoCashTopup",
   "withdrawMinAmount", "withdrawFeeRate", "withdrawDailyCountLimit",
   "withdrawDailyAmountLimit", "paymentTimeoutMinutes", "autoConfirmDeliveryDays"
