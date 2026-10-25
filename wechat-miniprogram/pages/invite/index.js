@@ -44,6 +44,10 @@ Page({
   },
   onShareAppMessage() {
     const code = this.ownerId && this.ownerId === wx.getStorageSync("tgg_user")?.id && wx.getStorageSync("tgg_token") ? this.data.info?.inviteCode : "";
-    return { title: "加入 TGG Shop，一起赚积分", path: "/pages/home/index" + (code ? "?inviteCode=" + encodeURIComponent(code) : "") };
+    return {
+      title: "好友邀你来赚积分，快打开看看看~吧~",
+      path: "/pages/home/index" + (code ? "?inviteCode=" + encodeURIComponent(code) : ""),
+      imageUrl: "/assets/invite-share.png"
+    };
   }
 });

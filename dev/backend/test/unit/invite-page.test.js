@@ -41,7 +41,11 @@ test("invite page paginates, retries failures, and never shares or copies a prev
   const first = page.load();
   pending[0].resolve({ inviteCode: "A" }); pending[1].resolve({ rows: [{ uid: "first" }], total: 21, count: 20 });
   await first;
-  assert.equal(page.onShareAppMessage().path, "/pages/home/index?inviteCode=A");
+  const share = page.onShareAppMessage();
+  assert.equal(share.path, "/pages/home/index?inviteCode=A");
+  assert.equal(share.title, "好友邀你来赚积分，快打开看看看~吧~");
+  assert.equal(share.imageUrl, "/assets/invite-share.png");
+  assert.equal(fs.existsSync(path.resolve(__dirname, "../../../../wechat-miniprogram/assets/invite-share.png")), true);
   page.copyCode(); assert.deepEqual(copied, ["A"]);
   const next = page.load(true);
   assert.match(pending[3].url, /page=2/);

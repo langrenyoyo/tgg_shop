@@ -7,7 +7,7 @@
   <view class="search-box"><view class="search-icon"></view><input placeholder="搜一搜，发现今天的新鲜好物" placeholder-style="color:#91a08f" bindconfirm="search" confirm-type="search"/></view>
   <view class="hero"><swiper class="home-carousel" indicator-dots="{{true}}" autoplay="{{true}}" interval="4500" circular="{{true}}"><swiper-item wx:for="{{home.banners}}" wx:key="index"><image class="home-carousel-image" src="{{item.image || home.bannerImage || '/assets/fresh-strawberry.jpg'}}" mode="aspectFill"/></swiper-item></swiper></view>
   <view class="quick-actions">
-    <view class="quick-item" bindtap="goTasks"><view class="quick-icon mint"><image src="/assets/icons/tasks-active.png"/></view><view>做任务</view><text>积分慢慢攒</text></view>
+    <view class="quick-item" bindtap="goTasks"><view class="quick-icon mint"><image src="/assets/icons/tasks-active.png"/></view><view>赚积分</view><text>积分兑好物</text></view>
     <view class="quick-item" bindtap="goInvite"><view class="quick-icon peach"><image src="/assets/icons/gift.png"/></view><view>邀请好友</view><text>一起享好物</text></view>
     <view class="quick-item" bindtap="goMembership"><view class="quick-icon cream"><image src="/assets/icons/member.png"/></view><view>会员权益</view><text>查看专属权益</text></view>
   </view>

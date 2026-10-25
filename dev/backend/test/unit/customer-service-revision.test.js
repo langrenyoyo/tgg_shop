@@ -28,18 +28,27 @@ test("customer service QR configuration is validated and exposed to the mini pro
 test("the October 23 customer-service entry and copy changes remain wired as requested", () => {
   const me = readMini("pages/me/index.wxml");
   const home = readMini("pages/home/index.wxml");
+  const homeStyles = readMini("pages/home/index.wxss");
+  const addressStyles = readMini("pages/address/index.wxss");
   const invite = readMini("pages/invite/index.wxml");
   const inviteStyles = readMini("pages/invite/index.wxss");
 
   assert.match(me, /open-type="contact"[^>]*>[\s\S]*?在线客服/);
   assert.match(me, /class="benefit benefit-main" bindtap="goCustomerService"[\s\S]*?企业客服[\s\S]*?获取更高收益[\s\S]*?请添加企业客服/);
-  assert.equal((me.match(/class="benefit" bindtap="goMembership"/g) || []).length, 2);
+  assert.equal((me.match(/class="benefit" bindtap="goMembership"/g) || []).length, 1);
+  assert.match(me, /class="benefit" bindtap="goTasks"[\s\S]*?任务权益[\s\S]*?做任务赚积分/);
   assert.match(me, /class="activity-item" bindtap="goCustomerService"[\s\S]*?代理申请/);
   assert.match(me, /class="cooperation-title">供应商合作/);
   assert.doesNotMatch(me, /data-type="recruiting"/);
 
   assert.doesNotMatch(home, /hero-copy|hero-stamp/);
+  assert.match(home, /class="quick-item" bindtap="goTasks"[\s\S]*?<view>赚积分<\/view><text>积分兑好物<\/text>/);
+  assert.doesNotMatch(home, /<view>做任务<\/view><text>积分慢慢攒<\/text>/);
   assert.match(home, /class="exchange-strip" bindtap="goCustomerService"[\s\S]*?获取更高收益[\s\S]*?请添加企业客服/);
+  assert.match(homeStyles, /\.home-category\s*\{[^}]*font-size:\s*24rpx/);
+  assert.match(homeStyles, /\.home-category-icon\s*\{[^}]*width:\s*92rpx[^}]*height:\s*92rpx/);
+  assert.match(homeStyles, /\.home-category-icon image\s*\{[^}]*width:\s*74rpx[^}]*height:\s*74rpx/);
+  assert.match(addressStyles, /input\s*\{[^}]*height:\s*76rpx[^}]*line-height:\s*76rpx[^}]*padding:\s*0 20rpx/);
   assert.match(invite, /class="invite-actions"/);
   assert.match(inviteStyles, /gap:\s*16rpx/);
 });
@@ -49,7 +58,8 @@ test("cart quantity controls use fixed view controls for consistent physical-dev
   const styles = readMini("pages/cart/index.wxss");
   assert.equal((markup.match(/class="stepper-button/g) || []).length, 2);
   assert.doesNotMatch(markup, /<view class="stepper"><button/);
-  assert.match(styles, /grid-template-columns:\s*56rpx minmax\(52rpx,auto\) 56rpx/);
+  assert.match(markup, /<text class="stepper-count">\{\{item\.quantity\}\}<\/text>/);
+  assert.match(styles, /\.stepper\s*\{[^}]*display:\s*flex[^}]*flex:\s*0 0 170rpx[^}]*min-width:\s*170rpx/);
   assert.match(styles, /\.stepper-button[^}]*display:\s*flex[^}]*align-items:\s*center[^}]*justify-content:\s*center/);
 });
 
