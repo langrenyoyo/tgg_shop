@@ -1284,9 +1284,11 @@ function buildConfigPayload(group, formData) {
     }),
     finance: () => ({
       withdrawMinAmount: Number(formData.get("withdrawMinAmount")),
+      withdrawMaxAmount: Number(formData.get("withdrawMaxAmount")),
       withdrawFeeRate: Number(formData.get("withdrawFeeRatePercent")) / 100,
       withdrawDailyCountLimit: Number(formData.get("withdrawDailyCountLimit")),
       withdrawDailyAmountLimit: Number(formData.get("withdrawDailyAmountLimit")),
+      withdrawNotice: String(formData.get("withdrawNotice") || "").trim(),
       autoConfirmDeliveryDays: Number(formData.get("autoConfirmDeliveryDays")),
       purePointsNoCashTopup: true
     }),

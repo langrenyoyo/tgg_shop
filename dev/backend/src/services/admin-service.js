@@ -837,6 +837,11 @@ function updateConfig(state, input, actor = {}) {
     const validImage = !image || ((/^\/(assets|uploads)\/[\w.%/-]+$/.test(image) && !image.includes("..")) || /^https:\/\/[^\s"'<>\\]+$/i.test(image));
     if (!validImage) return { ok: false, status: 400, error: "企业客服二维码必须是 HTTPS 地址或已上传图片" };
   }
+  if (Object.prototype.hasOwnProperty.call(input, "withdrawNotice")) {
+    if (typeof input.withdrawNotice !== "string" || input.withdrawNotice.trim().length > 2000) {
+      return { ok: false, status: 400, error: "提现说明必须为文本且最多 2000 个字符" };
+    }
+  }
   const numericRules = {
     membershipMonthlyPrice: value => value >= 0,
     membershipMonthlyPoints: value => Number.isInteger(value) && value >= 0,
@@ -850,6 +855,7 @@ function updateConfig(state, input, actor = {}) {
     monthlyPointRewardSettlementHour: value => Number.isInteger(value) && value >= 0 && value <= 23,
     monthlyPointRewardSettlementMinute: value => Number.isInteger(value) && value >= 0 && value <= 59,
     withdrawMinAmount: value => value > 0,
+    withdrawMaxAmount: value => value > 0,
     withdrawFeeRate: value => value >= 0 && value <= 1,
     paymentTimeoutMinutes: value => value === 0 || value >= 1,
     stationPickupHoldHours: value => Number.isInteger(value) && value >= 1 && value <= 720,
@@ -864,6 +870,9 @@ function updateConfig(state, input, actor = {}) {
     const value = Number(input[key]);
     if (!Number.isFinite(value) || !validate(value)) return { ok: false, status: 400, error: `${key} 配置无效` };
   }
+  const nextWithdrawMin = Number(input.withdrawMinAmount ?? state.config.withdrawMinAmount ?? 1);
+  const nextWithdrawMax = Number(input.withdrawMaxAmount ?? state.config.withdrawMaxAmount ?? 500);
+  if (nextWithdrawMin > nextWithdrawMax) return { ok: false, status: 400, error: "单笔提现上限不能低于最低提现金额" };
   const before = { ...state.config };
   const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
   const numberKeys = [
@@ -879,6 +888,7 @@ function updateConfig(state, input, actor = {}) {
     "monthlyPointRewardSettlementHour",
     "monthlyPointRewardSettlementMinute",
     "withdrawMinAmount",
+    "withdrawMaxAmount",
     "withdrawFeeRate",
     "paymentTimeoutMinutes",
     "stationPickupHoldHours",
@@ -888,7 +898,7 @@ function updateConfig(state, input, actor = {}) {
     "withdrawDailyAmountLimit",
     "autoConfirmDeliveryDays"
   ];
-  const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "customerServiceQrCode", "stationSortMode", "stationShelfPrefix"];
+  const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "customerServiceQrCode", "stationSortMode", "stationShelfPrefix", "withdrawNotice"];
 
   for (const key of booleanKeys) {
     if (Object.prototype.hasOwnProperty.call(input, key)) state.config[key] = Boolean(input[key]);

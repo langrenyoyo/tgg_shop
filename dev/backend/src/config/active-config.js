@@ -21,8 +21,8 @@ const publicConfigKeys = new Set([
   "homeBannerImage", "homeCarouselImages", "homeServiceBadges", "homeCategoryShortcuts",
   "customerServiceQrCode",
   "homePromotionEntries", "homeDeliveryPromise", "purePointsNoCashTopup",
-  "withdrawMinAmount", "withdrawFeeRate", "withdrawDailyCountLimit",
-  "withdrawDailyAmountLimit", "paymentTimeoutMinutes", "autoConfirmDeliveryDays"
+  "withdrawMinAmount", "withdrawMaxAmount", "withdrawFeeRate", "withdrawDailyCountLimit",
+  "withdrawDailyAmountLimit", "withdrawNotice", "paymentTimeoutMinutes", "autoConfirmDeliveryDays"
 ]);
 
 // Filter responses while preserving stored historical configuration for audit.

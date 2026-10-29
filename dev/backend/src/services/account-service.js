@@ -123,7 +123,7 @@ function getWithdrawal(state, userId, withdrawalId) {
 function publicWithdrawal(withdrawal = {}) {
   const fields = [
     "id", "amount", "fee", "arrivalAmount", "channel", "status", "recipientName",
-    "transferState", "createdAt", "updatedAt", "submittedAt", "callbackAt", "lastQueryAt"
+    "reason", "transferState", "createdAt", "updatedAt", "submittedAt", "callbackAt", "lastQueryAt"
   ];
   return Object.fromEntries(fields
     .filter(key => Object.prototype.hasOwnProperty.call(withdrawal, key))
@@ -157,12 +157,15 @@ function requestWithdrawal(state, user, input) {
   }
   const amount = requestedAmount;
   const minAmount = Number(state.config.withdrawMinAmount || 1);
+  const maxAmount = Number(state.config.withdrawMaxAmount || 500);
   const feeRate = Number(state.config.withdrawFeeRate ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "提现金额必须是正数" };
   if (!Number.isFinite(minAmount) || minAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
+  if (!Number.isFinite(maxAmount) || maxAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
   if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate > 1) return { ok: false, status: 500, error: "提现手续费配置无效，请联系管理员" };
   if (productionLike() && !requestedOpenid) return { ok: false, status: 400, error: "请先使用已绑定微信登录后再申请提现" };
   if (amount < minAmount) return { ok: false, status: 400, error: `最低提现金额为 ${minAmount} 元` };
+  if (amount > maxAmount) return { ok: false, status: 400, error: `单笔提现金额不能超过 ${maxAmount} 元` };
   if (amount > user.withdrawableBalance) return { ok: false, status: 400, error: "可提现余额不足" };
 
   const timeZone = state.config.deliveryTimeZone || "Asia/Shanghai";

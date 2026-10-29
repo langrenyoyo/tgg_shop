@@ -1,1 +1,79 @@
-<view class="page"><view class="card"><view class="title">{{title}}</view><button class="btn btn-light" bindtap="load">刷新</button></view><view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重新加载</button></view><view wx:if="{{loading}}" class="card">加载中…</view><block wx:elif="{{type === 'payments'}}"><view wx:for="{{rows}}" wx:key="id" class="card"><view>{{item.payNo || item.id}}</view><view class="muted">{{item.payScene}} · {{item.status}}</view><view>{{item.amount || item.pointAmount || 0}}{{item.amount ? ' 元' : ' 积分'}}</view></view></block><block wx:elif="{{type === 'ranking'}}"><view wx:for="{{rows}}" wx:key="userId" class="card"><view>#{{item.rank}} {{item.nickname}}</view><view class="muted">{{item.userId}}</view><view>{{item.score}} 积分</view></view></block><block wx:elif="{{type === 'withdraw'}}"><view class="card withdraw-panel"><view class="withdraw-label">可提现余额</view><view class="withdraw-balance">¥{{balance}}</view><view class="muted withdraw-hint">最低 ¥{{config.withdrawMinAmount || 1}}，手续费 {{(config.withdrawFeeRate || 0.01) * 100}}%</view><input class="withdraw-input" type="digit" value="{{amount}}" bindinput="input" placeholder="提现金额"/><button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting}}">申请提现</button></view><view wx:for="{{rows}}" wx:key="id" class="card"><view>¥{{item.amount}} · {{item.status}}</view></view></block><block wx:elif="{{type === 'pickupSite'}}"><view wx:for="{{rows}}" wx:key="id" class="card"><view class="title">{{item.name}}</view><view>{{item.address}}</view></view></block><block wx:else><view wx:for="{{rows}}" wx:key="id" class="card"><view>{{item.subject || title}}</view><view class="muted">{{item.status}}</view><view>{{item.content}}</view></view><view class="card"><textarea value="{{content}}" bindinput="text" placeholder="请填写具体内容"/><button class="btn btn-primary" bindtap="submit" disabled="{{submitting}}">提交</button></view></block><view wx:if="{{!loading && !error && !rows.length && type !== 'withdraw'}}" class="card">暂无记录</view></view>
+<view class="page">
+  <view class="card">
+    <view class="title">{{title}}</view>
+    <button class="btn btn-light" bindtap="load" disabled="{{loading || submitting}}">刷新</button>
+  </view>
+
+  <view wx:if="{{error}}" class="card error-panel">
+    <view>{{error}}</view>
+    <button wx:if="{{needLogin}}" bindtap="login">去登录</button>
+    <button bindtap="load" disabled="{{loading}}">重新加载</button>
+  </view>
+  <view wx:if="{{loading}}" class="card loading-panel">加载中…</view>
+
+  <block wx:elif="{{type === 'payments'}}">
+    <view wx:for="{{rows}}" wx:key="id" class="card">
+      <view>{{item.payNo || item.id}}</view>
+      <view class="muted">{{item.payScene}} · {{item.status}}</view>
+      <view>{{item.amount || item.pointAmount || 0}}{{item.amount ? ' 元' : ' 积分'}}</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{type === 'ranking'}}">
+    <view wx:for="{{rows}}" wx:key="userId" class="card">
+      <view>#{{item.rank}} {{item.nickname}}</view>
+      <view class="muted">{{item.userId}}</view>
+      <view>{{item.score}} 积分</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{type === 'withdraw'}}">
+    <view class="card withdraw-panel">
+      <view class="withdraw-label">可提现余额</view>
+      <view class="withdraw-balance">¥{{balance}}</view>
+      <view class="withdraw-rules">
+        <view>最低提现：¥{{withdrawRules.minAmount}}</view>
+        <view>单笔上限：¥{{withdrawRules.maxAmount}}</view>
+        <view>手续费：{{withdrawRules.feePercent}}%</view>
+        <view>每日次数：{{withdrawRules.dailyCount}}</view>
+        <view>每日额度：{{withdrawRules.dailyAmount}}</view>
+        <view>今日已申请：{{withdrawRules.todayCount}} 次 / ¥{{withdrawRules.todayAmount}}</view>
+        <view>申请时间：全天可提交</view>
+        <view wx:if="{{withdrawNoticeLines.length}}" class="withdraw-notice-title">提现说明</view>
+        <view wx:for="{{withdrawNoticeLines}}" wx:key="*this" class="muted withdraw-notice-line">{{item}}</view>
+      </view>
+      <view wx:if="{{balanceBelowMinimum}}" class="muted">当前余额低于最低提现金额，达到最低金额后可申请。</view>
+      <view wx:elif="{{withdrawLimitReached}}" class="muted">今日提现次数或额度已用完，请按页面显示的规则再次申请。</view>
+      <input class="withdraw-input" type="digit" value="{{amount}}" bindinput="input" placeholder="请输入提现金额" />
+      <view wx:if="{{withdrawAmountError}}" class="muted">{{withdrawAmountError}}</view>
+      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || balanceBelowMinimum || withdrawLimitReached || withdrawAmountError}}" loading="{{submitting}}">申请提现</button>
+    </view>
+    <view wx:for="{{rows}}" wx:key="id" class="card">
+      <view>¥{{item.amount}} · {{item.statusText}}</view>
+      <view class="muted">申请 {{item.createdAt}}</view>
+      <view>手续费 ¥{{item.fee}}，预计到账 ¥{{item.arrivalAmount}}</view>
+      <view wx:if="{{item.reason}}">处理说明：{{item.reason}}</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{type === 'pickupSite'}}">
+    <view wx:for="{{rows}}" wx:key="id" class="card">
+      <view class="title">{{item.name}}</view>
+      <view>{{item.address}}</view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view wx:for="{{rows}}" wx:key="id" class="card">
+      <view>{{item.subject || title}}</view>
+      <view class="muted">{{item.status}}</view>
+      <view>{{item.content}}</view>
+    </view>
+    <view class="card">
+      <textarea value="{{content}}" bindinput="text" placeholder="请填写具体内容" />
+      <button class="btn btn-primary" bindtap="submit" disabled="{{submitting}}" loading="{{submitting}}">提交</button>
+    </view>
+  </block>
+
+  <view wx:if="{{!loading && !error && !rows.length && type !== 'withdraw'}}" class="card">暂无记录</view>
+</view>

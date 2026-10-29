@@ -36,13 +36,13 @@ test("public withdrawal payload excludes recipient identity and provider interna
     id: "wd-1", userId: "u-1", amount: 10, fee: 0.1, arrivalAmount: 9.9, channel: "wechat",
     status: "processing", recipientName: "收款人", openid: "openid-private",
     providerOrderId: "provider-order", providerMerchantOrderId: "merchant-order",
-    providerErrorMessage: "private provider message", transferPackage: { secret: "private" },
+    providerErrorMessage: "private provider message", transferPackage: { secret: "private" }, reason: "请核对收款信息",
     createdAt: "2026-10-17T00:00:00.000Z"
   });
 
   assert.deepEqual(result, {
     id: "wd-1", amount: 10, fee: 0.1, arrivalAmount: 9.9, channel: "wechat",
-    status: "processing", recipientName: "收款人", createdAt: "2026-10-17T00:00:00.000Z"
+    status: "processing", recipientName: "收款人", reason: "请核对收款信息", createdAt: "2026-10-17T00:00:00.000Z"
   });
   for (const key of ["userId", "openid", "providerOrderId", "providerMerchantOrderId", "providerErrorMessage", "transferPackage"]) {
     assert.equal(Object.hasOwn(result, key), false, key);

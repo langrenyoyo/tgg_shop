@@ -552,11 +552,13 @@ function settings(state) {
       <div class="panel-head"><h2>财务规则设置</h2><span>提现和配送完成后的结算规则</span></div>
       <form class="config-form" data-config-form="finance">
         <label>最低提现金额（元）<input name="withdrawMinAmount" type="number" min="0.01" step="0.01" value="${Number(config.withdrawMinAmount || 1)}"></label>
+        <label>单笔提现金额上限（元）<input name="withdrawMaxAmount" type="number" min="0.01" step="0.01" value="${Number(config.withdrawMaxAmount ?? 500)}"></label>
         <label>提现手续费（%）<input name="withdrawFeeRatePercent" type="number" min="0" max="100" step="0.01" value="${Number(config.withdrawFeeRate || 0) * 100}"></label>
-        <label>每日提现次数上限<input name="withdrawDailyCountLimit" type="number" min="0" step="1" value="${Number(config.withdrawDailyCountLimit ?? 1)}"></label>
+        <label>每日提现次数上限<input name="withdrawDailyCountLimit" type="number" min="0" step="1" value="${Number(config.withdrawDailyCountLimit ?? 2)}"></label>
         <label>每日提现金额上限（元）<input name="withdrawDailyAmountLimit" type="number" min="0" step="0.01" value="${Number(config.withdrawDailyAmountLimit ?? 500)}"></label>
+        <label class="wide">小程序提现说明<textarea name="withdrawNotice" rows="6" maxlength="2000" placeholder="每行一条规则">${escapeHtml(config.withdrawNotice || "")}</textarea><small>保存后立即展示在小程序提现页，支持换行，最多 2000 个字符。</small></label>
         <label>自动确认收货天数<input name="autoConfirmDeliveryDays" type="number" min="1" max="365" step="1" value="${Number(config.autoConfirmDeliveryDays || 7)}"></label>
-        <div class="settings-save"><span>提现限制和自动确认规则保存后立即生效</span><button class="action" type="submit">保存财务规则</button></div>
+        <div class="settings-save"><span>提现限制、提现说明及自动确认规则保存后立即生效</span><button class="action" type="submit">保存财务规则</button></div>
       </form>
     </section>
     <section class="panel" id="settings-picking">
