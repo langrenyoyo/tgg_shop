@@ -3,7 +3,13 @@ const { createSeed } = require("./seed");
 function normalizeState(nextState) {
   const seed = createSeed();
   nextState.printing ||= { printers: [], jobs: [] };
+  nextState.coinSignin ||= { sessions: [], ledger: [] };
   nextState.config = { ...seed.config, ...(nextState.config || {}) };
+  if (Array.isArray(nextState.config.homePromotionEntries)) {
+    nextState.config.homePromotionEntries = nextState.config.homePromotionEntries.map(item =>
+      item.page === "dailySignin" && item.title === "签到领积分"
+        ? { ...item, title: "签到领金币", text: "完成签到领固定金币" } : item);
+  }
   nextState.roles = mergeRoles(nextState.roles || [], seed.roles, nextState.config.rolePermissionOverrides || {});
   require("../domain/admin-accounts").ensureAdminUsers(nextState);
   nextState.inviteRelations = nextState.inviteRelations || seed.inviteRelations;

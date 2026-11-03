@@ -9,6 +9,7 @@ const ticketRepository = require("../repositories/ticket-repository");
 const { createException } = require("./exception-rules");
 const { logOrderStatus } = require("./rules");
 const { mockOperationsEnabled, productionLike } = require("../config/runtime-safety");
+const { revokeMembership } = require("./product-membership");
 
 function createRefundRequest(state, userId, orderId, reason = "用户申请退款") {
   const order = orderRepository.findById(state, orderId);
@@ -97,6 +98,7 @@ function approveRefund(state, refundId, options = {}) {
   refundOrder.updatedAt = now;
   const previousStatus = order.status;
   order.status = "refunded";
+  revokeMembership(state, order);
   if (station) station.stationStatus = "refunded";
   if (order.fulfillmentType === "pickup") order.stationStatus = "refunded";
   ticketRepository.resolveLinked(state, "station_exception", order.id, "已退款；实物按退货验收工单处理", "system");

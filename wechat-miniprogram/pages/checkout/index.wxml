@@ -1,8 +1,9 @@
 <view class="page"><view class="title">确认订单</view>
-<view wx:if="{{user && !user.isMember && needsMembership}}" class="card">现金购物或现金补差需要先购买月会员。<button bindtap="openMembership">购买会员后下单</button></view>
-<view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重试</button></view>
+<view wx:if="{{loading}}" class="card loading-panel">正在加载商品、会员和配送信息…</view>
+<view wx:if="{{user && !user.isMember && needsMembership}}" class="card">普通商品现金购物或现金补差需要会员。可先购买专区商品获赠会员，或使用积分开通。<button bindtap="openMembership">查看会员获取方式</button></view>
+<view wx:if="{{error}}" class="card error-panel"><view>{{error}}</view><button wx:if="{{needLogin}}" bindtap="goLogin">去登录</button><button bindtap="load" disabled="{{loading}}">重试</button></view>
 <view wx:if="{{pending}}" class="card">上次提交结果待确认，将按原商品、支付和收货信息重试。<view>{{pending.fulfillmentType === 'delivery' ? pending.deliveryAddress : '自提点：' + pending.pickupSiteId}}</view><button bindtap="submit" disabled="{{busy || loading}}" loading="{{busy}}">重试原订单</button><view wx:if="{{pending.deliveryTimeSlot}}">配送时段：{{pending.deliveryTimeSlot}}</view></view>
-<view class="card" wx:for="{{items}}" wx:key="productId">{{item.product.name}} × {{item.quantity}}<block wx:if="{{!item.product.purePointsOnly}}"><view wx:if="{{item.product.regularPrice > 0}}" class="regular-price">零售价 ¥{{item.product.regularPrice}} / 件</view><view class="member-highlight">会员价 ¥{{item.product.cashPrice}} / 件</view></block></view>
+<view class="card" wx:for="{{items}}" wx:key="productId">{{item.product.name}} × {{item.quantity}}<block wx:if="{{!item.product.purePointsOnly}}"><view wx:if="{{item.product.regularPrice > 0}}" class="regular-price">零售价 ¥{{item.product.regularPrice}} / 件</view><view class="member-highlight">{{item.product.membershipGiftDays > 0 ? '活动价' : '会员价'}} ¥{{item.product.cashPrice}} / 件</view></block></view>
 <view class="card" wx:if="{{items.length && !pending}}">
 <picker range="{{modes}}" range-key="label" value="{{modeIndex}}" bindchange="mode"><view>支付方式：{{modes[modeIndex].label || '暂无可用方式'}}</view></picker>
 <radio-group bindchange="fulfillment"><label wx:if="{{config.pickupEnabled}}"><radio value="pickup" checked="{{fulfillmentType === 'pickup'}}"/>自提</label><label wx:if="{{config.deliveryEnabled}}"><radio value="delivery" checked="{{fulfillmentType === 'delivery'}}"/>送货上门</label></radio-group>
@@ -13,6 +14,7 @@
 <view class="muted">每日 {{config.deliveryCutoffHour}} 点截单，配送日期以订单确认为准。</view>
 </block>
 <view>预计使用 {{estimatedPoints}} 积分 + ¥{{estimatedCash}}</view><view class="muted">提交时按最新库存、价格和余额核算</view>
+<view wx:if="{{membershipGiftDays > 0}}" class="muted">支付成功后赠送 {{membershipGiftDays}} 天会员，已有会员顺延。退款成功后回收本单未使用的赠送时长。</view>
 <view wx:if="{{fulfillmentError}}">{{fulfillmentError}}</view>
 <button class="btn btn-primary" loading="{{busy || loading}}" disabled="{{busy || loading || error || fulfillmentError || !modes.length}}" bindtap="submit">提交订单</button>
 </view></view>

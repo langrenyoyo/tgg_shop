@@ -62,6 +62,23 @@ test("old order requests cannot replace new results and failure removes cached o
   await page.refund(); assert.equal(pending.length, 3);
 });
 
+test("expired order session leaves an actionable error instead of a blank page", async () => {
+  const context = setup();
+  const loading = context.page.load();
+  context.storage.tgg_user = null;
+  context.storage.tgg_token = null;
+  const error = new Error("登录已失效，请重新登录");
+  error.statusCode = 401;
+  context.pending[0].reject(error);
+
+  await loading;
+
+  assert.equal(context.page.data.loading, false);
+  assert.equal(context.page.data.order, null);
+  assert.equal(context.page.data.error, "登录已失效，请重新登录");
+  assert.equal(context.page.data.needLogin, true);
+});
+
 test("account switch before payment response prevents native payment invocation", async () => {
   const context = setup(); await loaded(context);
   const { page, pending, storage, paid } = context;

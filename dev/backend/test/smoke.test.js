@@ -187,6 +187,23 @@ async function run() {
     const authMe = await request("/api/auth/me");
     assert(authMe.res.status === 200 && authMe.body.id === "u_1001", "auth me API failed");
 
+    const signinGuest = await fetch(BASE + "/api/coin-signin/status");
+    assert(signinGuest.status === 401, "coin sign-in must require authentication");
+    const signinStatus = await request("/api/coin-signin/status");
+    assert(signinStatus.res.status === 200 && signinStatus.body.session === null && signinStatus.body.config.enabled === false && signinStatus.body.unavailableReason, "unconfigured sign-in must stay disabled");
+    const signinStart = await request("/api/coin-signin/start", { method: "POST", body: "{}" });
+    assert(signinStart.res.status === 503, "unconfigured ads must not create sign-in sessions");
+    const retiredClaim = await request("/api/daily-signin/claim", { method: "POST", body: "{}" });
+    assert(retiredClaim.res.status === 410, "old one-click claim must not bypass ad validation");
+    const signinDraft = { ...signinStatus.body.config, minRounds: 3, maxRounds: 5 };
+    const blockedConfig = await request("/api/admin/config", { method: "PATCH", headers: { "x-admin-role": "customer_service" }, body: JSON.stringify({ coinSignin: signinDraft }) });
+    assert(blockedConfig.res.status === 403, "sign-in settings must require config write permission");
+    const saveSignin = await request("/api/admin/config", { method: "PATCH", body: JSON.stringify({ coinSignin: signinDraft, reason: "sign-in smoke" }) });
+    assert(saveSignin.res.status === 200, "disabled sign-in drafts must be editable without ad IDs");
+    const readSignin = await request("/api/admin/config");
+    assert(readSignin.body.coinSignin.minRounds === 3 && readSignin.body.coinSignin.maxRounds === 5, "sign-in settings must persist");
+    assert(!JSON.stringify(readSignin.body).includes("SIGNIN_AD_VERIFIER_TOKEN"), "sign-in credentials must remain server-only");
+
     const normalUser = await request("/api/me", { headers: { "x-user-id": "u_1002" } });
     assert(normalUser.body.id === "u_1002" && !normalUser.body.isMember, "user token did not switch user context");
 
@@ -499,7 +516,7 @@ async function run() {
       headers: { "x-user-id": "u_1002" },
       body: JSON.stringify({ months: 1, channel: "mock_pay" })
     });
-    assert(memberSubscribe.res.status === 200 && memberSubscribe.body.isMember, "member subscription payment failed");
+    assert(memberSubscribe.res.status === 403, "cash member subscription must be disabled");
 
     const failedCashOrder = await request("/api/orders", {
       method: "POST",

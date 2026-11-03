@@ -1332,7 +1332,8 @@ td img {
   align-items: start;
 }
 
-.config-form > label {
+.config-form > label,
+[data-config-form="coinSignin"] .settings-group > label:not(.check) {
   display: grid;
   gap: 7px;
   min-width: 0;
@@ -1342,6 +1343,8 @@ td img {
 }
 
 .config-form > label input,
+[data-config-form="coinSignin"] input:not([type="checkbox"]),
+[data-config-form="coinSignin"] textarea,
 .config-form > label select,
 .config-form > label textarea {
   width: 100%;
@@ -1355,6 +1358,8 @@ td img {
 }
 
 .config-form > label input:focus,
+[data-config-form="coinSignin"] input:focus,
+[data-config-form="coinSignin"] textarea:focus,
 .config-form > label select:focus,
 .config-form > label textarea:focus {
   border-color: var(--green);
@@ -1371,6 +1376,13 @@ td img {
 }
 
 .config-form .wide {
+  grid-column: 1 / -1;
+}
+
+[data-config-form="coinSignin"] .check,
+[data-config-form="coinSignin"] label:has(textarea),
+[data-config-form="coinSignin"] .note,
+[data-config-form="coinSignin"] button {
   grid-column: 1 / -1;
 }
 

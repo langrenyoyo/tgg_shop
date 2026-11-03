@@ -10,6 +10,9 @@ page {
 .row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
 .title { font-size: 34rpx; font-weight: 700; }
 .muted { color: #7b8b81; font-size: 24rpx; }
+.loading-panel, .error-panel { line-height: 1.7; }
+.loading-panel { color: #527262; }
+.error-panel { color: #8b3f38; }
 .btn { border: 0; border-radius: 999rpx; padding: 20rpx 28rpx; line-height: 1.4; font-size: 28rpx; font-weight: 600; }
 .btn-primary { background: #00a865; color: #fff; }
 .btn-light { background: #edf5ef; color: #32654b; }

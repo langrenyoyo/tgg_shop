@@ -26,10 +26,10 @@ function getHome(state, user) {
   const config = state.config || {};
   const carouselImages = Array.isArray(config.homeCarouselImages) ? config.homeCarouselImages.filter(Boolean).slice(0, 5) : [];
   const promotionEntries = (config.homePromotionEntries || [
-    { title: "签到领积分", text: "每日签到有奖励", tone: "green", page: "dailySignin" },
+    { title: "签到领金币", text: "完成签到领固定金币", tone: "green", page: "dailySignin" },
     { title: "会员专享", text: "现金购权益", tone: "orange", page: "membership" },
     { title: "纯积分兑换", text: "无需现金", tone: "blue", page: "pointsExchange" }
-  ]).map(item => item.title === "新人礼包" && item.page === "membership" ? { ...item, title: "签到领积分", text: "每日签到有奖励", page: "dailySignin" } : item);
+  ]).map(item => item.title === "新人礼包" && item.page === "membership" ? { ...item, title: "签到领金币", text: "完成签到领固定金币", page: "dailySignin" } : item);
   return {
     user: publicUser(user),
     bannerProduct: productRepository.findActiveById(state, config.homeBannerProductId || "p_strawberry") || null,

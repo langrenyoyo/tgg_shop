@@ -7,6 +7,7 @@ const retiredAdKeys = new Set([
 // Public clients receive an explicit contract. Integration state, provider
 // mappings and future internal config must never become public by accident.
 const publicConfigKeys = new Set([
+  "coinSignin",
   "membershipMonthlyPrice", "membershipMonthlyPoints", "membershipPointCashRate",
   "pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "deliveryFee",
   "deliveryFreeThreshold", "deliveryFeeTiers", "deliveryCutoffHour",

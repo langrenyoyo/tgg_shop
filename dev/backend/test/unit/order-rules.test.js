@@ -43,7 +43,7 @@ test("normal user cannot create cash order", () => {
   });
 
   assert.equal(result.ok, false);
-  assert.match(result.error, /下单需要先购买月会员/);
+  assert.match(result.error, /需要有效会员/);
 });
 
 test("cash disable switch blocks cash and mixed-payment orders at the domain boundary", (t) => {

@@ -1,16 +1,37 @@
-<view class="page"><view wx:if="{{error}}" class="card">{{error}}</view><button wx:if="{{error === '请登录后查看订单'}}" bindtap="goLogin">去登录</button><button bindtap="load" disabled="{{busy || loading}}" loading="{{loading}}">刷新订单</button>
-<view wx:if="{{order}}" class="card"><view class="title">{{order.id}}</view>
-<view>{{order.statusText}}<text wx:if="{{order.fulfillmentText}}"> · {{order.fulfillmentText}}</text></view>
-<view class="muted">{{order.nextStep}}</view>
-<view wx:for="{{order.items}}" wx:key="productId">{{item.title}} × {{item.quantity}}</view>
-<view>{{order.pointAmount}} 积分 + ¥{{order.cashAmount}}</view>
-<button wx:if="{{order.status === 'pending_payment'}}" bindtap="pay" disabled="{{busy}}" loading="{{busy}}">继续支付</button>
-<button wx:if="{{order.status === 'pending_payment'}}" bindtap="queryPayment" disabled="{{busy}}">已付款，查询结果</button>
-<button wx:if="{{order.status === 'pending_payment'}}" data-action="cancel" bindtap="action" disabled="{{busy}}">取消订单</button>
-<button wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'delivered'}}" data-action="receive" bindtap="action" disabled="{{busy}}">确认收货</button>
-<view wx:for="{{order.refunds}}" wx:key="id" class="card"><view>退款单 {{item.id}}</view><view>{{item.statusText}}</view><view>{{item.refundPointAmount}} 积分 + ¥{{item.refundCashAmount}}</view><view>{{item.reason}}</view></view>
-<view wx:if="{{order.fulfillmentType === 'pickup'}}">自提点：{{order.pickupSiteSnapshot.name}}<view>{{order.pickupSiteSnapshot.address}}</view></view>
-<view wx:else>配送地址：{{order.deliveryAddress}}<view>配送时间：{{order.deliveryDate}} {{order.deliveryTimeSlot}}</view></view>
-<view wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'pending_pickup'}}">自提码：{{order.pickupCode}}</view>
-<view wx:if="{{order.status === 'paid' || order.status === 'completed'}}"><textarea bindinput="reason" value="{{reason}}" disabled="{{busy}}" placeholder="退款原因"/><button bindtap="refund" loading="{{busy}}" disabled="{{busy}}">申请退款</button></view>
-</view></view>
+<view class="page">
+  <view wx:if="{{loading}}" class="card loading-panel">正在加载订单和支付状态…</view>
+  <view wx:if="{{error}}" class="card error-panel">
+    <view>{{error}}</view>
+    <button wx:if="{{needLogin}}" bindtap="goLogin">去登录</button>
+    <button bindtap="load" disabled="{{busy || loading}}">重新加载</button>
+  </view>
+  <button bindtap="load" disabled="{{busy || loading}}" loading="{{loading}}">刷新订单</button>
+
+  <view wx:if="{{order}}" class="card">
+    <view class="title">{{order.id}}</view>
+    <view>{{order.statusText}}<text wx:if="{{order.fulfillmentText}}"> · {{order.fulfillmentText}}</text></view>
+    <view class="muted">{{order.nextStep}}</view>
+    <view wx:for="{{order.items}}" wx:key="productId">{{item.title}} × {{item.quantity}}</view>
+    <view>{{order.pointAmount}} 积分 + ¥{{order.cashAmount}}</view>
+    <view wx:if="{{order.membershipGiftDays > 0}}" class="muted">本单赠送 {{order.membershipGiftDays}} 天会员：{{order.membershipGift.revokedAt ? '退款已处理，未使用赠送时长已回收' : order.membershipGift.grantedAt ? '已发放' : order.status === 'cancelled' || order.status === 'closed' ? '订单已关闭，未发放' : '支付成功后发放'}}</view>
+    <view wx:if="{{order.status === 'pending_payment'}}" class="payment-actions">
+      <button bindtap="pay" disabled="{{busy || loading}}" loading="{{busy}}">继续支付</button>
+      <button bindtap="queryPayment" disabled="{{busy || loading}}">已付款，查询结果</button>
+      <button data-action="cancel" bindtap="action" disabled="{{busy || loading}}">取消订单</button>
+    </view>
+    <button wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'delivered'}}" data-action="receive" bindtap="action" disabled="{{busy || loading}}">确认收货</button>
+    <view wx:for="{{order.refunds}}" wx:key="id" class="card">
+      <view>退款单 {{item.id}}</view>
+      <view>{{item.statusText}}</view>
+      <view>{{item.refundPointAmount}} 积分 + ¥{{item.refundCashAmount}}</view>
+      <view>{{item.reason}}</view>
+    </view>
+    <view wx:if="{{order.fulfillmentType === 'pickup'}}">自提点：{{order.pickupSiteSnapshot.name}}<view>{{order.pickupSiteSnapshot.address}}</view></view>
+    <view wx:else>配送地址：{{order.deliveryAddress}}<view>配送时间：{{order.deliveryDate}} {{order.deliveryTimeSlot}}</view></view>
+    <view wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'pending_pickup'}}">自提码：{{order.pickupCode}}</view>
+    <view wx:if="{{order.status === 'paid' || order.status === 'completed'}}">
+      <textarea bindinput="reason" value="{{reason}}" disabled="{{busy}}" placeholder="退款原因" />
+      <button bindtap="refund" loading="{{busy}}" disabled="{{busy || loading}}">申请退款</button>
+    </view>
+  </view>
+</view>

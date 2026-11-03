@@ -7,18 +7,26 @@ const path = require("node:path");
 const { createSeed } = require("../../src/data/seed");
 const payments = require("../../src/services/payment-service");
 
-test("member payment survives new request keys and only allows renewal after settlement", () => {
+test("points membership has zero cash amount and retries never deduct points or extend twice", () => {
   const state = createSeed();
   const user = state.users.find(item => item.id === "u_1001");
-  const options = { months: 1, channel: "lfwin_wechat_mini" };
+  state.config.membershipMonthlyPoints = 100;
+  user.points = 100;
+  const options = { months: 1, paymentMode: "pure_points" };
   const first = payments.createMemberPayment(state, user, { ...options, idempotencyKey: "first" });
-  const next = payments.createMemberPayment(state, user, { ...options, idempotencyKey: "reopened" });
+  assert.equal(first.ok, true);
+  assert.equal(first.payment.amount, 0);
+  assert.equal(first.payment.status, "paid");
+  assert.equal(user.points, 0);
+  const until = user.memberUntil;
+  const next = payments.createMemberPayment(state, user, { ...options, idempotencyKey: "first" });
   assert.equal(next.payment.id, first.payment.id);
   assert.equal(next.idempotent, true);
-  assert.equal(payments.createMemberPayment(state, user, { ...options, months: 2 }).status, 409);
+  assert.equal(user.memberUntil, until);
+  assert.equal(payments.createMemberPayment(state, user, { ...options, months: 2, idempotencyKey: "first" }).status, 409);
   const other = state.users.find(item => item.id !== user.id);
-  assert.notEqual(payments.createMemberPayment(state, other, options).payment.id, first.payment.id);
-  first.payment.status = "paid";
+  assert.equal(payments.createMemberPayment(state, other, { ...options, idempotencyKey: "first" }).status, 409);
+  user.points = 100;
   assert.notEqual(payments.createMemberPayment(state, user, { ...options, idempotencyKey: "renewal" }).payment.id, first.payment.id);
 });
 
@@ -88,7 +96,7 @@ test("reopened membership page loads pending orders and queries without creating
   page.setData = data => Object.assign(page.data, data);
   await page.load();
   assert.equal(page.data.payments[0].payNo, "member-1");
-  await page.subscribe();
+  await page.subscribe({ currentTarget: { dataset: { mode: "pure_points" } } });
   assert.equal(calls.includes("/api/member/payments"), false);
   page.key = "previous-attempt";
   await page.queryPayment({ currentTarget: { dataset: { payNo: "member-1" } } });
@@ -113,7 +121,7 @@ test("membership account switch prevents old subscription response from invoking
   });
   page.setData = value => Object.assign(page.data, value);
   await page.load();
-  const subscribing = page.subscribe();
+  const subscribing = page.subscribe({ currentTarget: { dataset: { mode: "pure_points" } } });
   assert.ok(page.key);
   storage.tgg_user = { id: "bob" };
   await page.load();
@@ -143,5 +151,33 @@ test("membership failed refresh clears old user and pending payments and disable
   await page.load();
   assert.equal(page.data.user, null); assert.equal(page.data.payments.length, 0);
   assert.equal(page.data.error, "offline");
-  await page.resume({ currentTarget: { dataset: { payNo: "pending" } } });
+  assert.equal(page.resume, undefined);
+});
+
+test("membership page keeps the expired-session error visible after auth clears the account", async () => {
+  let page;
+  const storage = { tgg_user: { id: "alice" }, tgg_token: "token" };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/membership/index.js"), "utf8"), {
+    Page: value => { page = value; },
+    require: name => name.endsWith("/api") ? { request: async url => {
+      if (url === "/api/me") {
+        delete storage.tgg_user;
+        delete storage.tgg_token;
+        const error = new Error("登录已失效，请重新登录");
+        error.statusCode = 401;
+        throw error;
+      }
+      if (url === "/api/config") return { membershipMonthlyPrice: 19.9 };
+      return [];
+    } } : { pay() { assert.fail("Expired session must not allow payment"); } },
+    wx: { showToast() {}, getStorageSync: key => storage[key] }
+  });
+  page.setData = value => Object.assign(page.data, value);
+
+  await page.load();
+
+  assert.equal(page.data.loading, false);
+  assert.equal(page.data.user, null);
+  assert.equal(page.data.error, "登录已失效，请重新登录");
+  assert.equal(page.data.needLogin, true);
 });

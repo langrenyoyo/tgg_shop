@@ -1,0 +1,33 @@
+<view class="signin-page">
+  <view wx:if="{{config.bannerAdUnitId && !bannerFailed}}" class="ad-slot"><ad unit-id="{{config.bannerAdUnitId}}" data-kind="banner" binderror="adError" /></view>
+  <view class="welcome"><view class="heading">今天，也有收获。</view><view class="muted">完成签到，领取固定金币奖励</view></view>
+  <view wx:if="{{loading}}" class="card">正在读取签到进度…</view>
+  <view wx:if="{{needLogin}}" class="card"><view>{{error}}</view><button bindtap="login">登录</button></view>
+  <view wx:elif="{{!loading && !config.rewardCoins}}" class="card"><view>{{error || '暂无法读取签到配置'}}</view><button bindtap="load">刷新查询</button></view>
+  <view wx:elif="{{!loading}}" class="reward-card">
+    <view class="muted">{{session.claimed ? '今日奖励已到账' : '今日签到奖励'}}</view><view class="coin">鹿</view>
+    <view class="reward">{{config.rewardCoins || 0}}<text> 金币</text></view>
+    <view class="description">{{session ? '本次共 ' + session.rounds + ' 轮，已完成 ' + session.completedRounds + ' 轮' : '每次随机 ' + config.minRounds + '～' + config.maxRounds + ' 轮，开始后确定本次轮数'}}</view>
+    <button class="primary" bindtap="openSignin" disabled="{{busy || loading || error || session.claimed || (!session && unavailableReason)}}">{{session.claimed ? '今日已签到' : session ? '继续签到' : '立即签到'}}</button>
+    <view class="fine">已完成轮数保留 · 每日领取一次</view><view class="balance">我的金币 {{balanceCoins}}</view>
+    <view wx:if="{{unavailableReason}}" class="notice">{{unavailableReason}}</view>
+    <view wx:if="{{error}}" class="notice">{{error}}</view><button wx:if="{{error}}" bindtap="load" disabled="{{busy}}">刷新查询</button>
+  </view>
+  <view class="badges">固定奖励　·　无抽奖　·　无盲盒</view>
+  <view wx:if="{{config.feedAdUnitId && !feedFailed}}" class="ad-slot"><ad-custom unit-id="{{config.feedAdUnitId}}" data-kind="feed" binderror="adError" /></view>
+  <view wx:if="{{config.bannerAdUnitId && !bannerFailed}}" class="ad-slot"><ad unit-id="{{config.bannerAdUnitId}}" data-kind="banner" binderror="adError" /></view>
+  <view class="fine">金币独立记录，暂不支持兑换积分或提现。</view>
+  <view wx:if="{{sheet}}" class="mask" catchtouchmove="noop"><view class="dialog">
+    <block wx:if="{{sheet === 'exit'}}"><view class="symbol warning">↗</view><view class="dialog-title">要暂时离开签到吗？</view><view class="description">已完成轮数将保留，本轮需重新完成。</view><view class="notice">已完成 {{session.completedRounds}} / {{session.rounds}} 轮<view>退出不扣除已有金币。</view></view><view class="actions"><button bindtap="cancelExit">取消</button><button class="primary" bindtap="confirmExit">确定退出</button></view></block>
+    <block wx:elif="{{sheet === 'success'}}"><view class="symbol">✓</view><view class="dialog-title">签到成功，奖励已到账</view><view class="reward">+{{session.rewardCoins}}<text> 金币</text></view><view class="description">我的金币 {{balanceCoins}}</view><button class="primary" bindtap="closeSuccess">返回签到首页</button><view class="fine">今日已领取，明天再来。</view></block>
+    <block wx:else><view class="symbol">☀</view><view class="dialog-title">{{sheet === 'claiming' ? '正在确认奖励' : session.completedRounds >= session.rounds ? '轮次已完成，领取奖励吧' : '距离今天的奖励更近一步'}}</view>
+      <view class="description">本次签到需要完成 {{session.rounds}} 轮</view><view class="dots"><view wx:for="{{dots}}" wx:key="number" class="dot {{item.done ? 'done' : ''}}">{{item.done ? '✓' : item.number}}</view></view>
+      <view class="description">已完成 {{session.completedRounds}} / {{session.rounds}} 轮</view><view wx:if="{{adLabel}}" class="notice">{{adLabel}}</view>
+      <view wx:if="{{error}}" class="notice">{{error}}</view>
+      <button wx:if="{{pendingStep}}" class="primary" bindtap="retryVerification" disabled="{{busy}}">核对本次广告完成结果</button>
+      <button wx:elif="{{session.completedRounds >= session.rounds}}" class="primary" bindtap="claim" loading="{{busy}}" disabled="{{busy}}">完成签到</button>
+      <block wx:else><view class="fine">完整完成一组广告计为一轮，激励视频需完整观看。</view><view wx:if="{{unavailableReason}}" class="notice">{{unavailableReason}}</view><button class="primary" bindtap="getRound" loading="{{busy}}" disabled="{{busy || countdown > 0 || unavailableReason}}">{{countdown > 0 ? countdown + ' 秒后继续获取' : '获取 · 第 ' + (session.completedRounds + 1) + ' 轮'}}</button></block>
+      <button wx:if="{{error}}" bindtap="load" disabled="{{busy}}">刷新查询</button><button class="text-button" bindtap="exit">稍后继续</button>
+    </block>
+  </view></view>
+</view>

@@ -36,6 +36,9 @@ test("user and admin frontends support core click flows", async (t) => {
   try {
     await waitForJson(`${BASE}/api/health`);
     await waitForJson(`http://127.0.0.1:${CDP_PORT}/json/version`);
+    const setupLogin = await fetch(`${BASE}/api/admin/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: "super_admin", password: "123456" }) }).then(res => res.json());
+    const setupConfig = await fetch(`${BASE}/api/admin/config`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${setupLogin.token}` }, body: JSON.stringify({ membershipMonthlyPoints: 100 }) });
+    assert.equal(setupConfig.status, 200);
 
     const userPage = await CDPPage.create(`${BASE}/user?skipSplash=1`);
     await userPage.waitForText("热门推荐");
@@ -124,11 +127,16 @@ test("user and admin frontends support core click flows", async (t) => {
     await userPage.click('[data-buy="p_strawberry"]');
     await userPage.waitForText("会员开通");
     await userPage.waitForText("当前为普通用户");
-    await userPage.waitForText("开通 1 个月会员");
+    await userPage.waitForText("买产品送会员");
 
     await userPage.click('[data-action="member"]');
+    await userPage.waitForExpression(`document.querySelector('[data-category-name="买商品送会员"]')?.classList.contains('active')`);
+    await userPage.click('button[data-tab="home"]');
+    await userPage.click('[data-buy="p_strawberry"]');
+    await userPage.waitForText("使用 100 积分开通");
+    await userPage.click('[data-action="memberPoints"]');
     await userPage.waitForText("会员剩余");
-    await userPage.waitForText("续费 1 个月会员");
+    await userPage.waitForText("买产品送会员");
 
     const openedMember = await userPage.evaluate(`fetch('/api/me', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') } }).then((res) => res.json())`);
     const openedMemberPayments = await userPage.evaluate(`fetch('/api/payments', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') } }).then((res) => res.json())`);
@@ -140,7 +148,7 @@ test("user and admin frontends support core click flows", async (t) => {
     );
 
     const firstMemberUntil = new Date(openedMember.memberUntil).getTime();
-    await userPage.click('[data-action="member"]');
+    await userPage.click('[data-action="memberPoints"]');
     await userPage.waitForExpression(`fetch('/api/me', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') } })
       .then((res) => res.json())
       .then((user) => new Date(user.memberUntil).getTime() > ${firstMemberUntil})`);
@@ -192,6 +200,20 @@ test("user and admin frontends support core click flows", async (t) => {
     }
     await adminPage.waitForText("运营仪表盘");
     await adminPage.waitForText("最近订单");
+    await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await adminPage.click('button[data-view="coinSignin"]');
+    await adminPage.waitForText("保存签到设置");
+    assert.equal(await adminPage.evaluate(`document.querySelector('[data-config-form="coinSignin"] [name="enabled"]').checked`), false);
+    await adminPage.fillFormAndSubmit('[data-config-form="coinSignin"]', { minRounds: 3, maxRounds: 5, intervalSeconds: 8, rewardCoins: 12, sequence: 'rewarded,interstitial,rewarded' });
+    await adminPage.waitForExpression(`fetch('/api/admin/config',{headers:{Authorization:'Bearer '+localStorage.getItem('tggAdminToken')}}).then(r=>r.json()).then(c=>c.coinSignin?.minRounds===3 && c.coinSignin?.maxRounds===5)`);
+    await adminPage.goto(`${BASE}/admin`);
+    await adminPage.waitForText("最近订单");
+    await adminPage.click('button[data-view="coinSignin"]');
+    await adminPage.waitForText("保存签到设置");
+    assert.equal(await adminPage.evaluate(`document.querySelector('[data-config-form="coinSignin"] [name="rewardCoins"]').value`), '12');
+    const signinScreenshot = await adminPage.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    fs.writeFileSync(path.join(os.tmpdir(), "tgg-coin-signin-settings.png"), Buffer.from(signinScreenshot.data, "base64"));
+    await adminPage.click('button[data-view="dashboard"]');
     await runAdminRepairPatrol(adminPage, userPage);
     await runAdminConsistencyPatrol(adminPage);
     await runAdminProductPatrol(adminPage, userPage);

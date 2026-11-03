@@ -5,6 +5,7 @@ const { createLfwinClient, canonicalize, signPayload } = require("../../src/serv
 const { createSeed } = require("../../src/data/seed");
 const { createOrder } = require("../../src/domain/rules");
 const paymentService = require("../../src/services/payment-service");
+const goodsPayment = require("../helpers/goods-payment");
 
 const config = {
   baseUrl: "https://api2uat.lfwin.com",
@@ -70,7 +71,7 @@ test("LFWin callback settles only the matching payment once", () => {
 
 test("payment query and close expose only sanitized provider fields", async () => {
   const state = createSeed();
-  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini", idempotencyKey: "provider-payload-test" }).payment;
+  const payment = goodsPayment(state);
   payment.metadata.lfwin = { providerOrderNo: "LF_SAFE" };
   const client = {
     queryPayment: async () => ({ orderid: "LF_SAFE", paystatus: "0", paymoney: "19.90", secret: "query-secret" }),
@@ -90,7 +91,7 @@ test("payment query and close expose only sanitized provider fields", async () =
 
 test("payment provider failures do not expose provider error text", async () => {
   const state = createSeed();
-  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini", idempotencyKey: "provider-error-test" }).payment;
+  const payment = goodsPayment(state);
   payment.metadata.lfwin = { providerOrderNo: "LF_ERROR", submissionState: "submitted" };
   const result = await paymentService.queryLfwinPayment(state, payment.payNo, {
     queryPayment: async () => {
@@ -147,7 +148,7 @@ test("valid RSA signatures are accepted but malformed key or signature rejects s
 
 test("callbacks without identity cannot select the first payment with no provider metadata", () => {
   const state = createSeed();
-  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const payment = goodsPayment(state);
   const result = paymentService.applyLfwinPaymentNotification(state, { paystatus: "1", paymoney: String(payment.amount) }, { verifyNotification: () => true });
   assert.equal(result.ok, false);
   assert.equal(result.error, "Missing payment order identity");
@@ -156,7 +157,7 @@ test("callbacks without identity cannot select the first payment with no provide
 
 test("callback amounts reject coercion, missing values and fractions smaller than a cent", () => {
   const state = createSeed();
-  const payment = paymentService.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const payment = goodsPayment(state);
   const client = { verifyNotification: () => true };
   for (const amount of [undefined, null, "", true, [payment.amount], "Infinity", `${payment.amount}1`, ` ${payment.amount}`, "0x13", -1]) {
     const result = paymentService.applyLfwinPaymentNotification(state, { mch_orderid: payment.payNo, paystatus: "1", paymoney: amount }, client);

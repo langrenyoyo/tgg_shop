@@ -1,6 +1,7 @@
 const { request } = require("./api");
 async function pay(payment) {
   if (payment.status === "paid") return payment;
+  if (payment.payScene === "member_open") throw new Error("已停止会员直接付费，请到会员中心查询历史订单或联系客服");
   const config = await request("/api/config");
   if (config.testBypassEnabled) {
     const bypassed = await request(`/api/test/payments/${encodeURIComponent(payment.payNo)}/settle`, { method: "POST", data: {} });

@@ -45,3 +45,37 @@ for (const scenario of [
     if (writes.length) assert.equal(writes[0].fulfillmentType, scenario.type);
   });
 }
+
+test("checkout keeps the expired-session error visible with a login action", async () => {
+  let page;
+  const storage = { tgg_user: { id: "alice" }, tgg_token: "token" };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/checkout/index.js"), "utf8"), {
+    Page: value => { page = value; },
+    require: name => name.endsWith("cart") ? {
+      checkoutIdempotencyKey: () => "checkout-test", readCheckoutAttempt: () => null,
+      readCheckout: () => [{ productId: "apple", quantity: 1 }]
+    } : { request: async url => {
+      if (url === "/api/me") {
+        delete storage.tgg_user;
+        delete storage.tgg_token;
+        const error = new Error("登录已失效，请重新登录");
+        error.statusCode = 401;
+        throw error;
+      }
+      if (url === "/api/config") return {};
+      if (url === "/api/pickup-sites") return [];
+      if (url === "/api/products") return [];
+      return [];
+    } },
+    wx: { getStorageSync: key => storage[key], navigateTo() {} }
+  });
+  page.setData = value => Object.assign(page.data, value);
+  page.ownerId = "alice";
+  page.idempotencyKey = "checkout-test";
+
+  await page.load();
+
+  assert.equal(page.data.loading, false);
+  assert.equal(page.data.error, "登录已失效，请重新登录");
+  assert.equal(page.data.needLogin, true);
+});

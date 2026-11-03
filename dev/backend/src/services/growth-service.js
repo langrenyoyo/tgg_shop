@@ -14,15 +14,7 @@ function getDailySigninStatus(state, user) {
 }
 
 function claimDailySignin(state, user) {
-  const status = getDailySigninStatus(state, user);
-  if (status.signedToday) return { ok: true, idempotent: true, ...status };
-  const points = status.rewardPoints;
-  user.points = Number(user.points || 0) + points;
-  user.signinStreak = Number(user.signinStreak || 0) + 1;
-  const now = new Date().toISOString();
-  ledgerRepository.addPointEntry(state, { id: nextId("pt"), userId: user.id, changeType: "signin", direction: "in", points, balanceAfter: user.points, bizNo: status.date, idempotencyKey: `signin:${user.id}:${status.date}`, createdAt: now });
-  saveState();
-  return { ok: true, idempotent: false, date: status.date, signedToday: true, streak: user.signinStreak, rewardPoints: points };
+  return { ok: false, status: 410, error: "签到已升级，请更新小程序后前往金币签到页" };
 }
 
 function getInviteInfo(state, user) {

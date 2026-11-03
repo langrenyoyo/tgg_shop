@@ -430,9 +430,10 @@ document.body.addEventListener("click", (event) => {
     return;
   }
   const productEdit = event.target.closest("[data-product-edit]");
-  if (productEdit || event.target.closest("[data-product-edit-cancel], [data-product-new-pure]")) {
+  if (productEdit || event.target.closest("[data-product-edit-cancel], [data-product-new-pure], [data-product-new-gift]")) {
     state.editingProductId = productEdit?.dataset.productEdit || null;
     state.newProductPure = Boolean(event.target.closest("[data-product-new-pure]"));
+    state.newProductGift = Boolean(event.target.closest("[data-product-new-gift]"));
     state.view = "products";
     renderAdminPage(state);
     document.getElementById("product-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1051,7 +1052,7 @@ document.body.addEventListener("submit", (event) => {
     api(existing ? `/api/admin/products/${encodeURIComponent(existing)}` : "/api/admin/products", { method: existing ? "PATCH" : "POST", body: JSON.stringify(payload) })
       .then(() => {
         state.productMessage = payload.status === "on" ? "商品已上架，用户端可查看和购买" : "商品资料已保存，尚未上架";
-        state.editingProductId = null; state.newProductPure = false; state.productSearch = ""; state.productStatus = "";
+        state.editingProductId = null; state.newProductPure = false; state.newProductGift = false; state.productSearch = ""; state.productStatus = "";
         return loadDashboard();
       }).catch(error => { productForm.querySelector("[data-product-form-error]").textContent = error.message; })
       .finally(() => { delete productForm.dataset.saving; buttons.forEach(button => { button.disabled = false; }); });
@@ -1111,6 +1112,7 @@ document.body.addEventListener("submit", (event) => {
     return;
   }
   const titles = {
+    coinSignin: ["确认保存签到设置", "新配置影响新签到；关闭会暂停广告获取，已完成轮次仍可领取。"],
     member: ["确认保存会员支付", "月会员价格和支付超时将立即影响用户下单。"],
     delivery: ["确认保存履约配送", "自提、送货上门、配送费和配送时段将立即影响用户下单。"],
     stationPicking: ["确认保存站点拣货", "库位排序、扫码复核和提货位规则将立即影响站点工作人员。"],
@@ -1147,17 +1149,25 @@ function readProductForm(form) {
   const existing = state.products.find(item => item.id === form.dataset.productId);
   return {
     name: String(fields.get("name") || ""), category: String(fields.get("category") || ""), unit: String(fields.get("unit") || ""),
+    membershipGiftDays: Number(fields.get("membershipGiftDays") || 0),
     description: String(fields.get("description") || ""), image: String(fields.get("image") || ""), tag: String(fields.get("tag") || ""),
     barcode: String(fields.get("barcode") || ""), locationCode: String(fields.get("locationCode") || ""), backupLocation: String(fields.get("backupLocation") || ""),
     storageType: String(fields.get("storageType") || "ambient"), pickSequence: Number(fields.get("pickSequence") || 0),
     cashPrice: purePointsOnly ? null : Number(fields.get("cashPrice") || 0), pointsPrice: Number(fields.get("pointsPrice") || 0),
     regularPrice: purePointsOnly ? null : Number(fields.get("regularPrice") || 0),
     stock: existing ? existing.stock : Number(fields.get("stock") || 0), purePointsOnly, supportsCash: !purePointsOnly,
-    supportsPoints: purePointsOnly || fields.get("supportsPoints") === "on", reason: String(fields.get("reason") || "")
+    supportsPoints: String(fields.get("category") || "").trim() === "买商品送会员" ? false : purePointsOnly || fields.get("supportsPoints") === "on", reason: String(fields.get("reason") || "")
   };
 }
 
 document.body.addEventListener("change", async event => {
+  const productForm = event.target.closest("[data-product-create-form]");
+  if (productForm && event.target.name === "category") {
+    const gift = event.target.value.trim() === "买商品送会员";
+    const days = productForm.querySelector('[name="membershipGiftDays"]');
+    days.value = gift ? Number(days.value) || 30 : 0;
+    if (gift) productForm.querySelector('[name="supportsPoints"]').checked = false;
+  }
   const homeForm = event.target.closest('[data-config-form="home"]');
   if (homeForm && event.target.matches("[data-home-carousel-image-upload]")) {
     const file = event.target.files?.[0];
@@ -1242,6 +1252,12 @@ document.body.addEventListener("change", async event => {
 
 function buildConfigPayload(group, formData) {
   const payloads = {
+    coinSignin: () => ({ coinSignin: {
+      enabled: formData.get("enabled") === "on", minRounds: Number(formData.get("minRounds")), maxRounds: Number(formData.get("maxRounds")),
+      intervalSeconds: Number(formData.get("intervalSeconds")), rewardCoins: Number(formData.get("rewardCoins")),
+      sequence: String(formData.get("sequence") || "").split(/[,，\s]+/).filter(Boolean),
+      ...Object.fromEntries(["bannerAdUnitId", "feedAdUnitId", "interstitialAdUnitId", "rewardedAdUnitId"].map(key => [key, String(formData.get(key) || "").trim()]))
+    } }),
     member: () => ({
       membershipMonthlyPrice: Number(formData.get("membershipMonthlyPrice")),
       membershipMonthlyPoints: Number(formData.get("membershipMonthlyPoints")),

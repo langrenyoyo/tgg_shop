@@ -1,7 +1,7 @@
 const { request } = require("../../utils/api");
 const cart = require("../../utils/cart");
 Page({
-  data: { items: [], modes: [], modeIndex: 0, siteIndex: 0, deliverySlotIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, needsMembership: false, busy: false, loading: true, fulfillmentError: "", error: "" },
+  data: { items: [], modes: [], modeIndex: 0, siteIndex: 0, deliverySlotIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, needsMembership: false, busy: false, loading: true, fulfillmentError: "", error: "", needLogin: false },
   onLoad() { this.idempotencyKey = cart.checkoutIdempotencyKey(); this.ownerId = wx.getStorageSync("tgg_user")?.id; this.setData({ pending: cart.readCheckoutAttempt() }); this.load(); },
   onShow() { if (this.shown) this.load(); this.shown = true; },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
@@ -9,29 +9,42 @@ Page({
   async load() {
     const version = this.version = (this.version || 0) + 1;
     const owner = this.ownerId;
-    this.setData({ loading: true, error: "", items: [], user: null, modes: [], sites: [], addresses: [], defaultAddress: null, config: {}, needsMembership: false, deliverySlotIndex: 0, estimatedPoints: 0, estimatedCash: "0.00" });
+    this.setData({ loading: true, error: "", items: [], user: null, modes: [], sites: [], addresses: [], defaultAddress: null, config: {}, needsMembership: false, deliverySlotIndex: 0, membershipGiftDays: 0, estimatedPoints: 0, estimatedCash: "0.00" });
     if (!owner || owner !== wx.getStorageSync("tgg_user")?.id) {
-      this.setData({ loading: false, pending: null, deliveryAddress: "", error: "账号已变更，请重新打开结算页" });
+      const currentOwner = wx.getStorageSync("tgg_user")?.id;
+      this.setData({ loading: false, pending: null, deliveryAddress: "", error: currentOwner ? "账号已变更，请重新打开结算页" : "请登录后继续结算", needLogin: !currentOwner });
       return;
     }
     try {
       const [user, config, sites, products] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/pickup-sites"), request("/api/products")]);
       let addresses = [];
       try { const loadedAddresses = await request("/api/addresses"); addresses = Array.isArray(loadedAddresses) ? loadedAddresses : []; } catch { addresses = []; }
-      if (!this.active(version, owner)) return;
+      if (!this.active(version, owner)) {
+        if (!this.disposed && version === this.version) {
+          const currentOwner = wx.getStorageSync("tgg_user")?.id;
+          this.setData({ error: currentOwner ? "账号已变更，请重新打开结算页" : "登录已失效，请重新登录", needLogin: !currentOwner, pending: null, deliveryAddress: "" });
+        }
+        return;
+      }
       if (user.id !== owner || cart.checkoutIdempotencyKey() !== this.idempotencyKey) throw new Error("结算信息已变更，请重新打开结算页");
       const items = cart.readCheckout().map(item => ({ ...item, product: products.find(p => p.id === item.productId) }));
       if (!items.length || items.some(item => !item.product)) throw new Error("请选择有效商品");
       const modes = [];
-      const needsMembership = !user.isMember && !items.every(item => item.product.supportsPoints);
-      if (user.isMember && items.every(item => item.product.supportsCash && !item.product.purePointsOnly)) modes.push({ id: "cash", label: "会员现金购买" });
+      const giftPurchase = items.every(item => item.product.category === "买商品送会员" && item.product.membershipGiftDays > 0 && item.product.supportsCash && !item.product.purePointsOnly);
+      const needsMembership = !user.isMember && !giftPurchase && !items.every(item => item.product.supportsPoints);
+      if ((user.isMember || giftPurchase) && items.every(item => item.product.supportsCash && !item.product.purePointsOnly)) modes.push({ id: "cash", label: giftPurchase ? "现金购买并赠会员" : "会员现金购买" });
       if (items.every(item => item.product.supportsPoints)) modes.push({ id: "pure_points", label: "纯积分兑换" });
       if (user.isMember && items.every(item => item.product.supportsPoints && !item.product.purePointsOnly)) modes.push({ id: "points_plus_cash", label: "积分不足现金补差" });
       const fulfillmentType = config.pickupEnabled && sites.length ? "pickup" : config.deliveryEnabled ? "delivery" : "pickup";
       const defaultAddress = addresses.find(item => item.isDefault) || addresses[0] || null;
       this.setData({ items, user, config, sites, addresses, defaultAddress, modes, needsMembership, modeIndex: 0, siteIndex: 0, fulfillmentType, deliveryAddress: defaultAddress ? [defaultAddress.receiverName, defaultAddress.mobile, defaultAddress.province, defaultAddress.city, defaultAddress.district, defaultAddress.detail].filter(Boolean).join(" ") : "", error: "" }, () => this.calculate());
-    } catch (error) { if (this.active(version, owner)) this.setData({ error: error.message }); }
-    finally { if (this.active(version, owner)) this.setData({ loading: false }); }
+    } catch (error) {
+      if (!this.disposed && version === this.version) {
+        const currentOwner = wx.getStorageSync("tgg_user")?.id;
+        this.setData({ error: currentOwner === owner ? error.message : currentOwner ? "账号已变更，请重新打开结算页" : "登录已失效，请重新登录", needLogin: !currentOwner || error.statusCode === 401, ...(currentOwner === owner ? {} : { pending: null, deliveryAddress: "" }) });
+      }
+    }
+    finally { if (!this.disposed && version === this.version) this.setData({ loading: false }); }
   },
   calculate() {
     const mode = this.data.modes[this.data.modeIndex]?.id;
@@ -40,7 +53,8 @@ Page({
     const usedPoints = mode === "cash" ? 0 : mode === "points_plus_cash" ? Math.min(this.data.user.points, points) : points;
     let cash = mode === "cash" ? goodsCash : mode === "points_plus_cash" ? Math.max(0, points - usedPoints) / 10 : 0;
     if (mode !== "pure_points" && this.data.fulfillmentType === "delivery" && this.data.config.deliveryFeeEnabled) cash += Number(this.data.config.deliveryFee || 0);
-    this.setData({ estimatedPoints: usedPoints, estimatedCash: cash.toFixed(2), fulfillmentError: this.validateFulfillment() });
+    const membershipGiftDays = mode === "cash" ? this.data.items.reduce((sum, item) => sum + Number(item.product.membershipGiftDays || 0) * item.quantity, 0) : 0;
+    this.setData({ membershipGiftDays, estimatedPoints: usedPoints, estimatedCash: cash.toFixed(2), fulfillmentError: this.validateFulfillment() });
   },
   validateFulfillment() {
     const { config, fulfillmentType, sites, siteIndex } = this.data;
@@ -57,6 +71,7 @@ Page({
   deliverySlot(e) { if (!this.data.busy && !this.data.pending) this.setData({ deliverySlotIndex: Number(e.detail.value) }, () => this.calculate()); },
   openAddress() { wx.navigateTo({ url: "/pages/address/index" }); },
   openMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
+  goLogin() { wx.navigateTo({ url: "/pages/login/index" }); },
   async submit() {
     if (this.disposed || this.data.busy || this.data.loading || (this.data.error && !this.data.pending)) return;
     if (!this.ownerId || wx.getStorageSync("tgg_user")?.id !== this.ownerId) return wx.showToast({ title: "账号已变更，请重新结算", icon: "none" });
@@ -67,7 +82,8 @@ Page({
       if (!payload) {
       const mode = this.data.modes[this.data.modeIndex]?.id;
       if (!mode) throw new Error("当前商品没有可用支付方式，请查看会员权益");
-      if (mode !== "pure_points" && !this.data.user?.isMember) return this.openMembership();
+      const giftPurchase = mode === "cash" && this.data.items.every(item => item.product.category === "买商品送会员" && item.product.membershipGiftDays > 0 && item.product.supportsCash && !item.product.purePointsOnly);
+      if (mode !== "pure_points" && !this.data.user?.isMember && !giftPurchase) return this.openMembership();
       const fulfillmentError = this.validateFulfillment();
       if (fulfillmentError) throw new Error(fulfillmentError);
       if (this.data.fulfillmentType === "delivery" && !this.data.deliveryAddress.trim()) throw new Error("请填写收货人、电话和完整地址");

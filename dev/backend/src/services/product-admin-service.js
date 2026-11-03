@@ -1,10 +1,11 @@
 const { nextId, saveState } = require("../data/store");
 const inventory = require("../repositories/inventory-repository");
+const { GIFT_CATEGORY } = require("../domain/product-membership");
 
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const fail = (status, error) => ({ ok: false, status, error });
 const allowed = (actor, permission) => (actor.role?.permissions || []).some(value => value === "*" || value === permission);
-const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "regularPrice", "pointsPrice", "supportsCash", "supportsPoints", "barcode", "locationCode", "backupLocation", "storageType", "pickSequence"];
+const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "regularPrice", "pointsPrice", "supportsCash", "supportsPoints", "barcode", "locationCode", "backupLocation", "storageType", "pickSequence", "membershipGiftDays"];
 
 function imageUrlValid(value) {
   if (!value || /[<>"'\\\s]/.test(value)) return false;
@@ -55,6 +56,12 @@ function prepareProduct(input, previous = {}) {
     product[key] = value;
   }
   if (!product.name) return fail(400, "请填写商品名称");
+  if (own(input, "membershipGiftDays") && (!Number.isInteger(input.membershipGiftDays) || input.membershipGiftDays < 0 || input.membershipGiftDays > 365)) return fail(400, "每件赠送会员天数须为 0 至 365 的整数");
+  product.membershipGiftDays = input.membershipGiftDays ?? (product.category === GIFT_CATEGORY && previous.category !== GIFT_CATEGORY ? 30 : previous.membershipGiftDays ?? 0);
+  if (product.category === GIFT_CATEGORY) {
+    if (product.purePointsOnly || !product.supportsCash || product.membershipGiftDays < 1) return fail(400, "买商品送会员专区须为现金实物商品，每件赠送 1 至 365 天会员");
+    product.supportsPoints = false;
+  } else if (product.membershipGiftDays > 0) return fail(400, "赠送会员的商品请归入买商品送会员专区");
   if (product.image && !imageUrlValid(product.image)) return fail(400, "请使用有效商品图片地址或上传图片");
   if (product.purePointsOnly) Object.assign(product, { cashPrice: null, regularPrice: null, supportsCash: false, supportsPoints: true });
   if (product.status === "on") {

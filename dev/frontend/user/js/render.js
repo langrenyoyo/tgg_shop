@@ -246,7 +246,7 @@ function categoryView(state) {
   const selectedMode = state.categoryMode || "all";
   const allProducts = [...new Map((state.products || []).concat(state.exchangeProducts || []).map(item => [item.id, item])).values()];
   const products = filterCategoryProducts(allProducts, selectedCategory, selectedMode);
-  const categoryNames = [...new Set(["全部", "水果", "蔬菜", "肉禽", "乳品", "零食", "纯积分", ...allProducts.map(item => item.category).filter(Boolean)])];
+  const categoryNames = [...new Set(["全部", "买商品送会员", "水果", "蔬菜", "肉禽", "乳品", "零食", "纯积分", ...allProducts.map(item => item.category).filter(Boolean)])];
   const modeButtons = [
     ["all", "综合"],
     ["delivery", "30 分钟达"],
@@ -288,7 +288,7 @@ function categoryModeLabel(mode) {
 function productView(product, state = {}) {
   if (!product) return `<div class="empty">暂无商品</div>`;
   const isPure = product.purePointsOnly;
-  const memberLocked = !isMemberUser(state.user) && !isPure;
+  const memberLocked = !isMemberUser(state.user) && !isPure && !(product.category === "买商品送会员" && product.membershipGiftDays > 0);
   const stock = Number(product.stock || 0);
   return `
     <article class="hero-product top-card product-detail-hero">
@@ -319,13 +319,13 @@ function cartView(state) {
   const totalPoints = items.reduce((sum, item) => sum + (item.purePointsOnly ? (item.pointsPrice || 0) * (item.quantity || 1) : 0), 0);
   const totalCash = items.reduce((sum, item) => sum + (!item.purePointsOnly ? (item.cashPrice || 0) * (item.quantity || 1) : 0), 0);
   const mixed = items.some((item) => item.purePointsOnly) && items.some((item) => !item.purePointsOnly);
-  const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly);
+  const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly) && !items.every(item => item.category === "买商品送会员" && item.membershipGiftDays > 0);
   return `
     <div class="stack cart-list">
       ${items.length ? items.map((item) => `<article class="cart-row"><img src="${homeEscape(item.image)}" alt="${homeEscape(item.name)}" loading="lazy" decoding="async" /><span><strong>${homeEscape(item.name)}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 无需会员" : "会员现金商品 · 自建配送"}</p>${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}<div class="qty"><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${homeEscape(item.id)}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
     </div>
     ${mixed ? `<section class="notice" style="margin-top:10px"><strong>请分开结算</strong><p>纯积分兑换不提供现金补差入口，现金商品需会员购买。</p></section>` : ""}
-    ${memberLocked ? `<section class="member-lock"><strong>下单需月会员</strong><span>所有商品均需先购买月会员后下单。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
+    ${memberLocked ? `<section class="member-lock"><strong>现金购物需要会员</strong><span>可购买专区商品获赠会员，或使用积分开通。</span><button type="button" data-page="membership">查看会员获取方式</button></section>` : ""}
     <section class="total-bar"><span>合计：${totalText(totalCash, totalPoints)}</span><button type="button" class="primary" data-page="checkoutPickup" ${!items.length || mixed ? "disabled" : ""}>去结算</button></section>
   `;
 }
@@ -345,7 +345,7 @@ function checkoutView(state, type) {
   const mixed = items.some((item) => item.purePointsOnly) && items.some((item) => !item.purePointsOnly);
   const pureOnly = items.length > 0 && items.every((item) => item.purePointsOnly);
   const cashOnly = items.length > 0 && items.every((item) => !item.purePointsOnly);
-  const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly);
+  const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly) && !items.every(item => item.category === "买商品送会员" && item.membershipGiftDays > 0);
   const deliveryFee = state.config?.deliveryFeeEnabled && delivery && cashOnly ? Number(state.config.deliveryFee || 0) : 0;
   const disabled = !items.length || mixed || (delivery && !defaultAddress);
   return `
@@ -465,9 +465,9 @@ function membershipView(state) {
   const memberDaysLeft = getMemberDaysLeft(user);
   return `
     <section class="soft-card" style="padding:22px;background:#e8fbf1"><h2 style="margin:0;color:var(--green-dark)">月会员</h2><p class="muted">普通用户升级为会员需开通月会员；会员可现金购物，也可在积分不足时现金补差。</p></section>
-    <section class="field-card"><h3>当前状态</h3><p>${memberActive ? `会员剩余 ${homeEscape(memberDaysLeft)} 天，有效期至 ${homeEscape(formatDate(user.memberUntil))}` : "当前为普通用户，需先购买月会员后下单。"}</p></section>
+    <section class="field-card"><h3>当前状态</h3><p>${memberActive ? `会员剩余 ${homeEscape(memberDaysLeft)} 天，有效期至 ${homeEscape(formatDate(user.memberUntil))}` : "当前为普通用户，可购买专区商品获赠会员，或使用积分开通。"}</p></section>
     <section class="field-card"><h3>会员权益</h3><p>现金购物、积分不足现金补差、会员价商品。纯积分兑换无需会员。</p></section>
-    <button type="button" class="primary" style="width:100%;margin-top:18px" data-action="member">${memberActive ? "续费 1 个月会员（30天）" : "开通 1 个月会员（30天）"}</button>
+    <button type="button" class="primary" style="width:100%;margin-top:18px" data-action="member">买产品送会员</button>
     ${Number(state.config?.membershipMonthlyPoints || 0) > 0 ? `<button type="button" class="secondary" style="width:100%;margin-top:10px" data-action="memberPoints">使用 ${Number(state.config.membershipMonthlyPoints)} 积分开通 30 天</button>` : ""}
   `;
 }

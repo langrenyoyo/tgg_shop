@@ -798,6 +798,10 @@ function updateTicket(state, ticketId, input = {}, actor = {}) {
 function updateConfig(state, input, actor = {}) {
   const { activeConfig, retiredAdKeys } = require("../config/active-config");
   if (Object.keys(input).some(key => retiredAdKeys.has(key))) return { ok: false, status: 410, error: "广告配置已下线" };
+  if (Object.hasOwn(input, "coinSignin")) {
+    const error = require("./coin-signin-config").validate(input.coinSignin);
+    if (error) return { ok: false, status: 400, error };
+  }
   if (Object.prototype.hasOwnProperty.call(input, "deliveryTimeSlots")) {
     const slots = input.deliveryTimeSlots;
     if (!Array.isArray(slots) || !slots.length || slots.length > 12 || slots.some(slot => typeof slot !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/.test(slot.trim()) || slot.trim().slice(0, 5) >= slot.trim().slice(6))) {
@@ -874,6 +878,7 @@ function updateConfig(state, input, actor = {}) {
   const nextWithdrawMax = Number(input.withdrawMaxAmount ?? state.config.withdrawMaxAmount ?? 500);
   if (nextWithdrawMin > nextWithdrawMax) return { ok: false, status: 400, error: "单笔提现上限不能低于最低提现金额" };
   const before = { ...state.config };
+  if (Object.hasOwn(input, "coinSignin")) state.config.coinSignin = structuredClone(input.coinSignin);
   const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
   const numberKeys = [
     "membershipMonthlyPrice",

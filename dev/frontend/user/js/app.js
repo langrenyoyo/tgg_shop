@@ -117,6 +117,7 @@ function browserPaymentChannel() {
 }
 
 async function completeBrowserPayment(payment) {
+  if (payment.payScene === "member_open") throw new Error("已停止会员直接付费，请查询历史订单或联系客服");
   if (payment.channel === "mock_pay") {
     await api(`/api/payments/${payment.payNo}/mock-callback`, { method: "POST", body: JSON.stringify({ status: "paid" }) });
     return true;
@@ -146,8 +147,8 @@ function hasCashItems(items = []) {
   return items.some((item) => !item.purePointsOnly);
 }
 
-function ensureMemberForCash(items = [], message = "下单需要先购买月会员") {
-  if (!hasCashItems(items) || isMemberUser()) return true;
+function ensureMemberForCash(items = [], message = "现金购物需要有效会员，可购买专区商品获赠会员") {
+  if (!hasCashItems(items) || isMemberUser() || items.every(item => item.category === "买商品送会员" && item.membershipGiftDays > 0)) return true;
   toast(message);
   state.page = "membership";
   renderPage(state);
@@ -167,7 +168,7 @@ function getDeliveryAddressId() {
 async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
   if (!items.length) return toast("请先选择商品");
   if (!paymentMode) return toast("纯积分商品请单独结算，避免出现现金补差入口");
-  if (!ensureMemberForCash(items, "下单需要先购买月会员")) return;
+  if (!ensureMemberForCash(items)) return;
   const payload = {
     paymentMode,
     fulfillmentType,
@@ -204,13 +205,10 @@ async function createOrder(productId, paymentMode, fulfillmentType = "pickup") {
   return submitOrder([{ ...product, quantity: 1 }], paymentMode, fulfillmentType);
 }
 
-async function subscribeMember(paymentMode = "cash") {
+async function subscribeMember(paymentMode = "pure_points") {
+  if (paymentMode !== "pure_points") return;
   const payment = await api("/api/member/payments", { method: "POST", body: JSON.stringify({ months: 1, paymentMode, channel: browserPaymentChannel(), idempotencyKey: `web-member:${paymentMode}:${Date.now()}` }) });
-  if (payment.status === "pending" && !await completeBrowserPayment(payment)) {
-    state.payments = await safeApi("/api/payments", state.payments);
-    renderPage(state);
-    return;
-  }
+  if (payment.status !== "paid" || Number(payment.amount) !== 0) throw new Error("积分开通结果待核对，请刷新或联系客服");
   state.user = await api("/api/me");
   state.payments = await safeApi("/api/payments", state.payments);
   toast("月会员已开通，可以使用现金购物");
@@ -503,7 +501,7 @@ function bindGlobalActions() {
       });
       return;
     }
-    if (action === "member" || action === "memberCash") subscribeMember("cash").catch((error) => toast(error.message));
+    if (action === "member" || action === "memberCash") { state.categoryMode = "all"; state.search = ""; setCategoryName("买商品送会员"); }
     if (action === "memberPoints") subscribeMember("pure_points").catch((error) => toast(error.message));
     if (action === "withdraw") requestWithdrawal().catch((error) => toast(error.message));
   });

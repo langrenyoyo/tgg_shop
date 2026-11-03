@@ -10,6 +10,7 @@
     "pages/submission/index",
     "pages/shop/index",
     "pages/tasks/index",
+    "pages/coin-signin/index",
     "pages/task-detail/index",
     "pages/task-submit/index",
     "pages/invite/index",

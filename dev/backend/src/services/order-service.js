@@ -4,24 +4,12 @@ const orderRepository = require("../repositories/order-repository");
 const paymentService = require("./payment-service");
 const { mockOperationsEnabled } = require("../config/runtime-safety");
 const refundService = require("./refund-service");
+const { publicUser } = require("../http/http-utils");
 
 function subscribeMember(state, user, input = {}) {
   const paymentResult = paymentService.createMemberPayment(state, user, input);
   if (!paymentResult.ok) return paymentResult;
-  if (input.autoPay === false) return paymentResult;
-  if (!mockOperationsEnabled()) return { ...paymentResult, pendingProviderPayment: true };
-
-  const callbackResult = paymentService.mockPaymentCallback(state, paymentResult.payment.payNo, {
-    status: "paid",
-    thirdTradeNo: input.thirdTradeNo
-  });
-  if (!callbackResult.ok) return callbackResult;
-  return {
-    ok: true,
-    user: callbackResult.result.user,
-    payment: callbackResult.payment,
-    idempotent: Boolean(paymentResult.idempotent || callbackResult.idempotent)
-  };
+  return { ...paymentResult, user: publicUser(user) };
 }
 
 function listUserOrders(state, userId, query = {}) {

@@ -147,7 +147,7 @@ async function handleAdminRoutes(ctx) {
     const result = adminService.createProduct(state, await ctx.readBody(req), check);
     return send(ctx.res, result.ok ? 201 : result.status, result.ok ? result.product : { error: result.error });
   }
-  if (req.method === "GET" && url.pathname === "/api/admin/config") return send(ctx.res, 200, require("../config/active-config").activeConfig(state.config));
+  if (req.method === "GET" && url.pathname === "/api/admin/config") return send(ctx.res, 200, { ...require("../config/active-config").activeConfig(state.config), coinSignin: require("../services/coin-signin-config").config(state), coinSigninVerificationReady: require("../services/signin-ad-verifier").configured() });
   if (req.method === "GET" && url.pathname === "/api/admin/monthly-point-rewards") {
     const check = adminService.requirePermission(req, state, "config:read");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });

@@ -12,6 +12,7 @@ const { createLfwinClient } = require("./lfwin-payment-client");
 const { exclusive, isBusy } = require("./operation-lock");
 const { releaseOrderPoints } = require("../domain/point-reservations");
 const { isolatedNonProduction, cashPaymentsEnabled } = require("../config/runtime-safety");
+const { grantMembership } = require("../domain/product-membership");
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
@@ -62,28 +63,22 @@ function createGoodsPayment(state, orderId, input = {}) {
 }
 
 function createMemberPayment(state, user, input = {}) {
+  if (input.paymentMode !== "pure_points") return { ok: false, status: 403, error: "已停止直接付费开通会员，请购买买商品送会员专区商品，或使用积分开通" };
   const months = Number(input.months || 1);
   if (!Number.isInteger(months) || months < 1 || months > 12) return { ok: false, status: 400, error: "会员月数必须为 1 至 12" };
-  const price = Number(state.config.membershipMonthlyPrice || 19.9);
   const pointsRequired = Math.max(0, Math.floor(Number(state.config.membershipMonthlyPoints || 0) * months));
-  const paymentMode = input.paymentMode || "cash";
-  if (!cashPaymentsEnabled() && paymentMode !== "pure_points") return { ok: false, status: 503, error: "当前环境已关闭现金支付" };
-  const pointCashRate = Math.max(0, Number(state.config.membershipPointCashRate ?? 0.01));
-  if (!["cash", "pure_points", "points_plus_cash"].includes(paymentMode)) return { ok: false, status: 400, error: "不支持的会员开通方式" };
-  if (paymentMode === "pure_points" && (!pointsRequired || user.points < pointsRequired)) return { ok: false, status: 400, error: pointsRequired ? `积分不足，开通需要 ${pointsRequired} 积分` : "后台尚未配置积分开通会员" };
-  if (paymentMode === "points_plus_cash" && !pointsRequired) return { ok: false, status: 400, error: "后台尚未配置积分开通会员" };
-  const pointAmount = paymentMode === "cash" ? 0 : Math.min(user.points, pointsRequired);
-  const amount = roundMoney(Math.max(0, price * months - pointAmount * pointCashRate));
-  if (!isolatedNonProduction() && amount > 0 && String(input.channel || "mock_pay").startsWith("mock")) return { ok: false, status: 400, error: "Mock payment is disabled outside an isolated test environment" };
+  const paymentMode = "pure_points";
   const idempotencyKey = input.idempotencyKey || `payment:member:${user.id}:${months}:${Date.now()}`;
   const existing = state.paymentLedger.find((payment) => payment.idempotencyKey === idempotencyKey);
-  if (existing) return existing.userId === user.id && existing.payScene === "member_open" ? { ok: true, payment: existing, idempotent: true } : { ok: false, status: 409, error: "支付请求标识已被使用" };
+  if (existing) return existing.userId === user.id && existing.payScene === "member_open"
+    && existing.metadata?.paymentMode === "pure_points" && Number(existing.metadata?.months) === months
+    ? { ok: true, payment: existing, idempotent: true } : { ok: false, status: 409, error: "支付请求标识已被用于其他开通方式或时长" };
+  if (!Number.isSafeInteger(pointsRequired) || !pointsRequired || user.points < pointsRequired) return { ok: false, status: 400, error: pointsRequired ? `积分不足，开通需要 ${pointsRequired} 积分` : "后台尚未配置积分开通会员" };
 
-  // Recover the same unpaid subscription across page reloads and devices.
+  // Reconcile a historical cash payment before granting another membership.
   const pending = state.paymentLedger.find(payment => payment.userId === user.id && payment.payScene === "member_open" && payment.status === "pending" && payment.direction === "in");
   if (pending) {
-    if (Number(pending.metadata?.months) !== months || (input.paymentMode && pending.metadata?.paymentMode !== input.paymentMode)) return { ok: false, status: 409, error: "已有待支付会员订单，请先处理原订单" };
-    return { ok: true, payment: pending, idempotent: true };
+    return { ok: false, status: 409, error: "存在历史会员订单待核对，请查询付款结果或联系客服处理" };
   }
 
   const now = new Date().toISOString();
@@ -94,12 +89,12 @@ function createMemberPayment(state, user, input = {}) {
     userId: user.id,
     payScene: "member_open",
     direction: "in",
-    amount,
+    amount: 0,
     pointAmount: 0,
-    channel: paymentMode === "pure_points" ? "points" : (input.channel || "mock_pay"),
-    status: paymentMode === "pure_points" || amount === 0 ? "paid" : "pending",
+    channel: "points",
+    status: "paid",
     idempotencyKey,
-    metadata: { months, membershipMonthlyPrice: price, paymentMode, pointsRequired, pointAmount, membershipPointCashRate: pointCashRate },
+    metadata: { months, paymentMode, pointsRequired, pointAmount: pointsRequired },
     createdAt: now,
     updatedAt: now
   };
@@ -121,6 +116,7 @@ async function initiateLfwinPayment(state, payNo, input = {}, client = createLfw
 }
 
 async function initiateLfwinLocked(state, payment, input, client) {
+  if (payment.payScene === "member_open") return { ok: false, status: 403, error: "已停止会员直接付费，历史订单仅支持查询付款结果和售后处理" };
   if (payment.status !== "pending") return { ok: false, status: 400, error: "Payment is not pending" };
   if (!cashPaymentsEnabled() && Number(payment.amount || 0) > 0) return { ok: false, status: 503, error: "当前环境已关闭现金支付" };
   if (payment.orderId && state.orders.find(order => order.id === payment.orderId)?.status !== "pending_payment") return { ok: false, status: 409, error: "订单状态已变更" };
@@ -264,6 +260,7 @@ function mockPaymentCallback(state, payNo, input = {}) {
   const payment = state.paymentLedger.find((item) => item.payNo === payNo || item.id === payNo);
   if (!payment) return { ok: false, status: 404, error: "支付单不存在" };
   if (payment.status === "paid") return { ok: true, payment, result: getPaymentResult(state, payment), idempotent: true };
+  if (payment.payScene === "member_open") return { ok: false, status: 403, error: "已停止会员直接付费，不支持模拟支付历史会员订单" };
   if (payment.status !== "pending") return { ok: false, status: 400, error: "支付单状态不允许回调" };
 
   const now = new Date().toISOString();
@@ -456,6 +453,7 @@ function applyPaidPayment(state, payment) {
     }
   }
   order.pointsReserved = false;
+  grantMembership(state, order);
 
   logOrderStatus(state, order, {
     fromStatus: "pending_payment",

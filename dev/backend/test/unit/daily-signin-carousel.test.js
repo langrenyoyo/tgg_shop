@@ -9,19 +9,15 @@ const admin = require("../../src/services/admin-service");
 
 const actor = { role: { id: "super_admin", permissions: ["*"] } };
 
-test("daily signin awards points once per Shanghai day", () => {
+test("retired one-click signin cannot award points or coins", () => {
   const state = createSeed();
   const user = state.users[0];
-  const before = user.points;
+  const before = JSON.stringify(state);
   const first = growth.claimDailySignin(state, user);
   const second = growth.claimDailySignin(state, user);
-  assert.equal(first.signedToday, true);
-  assert.equal(first.idempotent, false);
-  assert.equal(second.idempotent, true);
-  assert.equal(user.points, before + state.config.dailySigninRewardPoints);
-  const entries = state.pointLedger.filter(item => item.changeType === "signin");
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0].idempotencyKey, `signin:${user.id}:${first.date}`);
+  assert.equal(first.status, 410);
+  assert.equal(second.status, 410);
+  assert.equal(JSON.stringify(state), before);
 });
 
 test("home carousel accepts exactly three or five valid images and exposes them", () => {

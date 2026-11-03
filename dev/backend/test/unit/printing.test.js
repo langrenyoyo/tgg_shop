@@ -65,7 +65,8 @@ test("paid pure-points and cash orders queue once; pending cash and membership n
   payOrder(cash.state,cash.order.id);payOrder(cash.state,cash.order.id);
   assert.equal(cash.state.printing.jobs.length,1);
   assert.equal(cash.state.printing.jobs[0].test,true);
-  const membership=payments.createMemberPayment(state,state.users.find(u=>u.id==="u_1001"),{idempotencyKey:"print-member-test"});
+  state.config.membershipMonthlyPoints=1;
+  const membership=payments.createMemberPayment(state,state.users.find(u=>u.id==="u_1001"),{paymentMode:"pure_points",idempotencyKey:"print-member-test"});
   assert.equal(membership.ok,true,membership.error);
   assert.equal(payments.mockPaymentCallback(state,membership.payment.payNo).ok,true);
   assert.equal(state.printing.jobs.length,1);

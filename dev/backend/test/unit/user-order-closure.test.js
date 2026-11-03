@@ -7,6 +7,7 @@ const { shipOrder, deliverOrder } = require("../../src/domain/fulfillment-rules"
 const orders = require("../../src/services/user-order-service");
 const payments = require("../../src/services/payment-service");
 const { handleOrderRoutes } = require("../../src/routes/order-routes");
+const goodsPayment = require("../helpers/goods-payment");
 
 test("cancellation restores stock once and blocks later payment", async () => {
   const state = createSeed();
@@ -47,7 +48,7 @@ test("order endpoints hide another user's order and refund details", async () =>
 test("native payment exposes only validated invocation fields and does not settle locally", async () => {
   const state = createSeed();
   const user = state.users[0];
-  const payment = payments.createMemberPayment(state, user, { channel: "lfwin_wechat_mini", idempotencyKey: "mini-1" }).payment;
+  const payment = goodsPayment(state);
   const before = user.memberUntil;
   const result = await payments.initiateLfwinPayment(state, payment.payNo, { method: "wechat_mini" }, {
     createPayment: async () => ({ orderid: "provider-1", secret: "do-not-expose", pay_info: JSON.stringify({ timeStamp: "123456", nonceStr: "nonce", package: "prepay_id=abc", signType: "RSA", paySign: "signature", extra: "hidden" }) })
@@ -62,7 +63,7 @@ test("native payment exposes only validated invocation fields and does not settl
 
 test("production rejects simulated settlement even for a real-channel payment", () => {
   const state = createSeed();
-  const payment = payments.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const payment = goodsPayment(state);
   const previous = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";
   try { assert.equal(payments.mockPaymentCallback(state, payment.payNo).status, 403); assert.equal(payment.status, "pending"); }

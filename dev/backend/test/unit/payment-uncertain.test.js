@@ -5,10 +5,11 @@ const { createSeed } = require("../../src/data/seed");
 const { createOrder } = require("../../src/domain/rules");
 const payments = require("../../src/services/payment-service");
 const orders = require("../../src/services/user-order-service");
+const goodsPayment = require("../helpers/goods-payment");
 
 test("missing provider configuration leaves payment retryable without an uncertain submission", async () => {
   const state = createSeed();
-  const payment = payments.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const payment = goodsPayment(state);
   const before = JSON.stringify(state);
   const result = await payments.initiateLfwinPayment(state, payment.payNo, {}, {
     isConfigured: () => false,
@@ -50,7 +51,7 @@ test("provider timeout preserves inventory and recovers paid order using merchan
 
 test("query for uncertain payment cannot bind another merchant order", async () => {
   const state = createSeed();
-  const payment = payments.createMemberPayment(state, state.users[0], { channel: "lfwin_wechat_mini" }).payment;
+  const payment = goodsPayment(state);
   payment.metadata.lfwin = { submissionState: "unknown" };
   const result = await payments.queryLfwinPayment(state, payment.payNo, { queryPayment: async () => ({ mch_orderid: "someone-else", orderid: "wrong", paystatus: "0" }) });
   assert.equal(result.ok, false);

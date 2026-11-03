@@ -59,7 +59,7 @@ function createSeed() {
         { key: "drink", category: "饮料", name: "饮料", icon: "/assets/icons/category-drink.png", enabled: true }
       ],
       homePromotionEntries: [
-        { title: "签到领积分", text: "每日签到有奖励", tone: "green", page: "dailySignin" },
+        { title: "签到领金币", text: "完成签到领固定金币", tone: "green", page: "dailySignin" },
         { title: "会员专享", text: "现金购权益", tone: "orange", page: "membership" },
         { title: "纯积分兑", text: "无需现金", tone: "blue", page: "pointsExchange" }
       ],

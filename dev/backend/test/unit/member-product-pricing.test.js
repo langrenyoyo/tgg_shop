@@ -17,7 +17,7 @@ test("unsubscribed and expired users cannot place cash orders, without mutations
         const before = JSON.stringify(state);
         const result = createOrder(state, "u_1002", { paymentMode, items: [{ productId, quantity: 1 }] });
         assert.equal(result.ok, false);
-        assert.match(result.error, /先购买月会员/);
+        assert.match(result.error, /需要有效会员/);
         assert.equal(JSON.stringify(state), before);
       }
     }

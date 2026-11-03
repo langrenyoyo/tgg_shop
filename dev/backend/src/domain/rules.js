@@ -7,6 +7,7 @@ const ledgerRepository = require("../repositories/ledger-repository");
 const inventoryRepository = require("../repositories/inventory-repository");
 const { zonedTimeToUtc } = require("../time-zone");
 const { cashPaymentsEnabled, productionLike } = require("../config/runtime-safety");
+const { isGiftProduct, grantMembership } = require("./product-membership");
 
 function isMember(user) {
   return Boolean(user.memberUntil && new Date(user.memberUntil).getTime() > Date.now());
@@ -55,7 +56,8 @@ function assertCanCreateOrder(state, user, payload) {
   const fulfillmentType = payload.fulfillmentType || "pickup";
   if (!cashPaymentsEnabled() && paymentMode !== "pure_points") return { ok: false, error: "当前环境已关闭现金支付" };
   if (!["pure_points", "cash", "points_plus_cash"].includes(paymentMode)) return { ok: false, error: "支付方式无效" };
-  if (paymentMode !== "pure_points" && !isMember(user)) return { ok: false, error: "下单需要先购买月会员，会员到期请先续费" };
+  const giftPurchase = paymentMode === "cash" && payload.items.every(item => isGiftProduct(productRepository.findActiveById(state, item.productId)));
+  if (paymentMode !== "pure_points" && !isMember(user) && !giftPurchase) return { ok: false, error: "普通商品现金购物需要有效会员；可购买买商品送会员专区商品获赠会员，或使用积分开通" };
   if (!["pickup", "delivery"].includes(fulfillmentType)) return { ok: false, error: "配送方式无效" };
   if (fulfillmentType === "pickup" && !state.config.pickupEnabled) return { ok: false, error: "自提暂未开放" };
   if (fulfillmentType === "delivery" && !state.config.deliveryEnabled) return { ok: false, error: "送货上门暂未开放" };
@@ -79,6 +81,7 @@ function assertCanCreateOrder(state, user, payload) {
   let pointAmount = 0;
   let pointsRequired = 0;
   let deliveryFee = 0;
+  let membershipGiftDays = 0;
   const items = [];
   const seenProducts = new Set();
 
@@ -95,9 +98,10 @@ function assertCanCreateOrder(state, user, payload) {
     items.push({ productId: product.id, quantity, title: product.name });
 
     if (paymentMode === "cash") {
-      if (!isMember(user)) return { ok: false, error: "现金购物需要先开通月会员" };
+      if (!isMember(user) && !giftPurchase) return { ok: false, error: "现金购物需要先开通月会员" };
       if (!product.supportsCash || product.cashPrice == null) return { ok: false, error: `${product.name} 不支持现金购买` };
       cashAmount += product.cashPrice * quantity;
+      if (isGiftProduct(product)) membershipGiftDays += product.membershipGiftDays * quantity;
     } else if (paymentMode === "points_plus_cash") {
       if (!isMember(user)) return { ok: false, error: "积分不足现金补差需要先开通月会员" };
       if (!product.supportsPoints) return { ok: false, error: `${product.name} 不支持积分抵扣` };
@@ -118,7 +122,7 @@ function assertCanCreateOrder(state, user, payload) {
   }
 
   if (fulfillmentType === "delivery" && state.config.deliveryFeeEnabled && paymentMode !== "pure_points") {
-    if (!isMember(user) && paymentMode !== "pure_points") return { ok: false, error: "配送费现金支付需要会员" };
+    if (!isMember(user) && !giftPurchase) return { ok: false, error: "配送费现金支付需要会员" };
     deliveryFee = deliveryFeeFor(state.config, cashAmount);
     cashAmount += deliveryFee;
   }
@@ -144,7 +148,8 @@ function assertCanCreateOrder(state, user, payload) {
     if (usedToday + cashAmount > cashDailyAmountLimit + 0.005) return { ok: false, error: `每日现金购买金额不能超过 ${cashDailyAmountLimit} 元` };
   }
 
-  return { ok: true, items, cashAmount: roundMoney(cashAmount), pointAmount, paymentMode, fulfillmentType, deliveryFee, addressId: savedAddress?.id || null };
+  if (!Number.isSafeInteger(membershipGiftDays) || membershipGiftDays > 36500) return { ok: false, error: "单笔赠送会员时长不能超过 36500 天，请减少数量" };
+  return { ok: true, items, membershipGiftDays, cashAmount: roundMoney(cashAmount), pointAmount, paymentMode, fulfillmentType, deliveryFee, addressId: savedAddress?.id || null };
 }
 
 function createOrder(state, userId, payload) {
@@ -171,6 +176,7 @@ function createOrder(state, userId, payload) {
     idempotencyKey: payload.idempotencyKey || null,
     userId,
     items: check.items,
+    membershipGiftDays: check.membershipGiftDays,
     paymentMode: check.paymentMode,
     cashAmount: check.cashAmount,
     pointAmount: check.pointAmount,
@@ -273,6 +279,7 @@ function payOrder(state, orderId) {
     reason: "模拟现金支付成功"
   });
   require("../services/print-model").enqueueAuto(state, order);
+  grantMembership(state, order);
   saveState();
   return { ok: true, order };
 }

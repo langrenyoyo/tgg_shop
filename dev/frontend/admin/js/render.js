@@ -4,9 +4,11 @@ import { productEditor } from "./product-editor.js";
 import { adminAccountsView } from "./admin-accounts.js";
 import { stationAccountsView } from "./station-accounts.js";
 import { printingView } from "./printing.js";
+import { signinSettings } from "./signin-settings.js";
 let currentAdminState = {};
 
 const viewPermissions = {
+  coinSignin: "config:read",
   printing: "order:read",
   dashboard: "order:read",
   orders: "order:read",
@@ -32,6 +34,7 @@ const viewPermissions = {
 };
 
 const titles = {
+  coinSignin: ["签到设置", "随机轮数、广告顺序、间隔倒计时和固定金币奖励"],
   printing: ["打印管理", "芯烨云设备、自动小票、任务核对与补打"],
   dashboard: ["运营仪表盘", "订单、商品、积分、权限和异常补偿的运营总览"],
   orders: ["订单管理", "查看自提、配送、支付和退款状态"],
@@ -164,6 +167,7 @@ export function renderAdminPage(state) {
   }
 
   const views = {
+    coinSignin: value => signinSettings(value, escapeAttr, can),
     printing: value => printingView(value),
     dashboard,
     orders,
@@ -259,20 +263,21 @@ function deliveryTeam(state) {
 
 function products(state) {
   const rows = (state.products || []).filter(item => (!state.productStatus || item.status === state.productStatus) && (!state.productSearch || `${item.name} ${item.category} ${item.id}`.includes(state.productSearch)));
-  const editing = (state.products || []).find(item => item.id === state.editingProductId) || { purePointsOnly: Boolean(state.newProductPure) };
+  const editing = (state.products || []).find(item => item.id === state.editingProductId) || { purePointsOnly: Boolean(state.newProductPure), ...(state.newProductGift ? { category: "买商品送会员", membershipGiftDays: 30, supportsPoints: false } : {}) };
   return `
     ${statCards([["商品数", (state.products || []).length], ["上架", (state.products || []).filter((item) => item.status === "on").length], ["低库存", (state.products || []).filter((item) => Number(item.stock || 0) <= 20).length], ["纯积分", (state.products || []).filter((item) => item.purePointsOnly).length]])}
     ${state.productMessage ? `<p class="note" role="status">${escapeHtml(state.productMessage)}</p>` : ""}
+    ${gatedAction("product:write", '<button class="action" type="button" data-product-new-gift>新增买商品送会员专区商品</button>')}
     <form class="admin-form product-filter" data-product-filter-form><label>搜索商品<input name="search" value="${escapeAttr(state.productSearch || "")}" placeholder="名称、分类或商品编号"></label><label>状态<select name="status"><option value="">全部</option><option value="on" ${state.productStatus === "on" ? "selected" : ""}>已上架</option><option value="off" ${state.productStatus === "off" ? "selected" : ""}>草稿 / 已下架</option></select></label><button class="action" type="submit">查询</button><button class="action" type="button" data-product-edit-cancel>新增商品</button></form>
     <section class="table-panel">${simpleTable("商品上架与销售设置", ["商品", "分类", "价格", "库存", "状态", "操作"], rows.map((item) => [
       trustedHtml(`${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${escapeHtml(item.id)}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`),
-      item.category || "-",
-      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `会员价 ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
+      item.membershipGiftDays > 0 ? `${item.category} · 每件赠 ${item.membershipGiftDays} 天` : item.category || "-",
+      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
       item.stock ?? 0,
       badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)
     ]))}</section>
-    <datalist id="product-categories">${[...new Set(["水果", "蔬菜", "肉禽", "乳品", "零食", "日用", "纯积分", ...(state.products || []).map(item => item.category)])].filter(Boolean).map(category => `<option value="${escapeAttr(category)}"></option>`).join("")}</datalist>
+    <datalist id="product-categories">${[...new Set(["买商品送会员", "水果", "蔬菜", "肉禽", "乳品", "零食", "日用", "纯积分", ...(state.products || []).map(item => item.category)])].filter(Boolean).map(category => `<option value="${escapeAttr(category)}"></option>`).join("")}</datalist>
     ${productEditor(editing, { escapeHtml, can })}
     ${can("stock:write") ? `<section class="table-panel">${simpleTable("库存变动记录", ["时间", "商品", "变动数量", "变动前", "变动后", "原因"], (state.inventoryLedger || []).slice(0, 30).map(item => [formatDateTime(item.createdAt), item.productName || item.productId, item.quantityDelta, item.stockBefore, item.stockAfter, item.reason]))}</section>` : ""}
     <section class="table-panel">${simpleTable("退款商品验收", ["退款单", "订单", "商品", "状态", "处理"], (state.refundReturns || []).map(item => [
@@ -300,7 +305,7 @@ function homeOps(state) {
     { key: "snack", category: "零食", name: "零食", icon: "/assets/icons/category-snack.png", enabled: true, sort: 3 },
     { key: "drink", category: "饮料", name: "饮料", icon: "/assets/icons/category-drink.png", enabled: true, sort: 4 }
   ];
-  const promotionEntries = (config.homePromotionEntries || []).map(item => item.title === "新人礼包" && item.page === "membership" ? { ...item, title: "签到领积分", text: "每日签到有奖励", page: "dailySignin" } : item);
+  const promotionEntries = (config.homePromotionEntries || []).map(item => item.title === "新人礼包" && item.page === "membership" ? { ...item, title: "签到领金币", text: "完成签到领固定金币", page: "dailySignin" } : item);
   const field = (label, name, value, required = false) => `<label>${label}<input name="${name}" value="${escapeAttr(value || "")}" ${required ? "required" : ""}></label>`;
   return `<section class="panel"><div class="panel-head"><h2>首页运营配置</h2><span>保存后在用户首页生效</span></div>
     ${state.homeMessage ? `<p role="status">${escapeHtml(state.homeMessage)}</p>` : ""}
@@ -581,9 +586,9 @@ function settings(state) {
       <form class="config-form" data-config-form="points">
         <fieldset class="settings-group">
         <legend>会员开通</legend>
-        <label>会员月价<input name="membershipMonthlyPrice" type="number" min="0" step="0.01" value="${config.membershipMonthlyPrice ?? 19.9}"></label>
+        <label>历史会员月价（直接付费已停用）<input name="membershipMonthlyPrice" type="number" readonly min="0" step="0.01" value="${config.membershipMonthlyPrice ?? 19.9}"></label>
         <label>30 天所需积分（0 表示关闭）<input name="membershipMonthlyPoints" type="number" min="0" value="${config.membershipMonthlyPoints ?? 0}"><small>大于 0 时，用户会员页显示积分开通入口。</small></label>
-        <label>积分抵扣现金（元/积分）<input name="membershipPointCashRate" type="number" min="0" step="0.001" value="${config.membershipPointCashRate ?? 0.01}"></label>
+        <label>历史会员积分抵现比例（已停用）<input name="membershipPointCashRate" type="number" readonly min="0" step="0.001" value="${config.membershipPointCashRate ?? 0.01}"></label>
         </fieldset>
         <fieldset class="settings-group" id="settings-growth">
         <legend>邀请与榜单</legend>

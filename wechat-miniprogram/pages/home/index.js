@@ -44,7 +44,7 @@ Page({
     const page = e.currentTarget.dataset.page;
     if (page === "membership") return this.goMembership();
     if (page === "pointsExchange") return this.goExchange();
-    if (page === "dailySignin") return this.goTasks();
+    if (page === "dailySignin") return wx.navigateTo({ url: "/pages/coin-signin/index" });
     if (page === "invite") return this.goInvite();
     if (page === "earn") return this.goTasks();
     this.goShop();

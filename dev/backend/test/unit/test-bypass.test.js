@@ -2,9 +2,9 @@ process.env.TGG_STORE_MODE = "memory";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createSeed } = require("../../src/data/seed");
-const paymentService = require("../../src/services/payment-service");
 const accountService = require("../../src/services/account-service");
 const bypass = require("../../src/services/test-bypass-service");
+const goodsPayment = require("../helpers/goods-payment");
 
 test("test bypass settles an own payment and completes an own withdrawal", () => {
   const oldEnv = { node: process.env.NODE_ENV, bypass: process.env.TGG_TEST_BYPASS_ENABLED };
@@ -13,10 +13,10 @@ test("test bypass settles an own payment and completes an own withdrawal", () =>
   try {
     const state = createSeed();
     const user = state.users.find(item => item.id === "u_1001");
-    const payment = paymentService.createMemberPayment(state, user, { months: 1, paymentMode: "cash", channel: "mock_pay", idempotencyKey: "test-member-payment" }).payment;
+    const payment = goodsPayment(state, { channel: "mock_pay" });
     assert.equal(bypass.enabled(), true);
     assert.equal(bypass.settlePayment(state, user, payment.payNo).ok, true);
-    assert.equal(user.isMember || user.role === "member", true);
+    assert.equal(state.orders.find(order => order.id === payment.orderId).status, "paid");
 
     user.withdrawableBalance = 10;
     const requested = accountService.requestWithdrawal(state, user, { amount: 1, channel: "wechat", idempotencyKey: "test-withdrawal" });

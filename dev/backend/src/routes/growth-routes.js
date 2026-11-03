@@ -1,4 +1,5 @@
 const growthService = require("../services/growth-service");
+const coinSignin = require("../services/coin-signin-service");
 
 async function handleGrowthRoutes(ctx) {
   const { req, url, state, user, send } = ctx;
@@ -19,6 +20,13 @@ async function handleGrowthRoutes(ctx) {
     return send(ctx.res, 200, growthService.getInviteStats(state, user));
   }
 
+  if (req.method === "GET" && url.pathname === "/api/coin-signin/status") return send(ctx.res, 200, coinSignin.status(state, user));
+  const coinAction = url.pathname.match(/^\/api\/coin-signin\/(start|round|step|claim)$/);
+  if (req.method === "POST" && coinAction) {
+    const input = await ctx.readBody(req);
+    const result = await coinSignin.execute(state, user, coinAction[1], input || {});
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result : { error: result.error });
+  }
   if (req.method === "GET" && url.pathname === "/api/daily-signin/status") return send(ctx.res, 200, growthService.getDailySigninStatus(state, user));
   if (req.method === "POST" && url.pathname === "/api/daily-signin/claim") {
     const result = growthService.claimDailySignin(state, user);

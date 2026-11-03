@@ -10,7 +10,7 @@ Page({
     this.setData({ cartQuantities: productCart.quantities() });
     const version = this.version = (this.version || 0) + 1;
     this.setData({ allProducts: [], products: [], categories: [], error: "", loading: true });
-    try { const rows = await request("/api/products"); const products = Array.isArray(rows) ? rows.map(item => ({ ...item, image: resolveAssetUrl(item.image) })) : []; if (version !== this.version) return; const categories = ["纯积分兑换", ...new Set(products.map(item => item.category).filter(Boolean))]; const category = categories.includes(this.data.category) || this.data.category === "" ? this.data.category : (categories[0] || ""); this.setData({ allProducts: products, categories, category, error: "" }, () => this.filter()); }
+    try { const rows = await request("/api/products"); const products = Array.isArray(rows) ? rows.map(item => ({ ...item, image: resolveAssetUrl(item.image) })) : []; if (version !== this.version) return; const categories = [...new Set(["买商品送会员", "纯积分兑换", ...products.map(item => item.category).filter(Boolean)])]; const category = categories.includes(this.data.category) || this.data.category === "" ? this.data.category : (categories[0] || ""); this.setData({ allProducts: products, categories, category, error: "" }, () => this.filter()); }
     catch (error) { if (version === this.version) this.setData({ error: error.message }); }
     finally { if (version === this.version) this.setData({ loading: false }); }
   },

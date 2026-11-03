@@ -16,7 +16,7 @@ function nextStep(order) {
   return "请刷新查看最新订单进度。";
 }
 Page({
-  data: { order: null, reason: "", error: "", busy: false, loading: false },
+  data: { order: null, reason: "", error: "", busy: false, loading: false, needLogin: false },
   onLoad(query) { this.id = query.id; },
   onShow() { this.load(); },
   onUnload() { this.version = (this.version || 0) + 1; this.ownerId = null; },
@@ -31,8 +31,8 @@ Page({
     const owner = wx.getStorageSync("tgg_user")?.id;
     if (this.ownerId !== owner) this.setData({ reason: "" });
     this.ownerId = owner;
-    this.setData({ order: null, error: "", loading: false });
-    if (!this.sameOwner(owner)) { this.setData({ error: "请登录后查看订单" }); return; }
+    this.setData({ order: null, error: "", loading: false, needLogin: false });
+    if (!this.sameOwner(owner)) { this.setData({ error: "请登录后查看订单", needLogin: true }); return; }
     if (!this.id) { this.setData({ error: "缺少订单编号，请从订单列表重新进入" }); return; }
     this.setData({ loading: true });
     try {
@@ -40,8 +40,8 @@ Page({
       if (!order) throw new Error("订单不存在");
       const refunds = await Promise.all((order.refunds || []).map(refund => request("/api/refunds/" + encodeURIComponent(refund.id)).catch(() => refund)));
       if (version !== this.version || !this.sameOwner(owner)) return;
-      this.setData({ order: { ...order, statusText: ORDER_LABELS[order.status] || "订单状态待核对", fulfillmentText: ["cancelled", "closed", "refunded"].includes(order.status) ? "" : FULFILLMENT_LABELS[order.fulfillmentStatus] || "", nextStep: nextStep(order), refunds: refunds.map(refund => ({ ...refund, statusText: REFUND_LABELS[refund.status] || "退款状态待核对" })) }, error: "" });
-    } catch (error) { if (version === this.version && this.sameOwner(owner)) this.setData({ error: error.message }); }
+      this.setData({ order: { ...order, statusText: ORDER_LABELS[order.status] || "订单状态待核对", fulfillmentText: ["cancelled", "closed", "refunded"].includes(order.status) ? "" : FULFILLMENT_LABELS[order.fulfillmentStatus] || "", nextStep: nextStep(order), refunds: refunds.map(refund => ({ ...refund, statusText: REFUND_LABELS[refund.status] || "退款状态待核对" })) }, error: "", needLogin: false });
+    } catch (error) { if (version === this.version) this.setData({ error: error.message, needLogin: error.statusCode === 401 }); }
     finally { if (version === this.version) this.setData({ loading: false }); }
   },
   reason(e) { this.setData({ reason: e.detail.value }); },

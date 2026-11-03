@@ -39,7 +39,7 @@ Page({
   buy() {
     if (!this.canPurchase()) return;
     if (!wx.getStorageSync("tgg_token")) return this.open("/pages/login/index");
-    if (!this.data.isMember) return this.open("/pages/membership/index");
+    if (!this.data.isMember && !(this.data.product.membershipGiftDays > 0 && this.data.product.category === "买商品送会员")) return this.open("/pages/membership/index");
     cart.writeCheckout([{ productId: this.id, quantity: 1 }]);
     this.open("/pages/checkout/index");
   },
