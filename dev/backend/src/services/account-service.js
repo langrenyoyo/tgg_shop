@@ -120,6 +120,11 @@ function getWithdrawal(state, userId, withdrawalId) {
   const withdrawal = state.withdrawRequests.find((item) => item.userId === userId && item.id === withdrawalId);
   return withdrawal ? publicWithdrawal(withdrawal) : null;
 }
+function getWithdrawalTransferPackage(state, userId, withdrawalId) {
+  const withdrawal = state.withdrawRequests.find((item) => item.userId === userId && item.id === withdrawalId);
+  if (!withdrawal || withdrawal.status !== "processing" || !withdrawal.transferPackage) return null;
+  return { id: withdrawal.id, package: withdrawal.transferPackage, mchId: process.env.HF_WECHAT_MCH_ID || "", transferState: withdrawal.transferState || "WAIT_USER_CONFIRM" };
+}
 function publicWithdrawal(withdrawal = {}) {
   const fields = [
     "id", "amount", "fee", "arrivalAmount", "channel", "status", "recipientName",
@@ -193,6 +198,15 @@ function requestWithdrawal(state, user, input) {
     return { ok: false, status: 503, error: "汇服八方提现通道未配置，请联系管理员" };
   }
 
+  const transferMode = huifu.transferMode();
+  if (!["AUTH", "CONFIRM", "CONFIRM_AUTH"].includes(transferMode)) {
+    return { ok: false, status: 503, error: "提现模式配置无效，请联系管理员" };
+  }
+  const authorization = transferMode === "AUTH" ? huifu.activeAuthorization(user) : null;
+  if (productionLike() && transferMode === "AUTH" && !authorization) {
+    return { ok: false, status: 409, error: "尚未取得有效的微信收款授权，暂不可提现，请联系管理员" };
+  }
+
   const fee = roundMoney(amount * feeRate);
   const arrivalAmount = roundMoney(amount - fee);
   if (arrivalAmount <= 0) return { ok: false, status: 400, error: "扣除手续费后到账金额必须大于 0 元" };
@@ -208,6 +222,8 @@ function requestWithdrawal(state, user, input) {
     idempotencyKey: requestedKey || `withdraw:${user.id}:${Date.now()}`,
     openid: requestedOpenid,
     recipientName: requestedRecipientName,
+    transferMode,
+    authorizationNo: authorization?.authorizationNo || null,
     provider: "huifu_bafang",
     providerStatus: "pending",
     createdAt: now,
@@ -323,6 +339,7 @@ module.exports = {
   deleteAddress,
   listWithdrawals,
   getWithdrawal,
+  getWithdrawalTransferPackage,
   publicWithdrawal,
   requestWithdrawal,
   getPointLedger,

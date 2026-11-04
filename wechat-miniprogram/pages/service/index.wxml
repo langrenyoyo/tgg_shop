@@ -53,6 +53,7 @@
       <view class="muted">申请 {{item.createdAt}}</view>
       <view>手续费 ¥{{item.fee}}，预计到账 ¥{{item.arrivalAmount}}</view>
       <view wx:if="{{item.reason}}">处理说明：{{item.reason}}</view>
+      <button wx:if="{{item.status === 'processing' && item.transferState === 'WAIT_USER_CONFIRM'}}" class="btn btn-primary" data-id="{{item.id}}" bindtap="confirmTransfer" loading="{{submitting}}" disabled="{{submitting}}">确认收款</button>
     </view>
   </block>
 

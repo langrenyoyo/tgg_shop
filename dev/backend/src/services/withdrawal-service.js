@@ -63,8 +63,25 @@ async function submitWithdrawal(state, id) {
   if (!w) return { ok: false, status: 404, error: "提现记录不存在" };
   if (!["approved", "processing"].includes(w.status)) return { ok: false, status: 400, error: "提现单当前状态不可提交" };
   if (!huifu.isConfigured()) return { ok: false, status: 503, error: "汇服八方提现通道未配置" };
+  const transferMode = huifu.transferMode(w);
+  if (!["AUTH", "CONFIRM", "CONFIRM_AUTH"].includes(transferMode)) return { ok: false, status: 503, error: "提现模式配置无效，请联系管理员" };
+  let authorization = null;
+  if (transferMode === "AUTH") {
+    authorization = huifu.activeAuthorization(userRepository.findById(state, w.userId));
+    if (!authorization || authorization.openid !== w.openid
+      || (w.authorizationNo && w.authorizationNo !== authorization.authorizationNo)
+      || (w.status === "processing" && !w.authorizationNo)) {
+      return { ok: false, status: 409, error: "微信收款授权无效、已失效或与提现单不匹配，请重新授权后再处理" };
+    }
+  }
   const appid = process.env.HF_WECHAT_APPID || process.env.WECHAT_APPID;
   const merchantOrderId = w.providerMerchantOrderId || providerOrderId(w.id);
+  // Persist the mode, authorization and stable provider key before the request,
+  // including an uncertain request that may have reached the provider.
+  w.transferMode = transferMode;
+  if (authorization) w.authorizationNo = authorization.authorizationNo;
+  w.providerMerchantOrderId = merchantOrderId;
+  await saveState();
   const result = await huifu.submit({
     merchant_id: process.env.HF_MERCHANT_ID,
     appid,
@@ -74,8 +91,8 @@ async function submitWithdrawal(state, id) {
     remark: String(w.remark || `TGG提现${w.id}`).slice(0, 32),
     user_recv_perception: process.env.HF_USER_RECV_PERCEPTION || "现金奖励",
     callback_url: process.env.HF_CALLBACK_URL,
-    transfer_mode: w.transferMode || process.env.HF_TRANSFER_MODE || "CONFIRM",
-    authorization_no: w.authorizationNo,
+    transfer_mode: transferMode,
+    authorization_no: w.authorizationNo || undefined,
     user_display_name: w.recipientName || w.userDisplayName || "TGG用户",
     authorization_notify_url: process.env.HF_AUTHORIZATION_NOTIFY_URL,
     user_recv_type: process.env.HF_USER_RECV_TYPE || "CONFIRM_PAGE"

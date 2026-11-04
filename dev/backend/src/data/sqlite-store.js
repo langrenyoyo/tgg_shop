@@ -48,6 +48,7 @@ function runMigrations(database) {
   const userColumns = new Set(database.prepare("PRAGMA table_info(app_user)").all().map(column => column.name));
   if (!userColumns.has("wechat_openid")) database.exec("ALTER TABLE app_user ADD COLUMN wechat_openid TEXT;");
   if (!userColumns.has("avatar_url")) database.exec("ALTER TABLE app_user ADD COLUMN avatar_url TEXT;");
+  if (!userColumns.has("huifu_authorization_json")) database.exec("ALTER TABLE app_user ADD COLUMN huifu_authorization_json TEXT;");
   database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_wechat_openid ON app_user(wechat_openid);");
   const stationAccountColumns = new Set(database.prepare("PRAGMA table_info(station_account)").all().map(column => column.name));
   if (!stationAccountColumns.has("wechat_openid")) database.exec("ALTER TABLE station_account ADD COLUMN wechat_openid TEXT;");
@@ -72,7 +73,7 @@ function ensureWithdrawalColumns(database) {
     ["provider_order_id", "TEXT"], ["provider_merchant_order_id", "TEXT"], ["provider_result_code", "TEXT"],
     ["provider_status", "TEXT"], ["provider_error_code", "TEXT"], ["provider_error_message", "TEXT"],
     ["transfer_package", "TEXT"], ["transfer_state", "TEXT"], ["submitted_at", "TEXT"],
-    ["callback_at", "TEXT"], ["last_query_at", "TEXT"]
+    ["callback_at", "TEXT"], ["last_query_at", "TEXT"], ["transfer_mode", "TEXT"], ["authorization_no", "TEXT"]
   ];
   for (const [name, definition] of additions) if (!columns.has(name)) database.exec(`ALTER TABLE withdraw_request ADD COLUMN ${name} ${definition};`);
 }
@@ -117,7 +118,7 @@ function readState(database) {
 
   const users = database
     .prepare(
-      "SELECT id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid, avatar_url FROM app_user ORDER BY id"
+      "SELECT id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid, avatar_url, huifu_authorization_json FROM app_user ORDER BY id"
     )
     .all()
     .map((row) => ({
@@ -131,6 +132,7 @@ function readState(database) {
       inviteCode: row.invite_code,
       wechatOpenid: row.wechat_openid,
       avatarUrl: row.avatar_url || "",
+      huifuAuthorization: parseJsonValue(row.huifu_authorization_json, null),
       signinStreak: row.signin_streak,
       status: row.status || "active"
     }));
@@ -379,7 +381,7 @@ function readState(database) {
 
   const withdrawRequests = database
     .prepare(
-      "SELECT id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, created_at, updated_at FROM withdraw_request ORDER BY created_at DESC"
+      "SELECT id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, transfer_mode, authorization_no, created_at, updated_at FROM withdraw_request ORDER BY created_at DESC"
     )
     .all()
     .map((row) => ({
@@ -397,6 +399,7 @@ function readState(database) {
       providerErrorCode: row.provider_error_code, providerErrorMessage: row.provider_error_message,
       transferPackage: parseJsonValue(row.transfer_package, null), transferState: row.transfer_state,
       submittedAt: row.submitted_at, callbackAt: row.callback_at, lastQueryAt: row.last_query_at,
+      transferMode: row.transfer_mode, authorizationNo: row.authorization_no,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -668,7 +671,7 @@ function insertState(database, state) {
   }
 
   const insertUser = database.prepare(
-    "INSERT INTO app_user (id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO app_user (id, nickname, phone, user_type, member_until, points, withdrawable_balance_cents, invite_code, signin_streak, status, wechat_openid, avatar_url, huifu_authorization_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const user of state.users) {
     insertUser.run(
@@ -683,7 +686,8 @@ function insertState(database, state) {
       user.signinStreak || 0,
       user.status || "active",
       user.wechatOpenid || null,
-      user.avatarUrl || null
+      user.avatarUrl || null,
+      user.huifuAuthorization == null ? null : JSON.stringify(user.huifuAuthorization)
     );
   }
 
@@ -891,7 +895,7 @@ function insertState(database, state) {
   }
 
   const insertWithdrawRequest = database.prepare(
-    "INSERT INTO withdraw_request (id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO withdraw_request (id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, transfer_mode, authorization_no, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const item of state.withdrawRequests || []) {
     insertWithdrawRequest.run(
@@ -908,6 +912,7 @@ function insertState(database, state) {
       item.providerStatus || "pending", item.providerErrorCode || null, item.providerErrorMessage || null,
       item.transferPackage == null ? null : JSON.stringify(item.transferPackage), item.transferState || null,
       item.submittedAt || null, item.callbackAt || null, item.lastQueryAt || null,
+      item.transferMode || null, item.authorizationNo || null,
       item.createdAt || new Date().toISOString(),
       item.updatedAt || item.createdAt || new Date().toISOString()
     );

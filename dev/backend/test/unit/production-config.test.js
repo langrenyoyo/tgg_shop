@@ -43,6 +43,19 @@ test("PostgreSQL staging is held to production configuration requirements", () =
   assert.equal(validateRuntimeConfig({ ...staging, TGG_ADMIN_PASSWORD_HASH: "" }).ok, false);
 });
 
+test("Huifu defaults to AUTH without a mini-program confirmation merchant ID", () => {
+  const hf = {
+    ...valid, HF_BASE_URL: "https://tfapi.huifubafang.com", HF_COM_KEY: "k".repeat(16),
+    HF_COM_SECRET: "s".repeat(32), HF_CALLBACK_TOKEN: "t".repeat(32), HF_MERCHANT_ID: "merchant001",
+    HF_CALLBACK_URL: `https://shop.taoguoguo.cc/api/providers/huifu/withdraw-callback?token=${"t".repeat(32)}`
+  };
+  assert.deepEqual(validateRuntimeConfig(hf).errors, []);
+  assert.equal(validateRuntimeConfig({ ...hf, HF_TRANSFER_MODE: "AUTH" }).ok, true);
+  assert.equal(validateRuntimeConfig({ ...hf, HF_TRANSFER_MODE: "CONFIRM" }).ok, false);
+  assert.equal(validateRuntimeConfig({ ...hf, HF_TRANSFER_MODE: "CONFIRM", HF_WECHAT_MCH_ID: "1900000001" }).ok, true);
+  assert.equal(validateRuntimeConfig({ ...hf, HF_TRANSFER_MODE: "invalid" }).ok, false);
+});
+
 test("pg-mem bypass is limited to non-production isolated tests", () => {
   const base = {
     NODE_ENV: "test",
@@ -128,6 +141,7 @@ test("production initialization generates distinct secrets once and never prints
   for (const secret of secrets) assert.match(secret, /^[a-f0-9]{64}$/);
   assert.equal(env.LFWIN_BASE_URL, "https://api2.lfwin.com");
   assert.equal(env.WECHAT_APPID, valid.WECHAT_APPID);
+  assert.equal(env.HF_TRANSFER_MODE, "AUTH");
   assert.equal(env.LFWIN_NOTIFY_URL, valid.LFWIN_NOTIFY_URL);
   assert.equal(env.HF_CALLBACK_URL, `https://shop.taoguoguo.cc/api/providers/huifu/withdraw-callback?token=${env.HF_CALLBACK_TOKEN}`);
   assert.equal(spawnSync(process.execPath, args).status, 1);

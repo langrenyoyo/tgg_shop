@@ -1,4 +1,24 @@
 const crypto = require("crypto");
+function transferMode(withdrawal = {}, env = process.env) {
+  // Orders submitted before mode snapshots were introduced used CONFIRM.
+  // Never reinterpret those orders when the deployment's default changes.
+  const legacySubmitted = withdrawal.status === "processing" || withdrawal.submittedAt || withdrawal.providerMerchantOrderId;
+  return withdrawal.transferMode || (legacySubmitted ? "CONFIRM" : env.HF_TRANSFER_MODE || "AUTH");
+}
+function activeAuthorization(user, env = process.env, now = Date.now()) {
+  // This is an internal record, not a provider response or client input schema.
+  // Only a verified provider integration may write user.huifuAuthorization.
+  const auth = user?.huifuAuthorization;
+  const openid = String(user?.wechatOpenid || user?.openid || "").trim();
+  const appid = env.HF_WECHAT_APPID || env.WECHAT_APPID;
+  if (!auth || auth.status !== "active" || !openid || !appid || !env.HF_MERCHANT_ID) return null;
+  if (auth.openid !== openid || auth.appid !== appid || auth.merchantId !== env.HF_MERCHANT_ID) return null;
+  if (typeof auth.authorizationNo !== "string" || !auth.authorizationNo.trim()) return null;
+  const verifiedAt = Date.parse(auth.verifiedAt);
+  if (!Number.isFinite(verifiedAt) || verifiedAt > now) return null;
+  if (auth.expiresAt && !(Date.parse(auth.expiresAt) > now)) return null;
+  return { ...auth, authorizationNo: auth.authorizationNo.trim() };
+}
 function isConfigured(env = process.env) {
   const appId = env.HF_WECHAT_APPID || env.WECHAT_APPID;
   return Boolean(env.HF_COM_KEY && env.HF_COM_SECRET && env.HF_BASE_URL && env.HF_MERCHANT_ID && appId);
@@ -33,4 +53,4 @@ function decodeCallback(body, env = process.env) {
   if (body.data && typeof body.data === "object") return body.data;
   return body;
 }
-module.exports = { isConfigured, encryptData, decryptData, decodeCallback, submit: (p, e, f) => request("/wx/transfer/pay", p, e, f), query: (p, e, f) => request("/wx/transfer/query", p, e, f) };
+module.exports = { transferMode, activeAuthorization, isConfigured, encryptData, decryptData, decodeCallback, submit: (p, e, f) => request("/wx/transfer/pay", p, e, f), query: (p, e, f) => request("/wx/transfer/query", p, e, f) };

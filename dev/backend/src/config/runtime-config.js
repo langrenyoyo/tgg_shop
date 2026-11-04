@@ -169,6 +169,7 @@ function validateRuntimeConfig(env = process.env, strict) {
       if (env.HF_TRANSFER_MODE && !["CONFIRM", "CONFIRM_AUTH", "AUTH"].includes(env.HF_TRANSFER_MODE)) errors.push("HF_TRANSFER_MODE must be CONFIRM, CONFIRM_AUTH or AUTH");
       if (env.HF_USER_RECV_TYPE && !["CONFIRM_PAGE", "RED_PACKET"].includes(env.HF_USER_RECV_TYPE)) errors.push("HF_USER_RECV_TYPE must be CONFIRM_PAGE or RED_PACKET");
       if (String(env.HF_CALLBACK_TOKEN || "").trim().length < 24) errors.push("HF_CALLBACK_TOKEN must be at least 24 characters when production withdrawal provider is configured");
+      if ((env.HF_TRANSFER_MODE || "AUTH") === "CONFIRM" && !/^\d{5,20}$/.test(String(env.HF_WECHAT_MCH_ID || ""))) errors.push("HF_WECHAT_MCH_ID must be the bound WeChat Pay merchant ID for CONFIRM transfer mode");
     }
   }
 

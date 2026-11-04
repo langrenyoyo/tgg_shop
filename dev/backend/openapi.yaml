@@ -1805,6 +1805,22 @@ paths:
         "400":
           description: Balance or minimum amount violation
 
+  /api/withdrawals/{withdrawalId}/transfer-package:
+    get:
+      tags: [Orders]
+      summary: Get the current user's pending WeChat transfer confirmation package
+      description: Returns a package only for the owner's processing withdrawal; the mini-program passes it to wx.requestMerchantTransfer.
+      parameters:
+        - name: withdrawalId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Transfer confirmation package
+        "404":
+          description: No pending confirmation package
+
   /api/points-ledger:
     get:
       tags: [Orders]

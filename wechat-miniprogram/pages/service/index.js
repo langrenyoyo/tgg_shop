@@ -71,6 +71,26 @@ Page({
   },
   input(e) { this.setData({ amount: e.detail.value, withdrawAmountError: this.amountError(e.detail.value) }); },
   text(e) { this.setData({ content: e.detail.value }); },
+  async confirmTransfer(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id || this.data.submitting) return;
+    this.setData({ submitting: true });
+    try {
+      const transfer = await request(`/api/withdrawals/${encodeURIComponent(id)}/transfer-package`);
+      if (!transfer.package || !transfer.mchId) throw new Error("提现确认信息不完整，请联系客服");
+      if (typeof wx.requestMerchantTransfer !== "function") throw new Error("当前微信版本不支持商户转账确认，请升级微信后重试");
+      await new Promise((resolve, reject) => wx.requestMerchantTransfer({
+        mchId: transfer.mchId,
+        appId: wx.getAccountInfoSync?.().miniProgram?.appId,
+        package: transfer.package,
+        success: resolve,
+        fail: reject
+      }));
+      wx.showToast({ title: "已提交收款确认", icon: "success" });
+      await this.load();
+    } catch (error) { wx.showToast({ title: error.errMsg || error.message || "确认收款失败", icon: "none" }); }
+    finally { this.setData({ submitting: false }); }
+  },
   async submit() {
     if (this.data.submitting) return;
     if (this.type === "withdraw" && (this.data.balanceBelowMinimum || this.data.withdrawLimitReached || !this.data.amount || this.amountError(this.data.amount))) {

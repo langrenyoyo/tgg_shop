@@ -66,7 +66,10 @@ test("live PostgreSQL rejects approval before changing an old pending withdrawal
   assert.equal(JSON.stringify(state), before);
 });
 
-test("production withdrawal approval authorizes provider submission without paying early", () => {
+test("production withdrawal approval authorizes provider submission without paying early", t => {
+  const oldMode = process.env.HF_TRANSFER_MODE;
+  process.env.HF_TRANSFER_MODE = "CONFIRM";
+  t.after(() => { if (oldMode === undefined) delete process.env.HF_TRANSFER_MODE; else process.env.HF_TRANSFER_MODE = oldMode; });
   const old = process.env.NODE_ENV; process.env.NODE_ENV = "production";
   try {
     const state = createSeed(), user = state.users.find(item => item.id === "u_1001");
@@ -86,6 +89,9 @@ test("production withdrawal approval authorizes provider submission without payi
 });
 
 test("provider submission failure does not expose the raw provider response", async t => {
+  const oldMode = process.env.HF_TRANSFER_MODE;
+  process.env.HF_TRANSFER_MODE = "CONFIRM";
+  t.after(() => { if (oldMode === undefined) delete process.env.HF_TRANSFER_MODE; else process.env.HF_TRANSFER_MODE = oldMode; });
   const state = createSeed();
   const user = state.users.find(item => item.id === "u_1001");
   user.withdrawableBalance = 100;

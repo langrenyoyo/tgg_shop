@@ -48,6 +48,9 @@ test("A02 monthly ranking excludes previous-month points", () => {
 });
 
 test("A03 withdrawal provider receives the net amount after the configured fee", async t => {
+  const oldMode = process.env.HF_TRANSFER_MODE;
+  process.env.HF_TRANSFER_MODE = "CONFIRM";
+  t.after(() => { if (oldMode === undefined) delete process.env.HF_TRANSFER_MODE; else process.env.HF_TRANSFER_MODE = oldMode; });
   const configured = huifu.isConfigured;
   const submit = huifu.submit;
   t.after(() => { huifu.isConfigured = configured; huifu.submit = submit; });

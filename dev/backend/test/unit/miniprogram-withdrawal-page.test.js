@@ -7,6 +7,7 @@ const vm = require("node:vm");
 function setup(balance = 600) {
   const requests = [];
   const toasts = [];
+  const transfers = [];
   let page;
   const now = new Date().toISOString();
   const rows = [
@@ -20,14 +21,15 @@ function setup(balance = 600) {
       if (url === "/api/me") return { withdrawableBalance: balance };
       if (url === "/api/config") return { withdrawMinAmount: 1, withdrawFeeRate: 0.01, withdrawDailyCountLimit: 2, withdrawDailyAmountLimit: 500, deliveryTimeZone: "Asia/Shanghai" };
       if (url === "/api/withdrawals" && !options) return rows;
+      if (url.endsWith("/transfer-package")) return { package: "provider-package", mchId: "1900000001" };
       return { ok: true };
     } }),
-    wx: { showToast: value => toasts.push(value) }
+    wx: { showToast: value => toasts.push(value), getAccountInfoSync: () => ({ miniProgram: { appId: "wx123" } }), requestMerchantTransfer: options => { transfers.push(options); options.success({}); } }
   });
   page.setData = value => Object.assign(page.data, value);
   page.type = "withdraw";
   page.setData({ type: "withdraw" });
-  return { page, requests, toasts };
+  return { page, requests, toasts, transfers };
 }
 
 test("withdraw page presents configured limits and excludes rejected requests from today's usage", async () => {
@@ -57,4 +59,15 @@ test("withdraw page explains a below-minimum balance and does not submit", async
 
   assert.equal(toasts.at(-1).title, "可提现余额未达到最低提现金额");
   assert.equal(requests.some(item => item.url === "/api/withdrawals" && item.options?.method === "POST"), false);
+});
+
+test("withdraw page requests the owner's provider package and invokes WeChat merchant transfer confirmation", async () => {
+  const { page, requests, transfers } = setup();
+  await page.confirmTransfer({ currentTarget: { dataset: { id: "wd-processing" } } });
+
+  assert.equal(requests.some(item => item.url === "/api/withdrawals/wd-processing/transfer-package"), true);
+  assert.equal(transfers.length, 1);
+  assert.equal(transfers[0].mchId, "1900000001");
+  assert.equal(transfers[0].appId, "wx123");
+  assert.equal(transfers[0].package, "provider-package");
 });

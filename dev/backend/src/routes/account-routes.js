@@ -46,6 +46,11 @@ async function handleAccountRoutes(ctx) {
   if (req.method === "GET" && url.pathname === "/api/withdrawals") {
     return send(ctx.res, 200, accountService.listWithdrawals(state, user.id));
   }
+  const withdrawalPackageMatch = url.pathname.match(/^\/api\/withdrawals\/([^/]+)\/transfer-package$/);
+  if (req.method === "GET" && withdrawalPackageMatch) {
+    const transferPackage = accountService.getWithdrawalTransferPackage(state, user.id, withdrawalPackageMatch[1]);
+    return send(ctx.res, transferPackage ? 200 : 404, transferPackage || { error: "当前提现暂无待确认收款包" });
+  }
   const withdrawalMatch = url.pathname.match(/^\/api\/withdrawals\/([^/]+)$/);
   if (req.method === "GET" && withdrawalMatch) {
     const withdrawal = accountService.getWithdrawal(state, user.id, withdrawalMatch[1]);
