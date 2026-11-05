@@ -850,6 +850,8 @@ function updateConfig(state, input, actor = {}) {
     membershipMonthlyPrice: value => value >= 0,
     membershipMonthlyPoints: value => Number.isInteger(value) && value >= 0,
     membershipPointCashRate: value => value > 0,
+    pointBalanceExchangeRate: value => value > 0 && value <= 1,
+    pointBalanceExchangeMinPoints: value => Number.isInteger(value) && value >= 1 && value <= 1000000,
     deliveryFee: value => value >= 0,
     deliveryFreeThreshold: value => value >= 0,
     deliveryCutoffHour: value => Number.isInteger(value) && value >= 0 && value <= 23,
@@ -879,11 +881,13 @@ function updateConfig(state, input, actor = {}) {
   if (nextWithdrawMin > nextWithdrawMax) return { ok: false, status: 400, error: "单笔提现上限不能低于最低提现金额" };
   const before = { ...state.config };
   if (Object.hasOwn(input, "coinSignin")) state.config.coinSignin = structuredClone(input.coinSignin);
-  const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired"];
+  const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired", "pointBalanceExchangeEnabled"];
   const numberKeys = [
     "membershipMonthlyPrice",
     "membershipMonthlyPoints",
     "membershipPointCashRate",
+    "pointBalanceExchangeRate",
+    "pointBalanceExchangeMinPoints",
     "deliveryFee",
     "deliveryFreeThreshold",
     "deliveryCutoffHour",

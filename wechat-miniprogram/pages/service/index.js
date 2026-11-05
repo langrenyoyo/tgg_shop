@@ -1,5 +1,5 @@
 const { request } = require("../../utils/api");
-const TITLES = { payments: "支付记录", ranking: "积分排行榜", withdraw: "提现", customerService: "在线客服", feedback: "意见反馈", business: "商务合作", recruiting: "代理申请", pickupSite: "自提点" };
+const TITLES = { payments: "支付记录", ranking: "积分排行榜", pointExchange: "积分换余额", withdraw: "提现", customerService: "在线客服", feedback: "意见反馈", business: "商务合作", recruiting: "代理申请", pickupSite: "自提点" };
 const WITHDRAWAL_STATUSES = { pending_review: "审核中", approved: "审核通过，待提交", processing: "处理中", success: "已到账", failed: "提现失败", rejected: "已驳回", cancelled: "已撤销" };
 function withdrawalDayKey(value, timeZone) {
   const date = new Date(value);
@@ -11,14 +11,21 @@ function withdrawalDayKey(value, timeZone) {
   }
 }
 Page({
-  data: { type: "payments", title: "支付记录", rows: [], balance: 0, config: {}, withdrawRules: {}, withdrawNoticeLines: [], withdrawLimitReached: false, balanceBelowMinimum: false, withdrawAmountError: "", loading: true, error: "", needLogin: false, submitting: false },
+  data: { type: "payments", title: "支付记录", rows: [], balance: 0, points: 0, config: {}, exchangeAmount: "", exchangePreview: "0.00", exchangePointsError: "", exchangeEnabled: false, withdrawRules: {}, withdrawNoticeLines: [], withdrawLimitReached: false, balanceBelowMinimum: false, withdrawAmountError: "", loading: true, error: "", needLogin: false, submitting: false },
   onLoad(query) { this.type = query.type || "payments"; this.setData({ type: this.type, title: TITLES[this.type] || "用户服务" }); this.load(); },
   async load() {
     this.setData({ loading: true, error: "" });
     try {
       if (this.type === "payments") this.setData({ rows: await request("/api/payments") });
       else if (this.type === "ranking") this.setData({ rows: (await request("/api/ranking")).rows || [] });
-      else if (this.type === "withdraw") {
+      else if (this.type === "pointExchange") {
+        const [user, config] = await Promise.all([request("/api/me"), request("/api/config")]);
+        const rate = Number(config.pointBalanceExchangeRate || 0.1);
+        const minimum = Number(config.pointBalanceExchangeMinPoints || 100);
+        this.exchangeContext = { rate, minimum, points: Number(user.points || 0) };
+        this.setData({ points: Number(user.points || 0), config, exchangeEnabled: config.pointBalanceExchangeEnabled === true,
+          exchangeAmount: "", exchangePreview: "0.00", exchangePointsError: this.exchangeError(this.data.exchangeAmount) });
+      } else if (this.type === "withdraw") {
         const [user, config, rows] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/withdrawals")]);
         const dailyCountLimit = Number(config.withdrawDailyCountLimit || 0);
         const dailyAmountLimit = Number(config.withdrawDailyAmountLimit || 0);
@@ -69,7 +76,20 @@ Page({
     if (Number(context.dailyAmountLimit || 0) > 0 && Number(context.usedToday || 0) + amount > Number(context.dailyAmountLimit) + 0.005) return "提现金额超过今日剩余额度";
     return "";
   },
+  exchangeError(raw) {
+    if (!String(raw || "").trim()) return "";
+    const points = Number(raw), context = this.exchangeContext || {};
+    if (!Number.isSafeInteger(points) || points <= 0) return "请输入整数积分";
+    if (points < Number(context.minimum || 100)) return `最低兑换 ${Number(context.minimum || 100)} 积分`;
+    if (points > Number(context.points || 0)) return "积分余额不足";
+    const amount = points * Number(context.rate || 0.1);
+    return amount < 0.01 ? "兑换金额不足 0.01 元" : "";
+  },
   input(e) { this.setData({ amount: e.detail.value, withdrawAmountError: this.amountError(e.detail.value) }); },
+  exchangeInput(e) {
+    const value = Number(e.detail.value), rate = Number(this.exchangeContext?.rate || 0);
+    this.setData({ exchangeAmount: e.detail.value, exchangePreview: Number.isFinite(value) && value > 0 ? (value * rate).toFixed(2) : "0.00", exchangePointsError: this.exchangeError(e.detail.value) });
+  },
   text(e) { this.setData({ content: e.detail.value }); },
   async confirmTransfer(e) {
     const id = e.currentTarget.dataset.id;
@@ -100,9 +120,13 @@ Page({
     }
     this.setData({ submitting: true });
     try {
-      if (this.type === "withdraw") await request("/api/withdrawals", { method: "POST", data: { amount: Number(this.data.amount || 0), channel: "wechat" } });
+      if (this.type === "pointExchange") {
+        const error = this.exchangeError(this.data.exchangeAmount);
+        if (!this.data.exchangeAmount || error) throw new Error(error || "请输入兑换积分");
+        await request("/api/points/exchange-balance", { method: "POST", data: { points: Number(this.data.exchangeAmount), idempotencyKey: `pbe:${Date.now()}:${Math.random().toString(36).slice(2)}` } });
+      } else if (this.type === "withdraw") await request("/api/withdrawals", { method: "POST", data: { amount: Number(this.data.amount || 0), channel: "wechat" } });
       else await request("/api/tickets", { method: "POST", data: { type: this.type === "customerService" ? "customer_service" : this.type, subject: this.data.title, content: this.data.content || "" } });
-      wx.showToast({ title: "提交成功" }); this.setData({ amount: "", content: "" }); await this.load();
+      wx.showToast({ title: this.type === "pointExchange" ? "兑换成功" : "提交成功" }); this.setData({ amount: "", exchangeAmount: "", exchangePreview: "0.00", content: "" }); await this.load();
     } catch (error) { wx.showToast({ title: error.message, icon: "none" }); } finally { this.setData({ submitting: false }); }
   }
 });

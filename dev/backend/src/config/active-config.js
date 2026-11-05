@@ -9,6 +9,7 @@ const retiredAdKeys = new Set([
 const publicConfigKeys = new Set([
   "coinSignin",
   "membershipMonthlyPrice", "membershipMonthlyPoints", "membershipPointCashRate",
+  "pointBalanceExchangeEnabled", "pointBalanceExchangeRate", "pointBalanceExchangeMinPoints",
   "pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "deliveryFee",
   "deliveryFreeThreshold", "deliveryFeeTiers", "deliveryCutoffHour",
   "deliveryTimeSlots", "deliveryTimeZone", "deliveryServiceAreaKeywords",

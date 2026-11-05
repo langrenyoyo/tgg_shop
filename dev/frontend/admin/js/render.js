@@ -589,6 +589,9 @@ function settings(state) {
         <label>历史会员月价（直接付费已停用）<input name="membershipMonthlyPrice" type="number" readonly min="0" step="0.01" value="${config.membershipMonthlyPrice ?? 19.9}"></label>
         <label>30 天所需积分（0 表示关闭）<input name="membershipMonthlyPoints" type="number" min="0" value="${config.membershipMonthlyPoints ?? 0}"><small>大于 0 时，用户会员页显示积分开通入口。</small></label>
         <label>历史会员积分抵现比例（已停用）<input name="membershipPointCashRate" type="number" readonly min="0" step="0.001" value="${config.membershipPointCashRate ?? 0.01}"></label>
+        <label class="check wide"><input name="pointBalanceExchangeEnabled" type="checkbox" ${config.pointBalanceExchangeEnabled ? "checked" : ""}> 开放积分兑换可提现余额</label>
+        <label>兑换比例（元/积分）<input name="pointBalanceExchangeRate" type="number" min="0.000001" max="1" step="0.000001" value="${config.pointBalanceExchangeRate ?? 0.1}"><small>默认 0.1，即 10 积分兑换 1 元。</small></label>
+        <label>单次最低兑换积分<input name="pointBalanceExchangeMinPoints" type="number" min="1" max="1000000" step="1" value="${config.pointBalanceExchangeMinPoints ?? 100}"></label>
         </fieldset>
         <fieldset class="settings-group" id="settings-growth">
         <legend>邀请与榜单</legend>
@@ -603,7 +606,7 @@ function settings(state) {
         <label>月结分钟（0–59）<input name="monthlyPointRewardSettlementMinute" type="number" min="0" max="59" value="${config.monthlyPointRewardSettlementMinute ?? 10}"></label>
         <label class="wide">月度奖励规则 JSON<textarea name="monthlyPointRewardRulesJson" rows="7" spellcheck="false">${escapeHtml(rulesJson)}</textarea><small>threshold 为达标积分，rewardPoints 为奖励积分；请保留 JSON 数组格式。</small></label>
         </fieldset>
-        <div class="settings-save"><span>统一保存会员、邀请、榜单及月度奖励设置</span><button class="action" type="submit">保存积分配置</button></div>
+        <div class="settings-save"><span>统一保存会员、积分兑换、邀请、榜单及月度奖励设置</span><button class="action" type="submit">保存积分配置</button></div>
       </form>
     </section>
     </div>

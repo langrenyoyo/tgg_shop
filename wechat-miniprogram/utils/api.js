@@ -44,7 +44,7 @@ function loginRequired() {
 function clearSession() {
   sessionVersion += 1;
   refreshPromise = null;
-  ["tgg_token", "tgg_refresh_token", "tgg_user"].forEach(key => wx.removeStorageSync(key));
+  ["tgg_token", "tgg_token_expires_at", "tgg_refresh_token", "tgg_user"].forEach(key => wx.removeStorageSync(key));
   Object.assign(getApp().globalData, { token: "", user: null });
 }
 
@@ -54,6 +54,8 @@ function saveSession(res, { refreshed = false } = {}) {
     refreshPromise = null;
   }
   wx.setStorageSync("tgg_token", res.token);
+  if (res.expiresAt) wx.setStorageSync("tgg_token_expires_at", res.expiresAt);
+  else wx.removeStorageSync("tgg_token_expires_at");
   if (res.refreshToken) wx.setStorageSync("tgg_refresh_token", res.refreshToken);
   else if (!refreshed) wx.removeStorageSync("tgg_refresh_token");
   if (res.user) wx.setStorageSync("tgg_user", res.user);
@@ -61,9 +63,60 @@ function saveSession(res, { refreshed = false } = {}) {
   Object.assign(getApp().globalData, { token: res.token, user: res.user || wx.getStorageSync("tgg_user") || null });
 }
 
-function request(path, { method = "GET", data = null, retry = true } = {}) {
+function tokenExpiresSoon(token) {
+  let expiresAt = Date.parse(wx.getStorageSync("tgg_token_expires_at") || "");
+  // Older installations only cached the token. Decode its expiry as a refresh
+  // hint; the server still verifies the signature and session on every request.
+  if (!Number.isFinite(expiresAt) && token && wx.base64ToArrayBuffer) {
+    try {
+      let encoded = token.split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
+      encoded += "=".repeat((4 - encoded.length % 4) % 4);
+      const bytes = new Uint8Array(wx.base64ToArrayBuffer(encoded));
+      const json = decodeURIComponent(Array.from(bytes, byte => "%" + byte.toString(16).padStart(2, "0")).join(""));
+      const exp = JSON.parse(json).exp;
+      if (typeof exp === "number" && Number.isFinite(exp)) expiresAt = exp * 1000;
+    } catch { /* Unknown token formats are checked by the server. */ }
+  }
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now() + 30000;
+}
+
+function refreshSession(version, token) {
+  if (version !== sessionVersion) return Promise.reject(sessionChanged());
+  // A late failure from an older token can reuse the refreshed session.
+  if (token !== getToken()) return Promise.resolve();
+  if (!refreshPromise) {
+    const refreshToken = wx.getStorageSync("tgg_refresh_token");
+    if (!refreshToken) {
+      clearSession();
+      return Promise.reject(loginRequired());
+    }
+    const pending = request("/api/auth/refresh", { method: "POST", data: { refreshToken }, retry: false })
+      .then(result => {
+        if (version !== sessionVersion) throw sessionChanged();
+        saveSession(result, { refreshed: true });
+      }).catch(error => {
+        if (version === sessionVersion && error.statusCode === 401) {
+          clearSession();
+          throw loginRequired();
+        }
+        throw error;
+      }).finally(() => { if (refreshPromise === pending) refreshPromise = null; });
+    refreshPromise = pending;
+  }
+  return refreshPromise;
+}
+
+function request(path, { method = "GET", data = null, retry = true, authRequired = false } = {}) {
   const version = sessionVersion;
   const token = getToken();
+  const authPath = path.startsWith("/api/auth/");
+  if (!authPath && authRequired && !token && !wx.getStorageSync("tgg_refresh_token")) return Promise.reject(loginRequired());
+  if (!authPath && authRequired && retry && (refreshPromise || !token || tokenExpiresSoon(token))) {
+    return refreshSession(version, token).then(() => {
+      if (version !== sessionVersion) throw sessionChanged();
+      return request(path, { method, data, retry: false, authRequired });
+    });
+  }
   return new Promise((resolve, reject) => {
     wx.request({
       url: `${getBaseUrl()}${path}`,
@@ -79,33 +132,13 @@ function request(path, { method = "GET", data = null, retry = true } = {}) {
           resolve(res.data);
         } else if (res.statusCode === 401 && retry && !path.startsWith("/api/auth/")) {
           try {
-            // A late 401 from an old access token can reuse the refreshed token.
-            if (!refreshPromise && token === getToken()) {
-              const refreshToken = wx.getStorageSync("tgg_refresh_token");
-              if (!refreshToken) {
-                clearSession();
-                throw loginRequired();
-              }
-              const pending = request("/api/auth/refresh", { method: "POST", data: { refreshToken }, retry: false })
-                .then(result => {
-                  if (version !== sessionVersion) throw sessionChanged();
-                  saveSession(result, { refreshed: true });
-                }).catch(error => {
-                  if (version === sessionVersion && error.statusCode === 401) {
-                    clearSession();
-                    throw loginRequired();
-                  }
-                  throw error;
-                }).finally(() => { if (refreshPromise === pending) refreshPromise = null; });
-              refreshPromise = pending;
-            }
-            await refreshPromise;
+            await refreshSession(version, token);
             if (version !== sessionVersion) throw sessionChanged();
           } catch (error) {
             reject(error);
             return;
           }
-          request(path, { method, data, retry: false }).then(resolve, reject);
+          request(path, { method, data, retry: false, authRequired }).then(resolve, reject);
         } else if (res.statusCode === 401 && !path.startsWith("/api/auth/")) {
           // A rejected retry must not leave an unusable token in storage, or the
           // login page would treat it as an authenticated profile-edit session.

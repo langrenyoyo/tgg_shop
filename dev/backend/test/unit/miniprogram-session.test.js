@@ -14,7 +14,8 @@ function setup() {
     setStorageSync: (key, value) => storage.set(key, value),
     removeStorageSync: key => storage.delete(key),
     request: options => calls.push(options),
-    uploadFile: options => calls.push(options)
+    uploadFile: options => calls.push(options),
+    base64ToArrayBuffer: value => Uint8Array.from(Buffer.from(value, "base64")).buffer
   } };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/api.js"), "utf8"), context);
   const api = context.module.exports;
@@ -92,4 +93,62 @@ test("an old refresh rejection cannot clear a newer login", async () => {
   await failed;
   assert.equal(storage.get("tgg_token"), "bob");
   assert.equal(storage.get("tgg_refresh_token"), "bob-refresh");
+});
+
+test("expired protected requests refresh first and share the new token", async () => {
+  const { api, calls } = setup();
+  api.saveSession({ token: "expired", expiresAt: new Date(Date.now() - 1000).toISOString(), refreshToken: "refresh", user: { id: "alice" } });
+  const first = api.request("/api/coin-signin/status", { authRequired: true });
+  const second = api.request("/api/coin-signin/start", { method: "POST", data: {}, authRequired: true });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/api\/auth\/refresh$/);
+  reply(calls[0], 200, { token: "new", expiresAt: new Date(Date.now() + 3600000).toISOString() });
+  await tick();
+  assert.equal(calls.length, 3);
+  for (const call of calls.slice(1)) {
+    assert.equal(call.header.Authorization, "Bearer new");
+    reply(call, 200, { ok: true });
+  }
+  await Promise.all([first, second]);
+});
+
+test("legacy cached tokens use their encoded expiry before requesting sign-in status", async () => {
+  const { api, calls, storage } = setup();
+  const payload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 10, nickname: "微信用户" })).toString("base64url");
+  api.saveSession({ token: payload + ".signature", user: { id: "alice" } });
+  await assert.rejects(api.request("/api/coin-signin/status", { authRequired: true }), { statusCode: 401 });
+  assert.equal(calls.length, 0, "known expired token without refresh must not reach the server");
+  assert.equal(storage.has("tgg_token"), false);
+});
+
+test("failed proactive refresh preserves credentials for a network retry", async () => {
+  const { api, calls, storage } = setup();
+  api.saveSession({ token: "expired", expiresAt: new Date(0).toISOString(), refreshToken: "refresh", user: { id: "alice" } });
+  const pending = assert.rejects(api.request("/api/coin-signin/status", { authRequired: true }), /network/);
+  calls[0].fail({ errMsg: "network unavailable" });
+  await pending;
+  assert.equal(calls.length, 1);
+  assert.equal(storage.get("tgg_token"), "expired");
+  assert.equal(storage.get("tgg_refresh_token"), "refresh");
+});
+
+test("logout during proactive refresh prevents the protected request", async () => {
+  const { api, calls, storage } = setup();
+  api.saveSession({ token: "expired", expiresAt: new Date(0).toISOString(), refreshToken: "refresh", user: { id: "alice" } });
+  const pending = assert.rejects(api.request("/api/coin-signin/start", { method: "POST", authRequired: true }), /账号已变更/);
+  api.clearSession();
+  reply(calls[0], 200, { token: "new" });
+  await pending;
+  assert.equal(calls.length, 1);
+  assert.equal(storage.has("tgg_token_expires_at"), false);
+  assert.equal(storage.has("tgg_token"), false);
+});
+
+test("public requests stay available even when a cached token has expired", async () => {
+  const { api, calls } = setup();
+  api.saveSession({ token: "expired", expiresAt: new Date(0).toISOString(), user: { id: "alice" } });
+  const pending = api.request("/api/home");
+  assert.match(calls[0].url, /\/api\/home$/);
+  reply(calls[0], 200, { ok: true });
+  await pending;
 });

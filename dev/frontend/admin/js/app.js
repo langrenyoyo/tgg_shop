@@ -1286,6 +1286,9 @@ function buildConfigPayload(group, formData) {
       purePointsNoCashTopup: true
     }),
     points: () => ({
+      pointBalanceExchangeEnabled: formData.get("pointBalanceExchangeEnabled") === "on",
+      pointBalanceExchangeRate: Number(formData.get("pointBalanceExchangeRate")),
+      pointBalanceExchangeMinPoints: Number(formData.get("pointBalanceExchangeMinPoints")),
       membershipPointCashRate: Number(formData.get("membershipPointCashRate")),
       membershipMonthlyPrice: Number(formData.get("membershipMonthlyPrice")),
       membershipMonthlyPoints: Number(formData.get("membershipMonthlyPoints")),

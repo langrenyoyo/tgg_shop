@@ -1,4 +1,5 @@
-const { request } = require("../../utils/api");
+const { request: apiRequest } = require("../../utils/api");
+const request = (path, options = {}) => apiRequest(path, { ...options, authRequired: true });
 const { showSigninAd } = require("../../utils/signin-ad");
 const makeKey = () => "signin:" + Date.now() + ":" + Math.random().toString(36).slice(2);
 Page({
@@ -11,6 +12,17 @@ Page({
   },
   onUnload() { this.disposed = true; this.onHide(); },
   valid(version, owner) { return !this.disposed && !this.hidden && version === this.version && owner === this.owner && owner === wx.getStorageSync("tgg_user")?.id && Boolean(wx.getStorageSync("tgg_token")); },
+  currentView(version, owner) { return !this.disposed && !this.hidden && version === this.version && owner === this.owner; },
+  handleLoginRequired(error, version, owner) {
+    const currentOwner = wx.getStorageSync("tgg_user")?.id;
+    if (error.statusCode !== 401 || !this.currentView(version, owner) || (currentOwner && currentOwner !== owner)) return false;
+    this.adTask?.cancel(); this.adTask = null; this.roundKey = null;
+    wx.removeStorageSync(this.storageKey());
+    wx.disableAlertBeforeUnload?.();
+    this.setData({ loading: false, busy: false, needLogin: true, error: "登录已失效，请重新登录后继续签到", session: null, config: {}, balanceCoins: 0,
+      sheet: "", pendingStep: false, adLabel: "", dots: [], countdown: 0, unavailableReason: "" });
+    return true;
+  },
   storageKey() { return "tgg_coin_signin_step:" + this.owner; },
   apply(status) {
     this.offset = status.serverNow - Date.now();
@@ -30,7 +42,7 @@ Page({
     this.setData({ loading: true, busy: false, error: "", session: null, sheet: "", pendingStep: false, balanceCoins: 0, config: {}, needLogin: false });
     if (!owner || !wx.getStorageSync("tgg_token")) { this.setData({ loading: false, needLogin: true, error: "请登录后签到" }); return; }
     try { const status = await request("/api/coin-signin/status"); if (this.valid(version, owner)) this.apply(status); }
-    catch (error) { if (!this.disposed && !this.hidden && version === this.version) this.setData({ error: error.message, needLogin: error.statusCode === 401 }); }
+    catch (error) { if (!this.handleLoginRequired(error, version, owner) && this.valid(version, owner)) this.setData({ error: error.message }); }
     finally { if (!this.disposed && version === this.version) this.setData({ loading: false }); }
   },
   login() { wx.navigateTo({ url: "/pages/login/index" }); },
@@ -48,7 +60,7 @@ Page({
     const alive = () => this.valid(version, owner);
     this.setData({ busy: true, error: "" });
     try { const value = await operation(alive); if (alive() && value) { this.apply(value.result); this.setData({ sheet: value.result.session?.claimed ? "success" : value.sheet || "progress" }); } }
-    catch (error) { if (alive()) this.setData({ error: error.message, sheet: this.data.pendingStep ? "verify" : "progress" }); }
+    catch (error) { if (!this.handleLoginRequired(error, version, owner) && alive()) this.setData({ error: error.message, sheet: this.data.pendingStep ? "verify" : "progress" }); }
     finally { if (alive()) this.setData({ busy: false, adLabel: "" }); }
   },
   async getRound() {
@@ -95,7 +107,7 @@ Page({
     await this.perform(async () => {
       this.setData({ sheet: "claiming" });
       try { return { result: await request("/api/coin-signin/claim", { method: "POST", data: { sessionId: this.data.session.id } }) }; }
-      catch { throw new Error("奖励结果待确认，请刷新查询；未到账时可再次点击完成签到，不会重复发放"); }
+      catch (error) { if (error.statusCode === 401) throw error; throw new Error("奖励结果待确认，请刷新查询；未到账时可再次点击完成签到，不会重复发放"); }
     });
   },
   exit() {

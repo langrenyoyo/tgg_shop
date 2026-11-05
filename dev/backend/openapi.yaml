@@ -1821,6 +1821,27 @@ paths:
         "404":
           description: No pending confirmation package
 
+  /api/points/exchange-balance:
+    post:
+      tags: [Orders]
+      summary: Exchange points into withdrawable balance
+      description: Requires the administrator to enable the feature. Debits integer points and credits withdrawable balance using one idempotency key; the configured rate is yuan per point.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [points, idempotencyKey]
+              properties:
+                points: { type: integer, minimum: 1 }
+                idempotencyKey: { type: string, minLength: 8, maxLength: 100 }
+      responses:
+        "200": { description: Exchange completed or idempotent replay }
+        "400": { description: Invalid amount or insufficient points }
+        "409": { description: Idempotency key reused for another exchange intent }
+        "503": { description: Feature disabled or configuration unavailable }
+
   /api/points-ledger:
     get:
       tags: [Orders]

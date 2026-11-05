@@ -71,6 +71,11 @@ async function handleAccountRoutes(ctx) {
     return send(ctx.res, 200, accountService.getPointLedger(state, user.id, Object.fromEntries(url.searchParams.entries())));
   }
 
+  if (req.method === "POST" && url.pathname === "/api/points/exchange-balance") {
+    const result = accountService.exchangePointsToBalance(state, user, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/ranking") {
     return send(ctx.res, 200, accountService.getRanking(state, user.id));
   }

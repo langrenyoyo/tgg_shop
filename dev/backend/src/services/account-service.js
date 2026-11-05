@@ -125,6 +125,41 @@ function getWithdrawalTransferPackage(state, userId, withdrawalId) {
   if (!withdrawal || withdrawal.status !== "processing" || !withdrawal.transferPackage) return null;
   return { id: withdrawal.id, package: withdrawal.transferPackage, mchId: process.env.HF_WECHAT_MCH_ID || "", transferState: withdrawal.transferState || "WAIT_USER_CONFIRM" };
 }
+
+function exchangePointsToBalance(state, user, input = {}) {
+  const key = String(input.idempotencyKey || "").trim();
+  const points = Number(input.points);
+  const enabled = state.config?.pointBalanceExchangeEnabled === true;
+  const rate = Number(state.config?.pointBalanceExchangeRate ?? 0.1);
+  const minimum = Number(state.config?.pointBalanceExchangeMinPoints ?? 100);
+  if (!enabled) return { ok: false, status: 503, error: "积分兑换余额暂未开放" };
+  if (!key || !/^[a-zA-Z0-9:_-]{8,100}$/.test(key)) return { ok: false, status: 400, error: "兑换请求标识无效" };
+  const existing = (state.pointLedger || []).find(item => item.userId === user.id && item.idempotencyKey === `point-balance:${key}`);
+  if (existing) {
+    if (existing.points !== points) return { ok: false, status: 409, error: "兑换请求标识已用于其他兑换意图" };
+    const credit = (state.withdrawableLedger || []).find(item => item.userId === user.id && item.idempotencyKey === `point-balance:${key}:balance`);
+    return { ok: true, idempotent: true, points: existing.points, amount: existing.amount, balance: credit?.balanceAfter ?? user.withdrawableBalance, pointsBalance: user.points };
+  }
+  if (!Number.isSafeInteger(points) || points < minimum) return { ok: false, status: 400, error: `最低兑换 ${minimum} 积分` };
+  if (!Number.isFinite(rate) || rate <= 0 || rate > 1 || !Number.isSafeInteger(minimum) || minimum < 1) return { ok: false, status: 500, error: "积分兑换配置无效，请联系管理员" };
+  if (points > Number(user.points || 0)) return { ok: false, status: 400, error: "积分余额不足" };
+  const amount = roundMoney(points * rate);
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "兑换金额不足 0.01 元" };
+  const now = new Date().toISOString();
+  const exchangeId = nextId("pbe");
+  user.points -= points;
+  user.withdrawableBalance = roundMoney(Number(user.withdrawableBalance || 0) + amount);
+  ledgerRepository.addPointEntry(state, {
+    id: nextId("pt"), userId: user.id, changeType: "points_to_balance_exchange", direction: "out", points,
+    balanceAfter: user.points, amount, bizNo: exchangeId, idempotencyKey: `point-balance:${key}`, createdAt: now
+  });
+  ledgerRepository.addWithdrawableEntry(state, {
+    id: nextId("wlg"), userId: user.id, changeType: "points_to_balance_exchange", direction: "in", amount,
+    balanceAfter: user.withdrawableBalance, bizNo: exchangeId, idempotencyKey: `point-balance:${key}:balance`, createdAt: now
+  });
+  saveState();
+  return { ok: true, id: exchangeId, points, amount, balance: user.withdrawableBalance, pointsBalance: user.points, idempotent: false };
+}
 function publicWithdrawal(withdrawal = {}) {
   const fields = [
     "id", "amount", "fee", "arrivalAmount", "channel", "status", "recipientName",
@@ -343,6 +378,7 @@ module.exports = {
   publicWithdrawal,
   requestWithdrawal,
   getPointLedger,
+  exchangePointsToBalance,
   getRanking,
   listTickets,
   createTicket

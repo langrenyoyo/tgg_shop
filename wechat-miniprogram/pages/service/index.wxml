@@ -27,6 +27,23 @@
     </view>
   </block>
 
+  <block wx:elif="{{type === 'pointExchange'}}">
+    <view class="card withdraw-panel">
+      <view class="withdraw-label">可用积分</view>
+      <view class="withdraw-balance">{{points}} 积分</view>
+      <view wx:if="{{!exchangeEnabled}}" class="muted">积分兑换余额暂未开放，请留意后台公告。</view>
+      <view wx:else class="withdraw-rules">
+        <view>兑换比例：{{config.pointBalanceExchangeRate}} 元/积分</view>
+        <view>最低兑换：{{config.pointBalanceExchangeMinPoints}} 积分</view>
+        <view>兑换后金额进入可提现余额，可在提现页申请提现。</view>
+      </view>
+      <input class="withdraw-input" type="number" value="{{exchangeAmount}}" bindinput="exchangeInput" placeholder="请输入兑换积分" />
+      <view class="muted">预计增加可提现余额：¥{{exchangePreview}}</view>
+      <view wx:if="{{exchangePointsError}}" class="muted">{{exchangePointsError}}</view>
+      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || !exchangeEnabled || exchangePointsError || !exchangeAmount}}" loading="{{submitting}}">兑换余额</button>
+    </view>
+  </block>
+
   <block wx:elif="{{type === 'withdraw'}}">
     <view class="card withdraw-panel">
       <view class="withdraw-label">可提现余额</view>
