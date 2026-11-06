@@ -30,6 +30,7 @@ const publicConfigKeys = new Set([
 // Filter responses while preserving stored historical configuration for audit.
 function activeConfig(config) {
   const result = Object.fromEntries(Object.entries(config).filter(([key]) => publicConfigKeys.has(key) && !retiredAdKeys.has(key)));
+  Object.assign(result, require("./withdrawal-notice").withdrawalPolicy);
   if (Object.hasOwn(result, "withdrawNotice")) result.withdrawNotice = require("./withdrawal-notice").withdrawalNotice(result.withdrawNotice);
   if (Array.isArray(result.homePromotionEntries)) result.homePromotionEntries = result.homePromotionEntries.filter(item => item.page !== "signin");
   return result;

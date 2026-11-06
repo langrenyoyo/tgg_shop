@@ -38,8 +38,22 @@ test("documented amount-less query settles only the persisted submitted amount, 
   assert.equal((await service.queryWithdrawal(f.state, f.row.id)).idempotent, true);
   const entries = f.state.withdrawableLedger.filter(x => x.bizNo === f.row.id);
   assert.equal(entries.filter(x => x.changeType === "withdraw_payout").length, 1);
-  assert.equal(entries.find(x => x.changeType === "withdraw_payout").amount, 9.9);
-  assert.equal(entries.filter(x => x.changeType === "withdraw_fee").length, 1);
+  assert.equal(entries.find(x => x.changeType === "withdraw_payout").amount, 10);
+  assert.equal(entries.filter(x => x.changeType === "withdraw_fee").length, 0);
+});
+
+test("legacy fee-bearing requests still settle their saved net amount and fee exactly once", async t => {
+  const f = setup(t);
+  f.row.fee = 0.1;
+  f.row.arrivalAmount = 9.9;
+  assert.equal((await service.submitWithdrawal(f.state, f.row.id)).ok, true);
+  assert.equal(f.row.submission.amountCents, 990);
+  assert.equal((await service.queryWithdrawal(f.state, f.row.id)).ok, true);
+  assert.equal((await service.queryWithdrawal(f.state, f.row.id)).idempotent, true);
+  const entries = f.state.withdrawableLedger.filter(item => item.bizNo === f.row.id);
+  assert.equal(entries.find(item => item.changeType === "withdraw_payout").amount, 9.9);
+  assert.equal(entries.filter(item => item.changeType === "withdraw_fee").length, 1);
+  assert.equal(entries.find(item => item.changeType === "withdraw_fee").amount, 0.1);
 });
 
 test("query identity, returned amount and saved snapshot mismatches cannot settle", async t => {
@@ -51,7 +65,7 @@ test("query identity, returned amount and saved snapshot mismatches cannot settl
     assert.equal(f.row.status, "processing");
   }
   f.response = {};
-  f.row.submission.amountCents = 1000;
+  f.row.submission.amountCents = 990;
   assert.equal((await service.queryWithdrawal(f.state, f.row.id)).ok, false);
   delete f.row.submission;
   assert.equal((await service.queryWithdrawal(f.state, f.row.id)).ok, false);

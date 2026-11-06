@@ -1,17 +1,8 @@
 const { request, getBaseUrl } = require("../../utils/api");
 const TITLES = { payments: "支付记录", ranking: "积分排行榜", pointExchange: "积分换余额", withdraw: "提现", customerService: "在线客服", feedback: "意见反馈", business: "商务合作", recruiting: "代理申请", pickupSite: "自提点" };
 const WITHDRAWAL_STATUSES = { pending_review: "审核中", approved: "审核通过，待提交", processing: "处理中", success: "已到账", failed: "提现失败", rejected: "已驳回", cancelled: "已撤销" };
-function withdrawalDayKey(value, timeZone) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-  } catch {
-    return date.toISOString().slice(0, 10);
-  }
-}
 Page({
-  data: { type: "payments", title: "支付记录", rows: [], balance: 0, points: 0, config: {}, exchangeAmount: "", exchangePreview: "0.00", exchangePointsError: "", exchangeEnabled: false, withdrawRules: {}, withdrawNoticeLines: [], withdrawLimitReached: false, noWithdrawableBalance: false, withdrawAmountError: "", authorizationStatus: "none", authorizationExpiresAt: "", loading: true, error: "", needLogin: false, submitting: false },
+  data: { type: "payments", title: "支付记录", rows: [], balance: 0, points: 0, config: {}, exchangeAmount: "", exchangePreview: "0.00", exchangePointsError: "", exchangeEnabled: false, withdrawRules: {}, withdrawNoticeLines: [], withdrawPreview: null, noWithdrawableBalance: false, withdrawAmountError: "", authorizationStatus: "none", authorizationExpiresAt: "", loading: true, error: "", needLogin: false, submitting: false },
   onLoad(query) { this.type = query.type || "payments"; this.setData({ type: this.type, title: TITLES[this.type] || "用户服务" }); this.load(); },
   onHide() {
     this.wasHidden = true;
@@ -32,7 +23,7 @@ Page({
     const version = this.loadVersion = (this.loadVersion || 0) + 1;
     const owner = this.currentOwner();
     const current = () => !this.disposed && version === this.loadVersion && owner === this.currentOwner();
-    this.setData({ loading: true, error: "", needLogin: false, ...(this.type === "withdraw" ? { authorizationStatus: "unknown", authorizationExpiresAt: "", balance: 0, rows: [] } : {}) });
+    this.setData({ loading: true, error: "", needLogin: false, ...(this.type === "withdraw" ? { authorizationStatus: "unknown", authorizationExpiresAt: "", balance: 0, rows: [], withdrawPreview: null } : {}) });
     try {
       if (this.type === "payments") this.setData({ rows: await request("/api/payments") });
       else if (this.type === "ranking") this.setData({ rows: (await request("/api/ranking")).rows || [] });
@@ -48,32 +39,19 @@ Page({
           request("/api/withdrawals/authorization").catch(loadError => ({ status: "unknown", required: true, loadError }))]);
         if (!current()) return;
         if (owner && user.id !== owner) throw new Error("账号信息已变化，请重新登录");
-        const dailyCountLimit = Number(config.withdrawDailyCountLimit || 0);
-        const dailyAmountLimit = Number(config.withdrawDailyAmountLimit || 0);
         const maxAmount = Number(config.withdrawMaxAmount || 500);
-        const timeZone = config.deliveryTimeZone || "Asia/Shanghai";
         const safeRows = (Array.isArray(rows) ? rows : []).map(item => ({ ...item, statusText: WITHDRAWAL_STATUSES[item.status] || "状态待核对" }));
-        const today = withdrawalDayKey(Date.now(), timeZone);
-        const countedToday = safeRows.filter(item => withdrawalDayKey(item.createdAt || item.updatedAt || 0, timeZone) === today && !["failed", "rejected", "cancelled"].includes(item.status));
-        const usedToday = countedToday.reduce((sum, item) => sum + Number(item.amount || 0), 0);
         const balance = Number(user.withdrawableBalance || 0);
-        const countLimitReached = dailyCountLimit > 0 && countedToday.length >= dailyCountLimit;
-        const amountLimitReached = dailyAmountLimit > 0 && dailyAmountLimit - usedToday < 0.005;
-        this.withdrawContext = { maxAmount, balance, dailyAmountLimit, usedToday, feeRate: Number(config.withdrawFeeRate ?? 0) };
+        this.withdrawContext = { maxAmount, balance };
         this.setData({
           balance,
           config,
           withdrawRules: {
             maxAmount,
-            feePercent: Number(config.withdrawFeeRate ?? 0) * 100,
-            dailyCount: dailyCountLimit > 0 ? `${dailyCountLimit} 次/日` : "不限",
-            dailyAmount: dailyAmountLimit > 0 ? `¥${dailyAmountLimit}/日` : "不限",
-            todayCount: countedToday.length,
-            todayAmount: usedToday.toFixed(2),
             notice: String(config.withdrawNotice || "").trim()
           },
           withdrawNoticeLines: String(config.withdrawNotice || "").trim().split(/\r?\n/).filter(Boolean),
-          withdrawLimitReached: countLimitReached || amountLimitReached,
+          withdrawPreview: this.previewWithdrawal(this.data.amount),
           noWithdrawableBalance: balance <= 0,
           authorizationStatus: authorization.status || "none",
           authorizationRequired: authorization.required !== false,
@@ -160,10 +138,13 @@ Page({
     if (Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) return "提现金额最多支持两位小数";
     if (amount > Number(context.maxAmount || 500)) return `单笔提现金额不能超过 ¥${Number(context.maxAmount || 500)}`;
     if (amount > Number(context.balance || 0)) return "提现金额不能超过可提现余额";
-    if (Number(context.dailyAmountLimit || 0) > 0 && Number(context.usedToday || 0) + amount > Number(context.dailyAmountLimit) + 0.005) return "提现金额超过今日剩余额度";
-    const fee = Math.round(amount * Number(context.feeRate || 0) * 100) / 100;
-    if (Math.round((amount - fee) * 100) < 10) return "渠道要求扣除手续费后到账金额至少为 0.1 元";
+    if (Math.round(amount * 100) < 10) return "支付渠道支持的单笔金额需达到 0.1 元";
     return "";
+  },
+  previewWithdrawal(raw) {
+    if (!String(raw || "").trim() || this.amountError(raw)) return null;
+    const amount = Number(raw).toFixed(2);
+    return { amount, fee: "0.00", arrivalAmount: amount };
   },
   exchangeError(raw) {
     if (!String(raw || "").trim()) return "";
@@ -174,7 +155,7 @@ Page({
     const amount = points * Number(context.rate || 0.1);
     return amount < 0.01 ? "兑换金额不足 0.01 元" : "";
   },
-  input(e) { this.setData({ amount: e.detail.value, withdrawAmountError: this.amountError(e.detail.value) }); },
+  input(e) { this.setData({ amount: e.detail.value, withdrawAmountError: this.amountError(e.detail.value), withdrawPreview: this.previewWithdrawal(e.detail.value) }); },
   exchangeInput(e) {
     const value = Number(e.detail.value), rate = Number(this.exchangeContext?.rate || 0);
     this.setData({ exchangeAmount: e.detail.value, exchangePreview: Number.isFinite(value) && value > 0 ? (value * rate).toFixed(2) : "0.00", exchangePointsError: this.exchangeError(e.detail.value) });
@@ -203,8 +184,8 @@ Page({
   async submit() {
     if (this.data.submitting) return;
     if (this.type === "withdraw" && (this.disposed || this.data.loading || this.data.error)) return;
-    if (this.type === "withdraw" && (this.data.noWithdrawableBalance || this.data.withdrawLimitReached || !this.data.amount || this.amountError(this.data.amount))) {
-      const error = this.data.noWithdrawableBalance ? "暂无可提现余额" : this.data.withdrawLimitReached ? "今日提现次数或额度已用完" : this.amountError(this.data.amount) || "请输入提现金额";
+    if (this.type === "withdraw" && (this.data.noWithdrawableBalance || !this.data.amount || this.amountError(this.data.amount))) {
+      const error = this.data.noWithdrawableBalance ? "暂无可提现余额" : this.amountError(this.data.amount) || "请输入提现金额";
       wx.showToast({ title: error, icon: "none" });
       return;
     }

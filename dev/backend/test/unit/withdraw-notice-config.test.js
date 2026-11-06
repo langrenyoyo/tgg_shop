@@ -11,14 +11,14 @@ const { activeConfig } = require("../../src/config/active-config");
 
 test("admin can save and publish a multiline withdrawal notice", () => {
   const state = createSeed();
-  const notice = "全天可申请。\n正常情况下 10 分钟内到账。";
+  const notice = "全天可申请。\n到账时间以实际处理结果为准。";
   const result = admin.updateConfig(state, { withdrawNotice: notice, reason: "unit test" }, { role: { id: "super_admin", permissions: ["*"] } });
 
   assert.equal(result.withdrawNotice, notice);
   assert.equal(activeConfig(state.config).withdrawNotice, notice);
-  assert.equal(activeConfig(state.config).withdrawDailyCountLimit, 2);
+  assert.equal(activeConfig(state.config).withdrawDailyCountLimit, 0);
   assert.equal(activeConfig(state.config).withdrawMaxAmount, 500);
-  assert.equal(activeConfig(state.config).withdrawDailyAmountLimit, 500);
+  assert.equal(activeConfig(state.config).withdrawDailyAmountLimit, 0);
 });
 
 test("admin rejects invalid or oversized withdrawal notice values", () => {
@@ -43,27 +43,28 @@ test("withdrawal requests enforce the per-request maximum", () => {
   assert.equal(user.withdrawableBalance, 1000);
 });
 
-test("withdrawal requests allow two V3-capped requests per day with a configured daily limit of 500", () => {
+test("new withdrawals ignore legacy daily limits and fees while preserving per-request channel caps", () => {
   const state = createSeed();
   const user = state.users.find(item => item.id === "u_1001");
   user.withdrawableBalance = 1000;
+  Object.assign(state.config, { withdrawDailyCountLimit: 2, withdrawDailyAmountLimit: 500, withdrawFeeRate: 0.01 });
   assert.equal(account.requestWithdrawal(state, user, { amount: 200, idempotencyKey: "daily-first" }).ok, true);
   assert.equal(account.requestWithdrawal(state, user, { amount: 200, idempotencyKey: "daily-second" }).ok, true);
-  const result = account.requestWithdrawal(state, user, { amount: 1, idempotencyKey: "daily-third" });
+  const result = account.requestWithdrawal(state, user, { amount: 200, idempotencyKey: "daily-third" });
 
-  assert.equal(result.ok, false);
-  assert.match(result.error, /每日最多提现 2 次/);
-  assert.equal(user.withdrawableBalance, 600);
-  assert.equal(state.config.withdrawDailyAmountLimit, 500);
+  assert.equal(result.ok, true);
+  assert.equal(result.withdrawal.fee, 0);
+  assert.equal(result.withdrawal.arrivalAmount, 200);
+  assert.equal(user.withdrawableBalance, 400);
 });
 
-test("a lower daily limit still applies and default notice migration preserves custom copy", () => {
+test("a legacy lower daily limit is retired and notice migration preserves unrelated custom copy", () => {
   const state = createSeed(), user = state.users[0];
   state.config.withdrawDailyAmountLimit = 300;
   user.withdrawableBalance = 1000;
   assert.equal(account.requestWithdrawal(state, user, { amount: 200 }).ok, true);
-  assert.match(account.requestWithdrawal(state, user, { amount: 101 }).error, /每日提现金额不能超过 300/);
-  assert.equal(user.withdrawableBalance, 800);
+  assert.equal(account.requestWithdrawal(state, user, { amount: 101 }).ok, true);
+  assert.equal(user.withdrawableBalance, 699);
   const { normalizeState } = require("../../src/data/state-normalizer");
   state.config.withdrawNotice = createSeed().config.withdrawNotice.replace("单笔提现上限 200 元", "单笔提现 1-500 元");
   assert.equal(normalizeState(state).config.withdrawNotice, createSeed().config.withdrawNotice);

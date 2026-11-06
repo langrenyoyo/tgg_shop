@@ -75,10 +75,8 @@ function createSeed() {
       },
       purePointsNoCashTopup: true,
       withdrawMaxAmount: 500,
-      withdrawFeeRate: 0.01,
-      withdrawDailyCountLimit: 2,
-      withdrawDailyAmountLimit: 500,
-      withdrawNotice: "单笔提现上限 200 元，每人每日最多 2 次，每日 00:00 重置。\n全天 24 小时均可提交，正常情况下申请受理后 10 分钟内到账至已绑定的微信零钱。\n提现手续费为 1%，实际到账金额以提交页面展示为准。提现失败后，金额会退回可提现余额。",
+      ...require("../config/withdrawal-notice").withdrawalPolicy,
+      withdrawNotice: "全天可提交提现申请，平台不收取提现手续费。\n申请提交后进入审核，审核通过后由支付渠道处理，到账时间以实际处理结果为准。\n收款至已授权的微信账户，提现失败后金额退回可提现余额。",
       paymentTimeoutMinutes: 30,
       autoConfirmDeliveryDays: 7,
       dashboardAlertThresholds: {

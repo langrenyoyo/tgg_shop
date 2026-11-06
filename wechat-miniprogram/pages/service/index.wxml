@@ -57,19 +57,23 @@
       <view class="withdraw-balance">¥{{balance}}</view>
       <view class="withdraw-rules">
         <view>单笔上限：¥{{withdrawRules.maxAmount}}</view>
-        <view>手续费：{{withdrawRules.feePercent}}%</view>
-        <view>每日次数：{{withdrawRules.dailyCount}}</view>
-        <view>每日额度：{{withdrawRules.dailyAmount}}</view>
-        <view>今日已申请：{{withdrawRules.todayCount}} 次 / ¥{{withdrawRules.todayAmount}}</view>
+        <view>平台提现手续费：不收取</view>
         <view>申请时间：全天可提交</view>
+        <view>到账进度：提交申请 → 审核 → 渠道处理 → 到账</view>
+        <view class="muted">到账时间以实际审核和支付渠道处理结果为准，可在下方提现记录中查看进度。</view>
         <view wx:if="{{withdrawNoticeLines.length}}" class="withdraw-notice-title">提现说明</view>
         <view wx:for="{{withdrawNoticeLines}}" wx:key="*this" class="muted withdraw-notice-line">{{item}}</view>
       </view>
       <view wx:if="{{noWithdrawableBalance}}" class="muted">暂无可提现余额。</view>
-      <view wx:elif="{{withdrawLimitReached}}" class="muted">今日提现次数或额度已用完，请按页面显示的规则再次申请。</view>
       <input class="withdraw-input" type="digit" value="{{amount}}" bindinput="input" placeholder="请输入提现金额" />
       <view wx:if="{{withdrawAmountError}}" class="muted">{{withdrawAmountError}}</view>
-      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || noWithdrawableBalance || withdrawLimitReached || withdrawAmountError || !amount || (authorizationRequired !== false && authorizationStatus !== 'active')}}" loading="{{submitting}}">申请提现</button>
+      <view wx:if="{{withdrawPreview && !loading && !error}}" class="withdraw-rules">
+        <view>提现金额：¥{{withdrawPreview.amount}}</view>
+        <view>平台手续费：¥{{withdrawPreview.fee}}</view>
+        <view>预计到账：¥{{withdrawPreview.arrivalAmount}}</view>
+        <view class="muted">预计到账未扣除渠道依法代扣的税费（如有），实际金额以到账记录为准。</view>
+      </view>
+      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || noWithdrawableBalance || withdrawAmountError || !amount || (authorizationRequired !== false && authorizationStatus !== 'active')}}" loading="{{submitting}}">申请提现</button>
     </view>
     <view wx:for="{{rows}}" wx:key="id" class="card">
       <view>¥{{item.amount}} · {{item.statusText}}</view>

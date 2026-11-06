@@ -207,31 +207,11 @@ function requestWithdrawal(state, user, input) {
   }
   const amount = requestedAmount;
   const maxAmount = Math.min(Number(state.config.withdrawMaxAmount || 500), huifu.maxTransferAmount());
-  const feeRate = Number(state.config.withdrawFeeRate ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "提现金额必须是正数" };
   if (!Number.isFinite(maxAmount) || maxAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
-  if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate > 1) return { ok: false, status: 500, error: "提现手续费配置无效，请联系管理员" };
   if (productionLike() && !requestedOpenid) return { ok: false, status: 400, error: "请先使用已绑定微信登录后再申请提现" };
   if (amount > maxAmount) return { ok: false, status: 400, error: `单笔提现金额不能超过 ${maxAmount} 元` };
   if (amount > user.withdrawableBalance) return { ok: false, status: 400, error: "可提现余额不足" };
-
-  const timeZone = state.config.deliveryTimeZone || "Asia/Shanghai";
-  const dateKey = value => new Intl.DateTimeFormat("en-CA", {
-    timeZone, year: "numeric", month: "2-digit", day: "2-digit"
-  }).format(new Date(value));
-  const today = dateKey(Date.now());
-  const counted = (state.withdrawRequests || []).filter(item => item.userId === user.id
-    && dateKey(item.createdAt || item.updatedAt || 0) === today
-    && !["failed", "rejected", "cancelled"].includes(item.status));
-  const countLimit = Number(state.config.withdrawDailyCountLimit || 0);
-  const amountLimit = Number(state.config.withdrawDailyAmountLimit || 0);
-  if (countLimit > 0 && counted.length >= countLimit) {
-    return { ok: false, status: 400, error: `每日最多提现 ${countLimit} 次` };
-  }
-  const usedAmount = counted.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  if (amountLimit > 0 && usedAmount + amount > amountLimit + 0.005) {
-    return { ok: false, status: 400, error: `每日提现金额不能超过 ${amountLimit} 元` };
-  }
 
   // A live PostgreSQL deployment must never freeze funds until its payout rail is configured.
   if (String(process.env.TGG_STORE_DRIVER || "json") === "pg"
@@ -249,8 +229,10 @@ function requestWithdrawal(state, user, input) {
     return { ok: false, status: 409, error: "尚未取得有效的微信收款授权，暂不可提现，请联系管理员" };
   }
 
-  const fee = roundMoney(amount * feeRate);
-  const arrivalAmount = roundMoney(amount - fee);
+  // New requests have no platform fee. Existing requests retain their snapshot
+  // through the idempotency return above and the provider settlement workflow.
+  const fee = 0;
+  const arrivalAmount = amount;
   if (arrivalAmount <= 0) return { ok: false, status: 400, error: "扣除手续费后到账金额必须大于 0 元" };
   if (arrivalAmount < 0.1) return { ok: false, status: 400, error: "渠道要求扣除手续费后到账金额至少为 0.1 元" };
   const now = new Date().toISOString();

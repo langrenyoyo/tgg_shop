@@ -115,7 +115,7 @@ test("4.3 acceptance stays processing; batch plus detail queries settle the orig
   assert.equal(w.status, "success"); assert.equal(f.user.withdrawableBalance, 500);
   assert.equal((await withdrawals.queryWithdrawal(f.state, w.id)).idempotent, true);
   assert.equal(f.state.withdrawableLedger.filter(x => x.changeType === "withdraw_payout").length, 1);
-  assert.equal(account.requestWithdrawal(f.state, f.user, { amount: 1 }).ok, false); // daily 500 cap
+  assert.equal(account.requestWithdrawal(f.state, f.user, { amount: 1 }).ok, true); // no platform daily cap
 });
 
 test("uncertain 4.3 send never resubmits; persisted protocol survives a global mode change", async t => {
@@ -166,10 +166,11 @@ test("FINISHED batch with failed detail refunds once; abnormal or processing det
 test("4.5 documented withholding is retained separately and only public amounts are exposed", async t => {
   const f = setup(t), w = await f.approved();
   await withdrawals.submitWithdrawal(f.state, w.id);
-  f.detailPatch = { tax_info: { vat_amount: 10, iit_amount: 20, received_price: 960 } };
+  f.detailPatch = { tax_info: { vat_amount: 10, iit_amount: 20, received_price: 970 } };
   assert.equal((await withdrawals.queryWithdrawal(f.state, w.id)).ok, true);
   const publicRow = account.publicWithdrawal(w);
-  assert.equal(publicRow.actualArrivalAmount, 9.6);
+  assert.equal(publicRow.actualArrivalAmount, 9.7);
+  assert.equal(publicRow.fee, 0);
   assert.equal(publicRow.withheldTaxAmount, 0.3);
   assert.equal(publicRow.submission, undefined);
   assert.equal(publicRow.account, undefined);

@@ -862,13 +862,13 @@ function updateConfig(state, input, actor = {}) {
     monthlyPointRewardSettlementMinute: value => Number.isInteger(value) && value >= 0 && value <= 59,
     withdrawMinAmount: value => value === 0,
     withdrawMaxAmount: value => value > 0,
-    withdrawFeeRate: value => value >= 0 && value <= 1,
+    withdrawFeeRate: value => value === 0,
     paymentTimeoutMinutes: value => value === 0 || value >= 1,
     stationPickupHoldHours: value => Number.isInteger(value) && value >= 1 && value <= 720,
     cashOrderMaxAmount: value => value > 0,
     cashDailyMaxAmount: value => value > 0,
-    withdrawDailyCountLimit: value => Number.isInteger(value) && value >= 0,
-    withdrawDailyAmountLimit: value => value >= 0,
+    withdrawDailyCountLimit: value => value === 0,
+    withdrawDailyAmountLimit: value => value === 0,
     autoConfirmDeliveryDays: value => Number.isInteger(value) && value >= 1 && value <= 365
   };
   for (const [key, validate] of Object.entries(numericRules)) {
@@ -905,6 +905,7 @@ function updateConfig(state, input, actor = {}) {
   ];
   const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "customerServiceQrCode", "stationSortMode", "stationShelfPrefix", "withdrawNotice"];
   delete state.config.withdrawMinAmount;
+  Object.assign(state.config, require("../config/withdrawal-notice").withdrawalPolicy);
 
   for (const key of booleanKeys) {
     if (Object.prototype.hasOwnProperty.call(input, key)) state.config[key] = Boolean(input[key]);

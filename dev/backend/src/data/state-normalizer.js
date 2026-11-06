@@ -9,6 +9,7 @@ function normalizeState(nextState) {
   // Migrate only the exact old default; preserve notices edited by finance.
   if (nextState.config.withdrawNotice === legacyWithdrawNotice) nextState.config.withdrawNotice = seed.config.withdrawNotice;
   delete nextState.config.withdrawMinAmount;
+  Object.assign(nextState.config, require("../config/withdrawal-notice").withdrawalPolicy);
   nextState.config.withdrawNotice = require("../config/withdrawal-notice").withdrawalNotice(nextState.config.withdrawNotice);
   if (Array.isArray(nextState.config.homePromotionEntries)) {
     nextState.config.homePromotionEntries = nextState.config.homePromotionEntries.map(item =>

@@ -126,7 +126,7 @@ test("withdrawal callback rejects unknown and reverse terminal states, while dup
   const before = JSON.stringify(state);
   assert.equal(handleCallback(state, { order_id: "provider-1", status: "WAIT" }).status, 502);
   assert.equal(JSON.stringify(state), before);
-  assert.equal(handleCallback(state, { order_id: "provider-1", status: "SUCCESS", transfer_amount: "990" }).ok, true);
+  assert.equal(handleCallback(state, { order_id: "provider-1", status: "SUCCESS", transfer_amount: "1000" }).ok, true);
   assert.equal(state.withdrawableLedger.filter(item => item.idempotencyKey === `${withdrawal.id}:payout`).length, 1);
   const afterSuccess = JSON.stringify(state);
   assert.equal(handleCallback(state, { order_id: "provider-1", status: "SUCCESS" }).idempotent, true);
@@ -143,7 +143,7 @@ test("provider query shares callback state machine and does not reverse terminal
   requested.withdrawal.status = "processing"; requested.withdrawal.providerOrderId = "provider-q"; requested.withdrawal.providerMerchantOrderId = "merchant-q";
   t.mock.method(huifu, "isConfigured", () => true);
   let providerStatus = "SUCCESS";
-  t.mock.method(huifu, "query", async () => ({ ok: true, body: { data: { status: providerStatus, order_id: "merchant-q", platform_order_id: "provider-q", transfer_amount: "990" } } }));
+  t.mock.method(huifu, "query", async () => ({ ok: true, body: { data: { status: providerStatus, order_id: "merchant-q", platform_order_id: "provider-q", transfer_amount: "1000" } } }));
   assert.equal((await withdrawalService.queryWithdrawal(state, requested.withdrawal.id)).ok, true);
   assert.equal(requested.withdrawal.status, "success");
   const before = JSON.stringify(state);
@@ -166,12 +166,12 @@ test("provider success validates reported withdrawal amount and preserves state 
   const state = createSeed(), user = state.users.find(item => item.id === "u_1001"); user.withdrawableBalance = 100;
   const requested = requestWithdrawal(state, user, { amount: 10, openid: "wx-openid", recipientName: "收款人" });
   const withdrawal = requested.withdrawal; withdrawal.status = "processing"; withdrawal.providerOrderId = "provider-amount";
-  assert.equal(handleCallback(state, { order_id: "provider-amount", status: "SUCCESS", amount: 9.9 }).ok, true);
+  assert.equal(handleCallback(state, { order_id: "provider-amount", status: "SUCCESS", amount: 10 }).ok, true);
 
   const stateCents = createSeed(), userCents = stateCents.users.find(item => item.id === "u_1001"); userCents.withdrawableBalance = 100;
   const reqCents = requestWithdrawal(stateCents, userCents, { amount: 10, openid: "wx-openid", recipientName: "收款人" });
   reqCents.withdrawal.status = "processing"; reqCents.withdrawal.providerOrderId = "provider-cents";
-  assert.equal(handleCallback(stateCents, { order_id: "provider-cents", status: "SUCCESS", amount_cents: 990 }).ok, true);
+  assert.equal(handleCallback(stateCents, { order_id: "provider-cents", status: "SUCCESS", amount_cents: 1000 }).ok, true);
 
   const mismatch = createSeed(), mismatchUser = mismatch.users.find(item => item.id === "u_1001"); mismatchUser.withdrawableBalance = 100;
   const reqMismatch = requestWithdrawal(mismatch, mismatchUser, { amount: 10, openid: "wx-openid", recipientName: "收款人" });
