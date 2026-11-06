@@ -1791,8 +1791,8 @@ paths:
   /api/withdrawals/authorization:
     get:
       tags: [Orders]
-      summary: Get the current user's Huifu AUTH authorization status
-      description: Queries V3 /wx/auth/query using server-bound identity. Query failure is an error, not missing consent.
+      summary: Get the current user's Huifu receipt authorization status
+      description: OAUTH queries 4.13 /api/getOauthConfig with a server-generated account bound to the user and WeChat identity. Only is_auth=1 is active. V3 AUTH continues to query /wx/auth/query. Query failure is an error, not missing consent.
       responses:
         "200": { description: Authorization status }
         "409": { description: Authorization binding conflict or another operation in progress }
@@ -1800,8 +1800,8 @@ paths:
         "503": { description: Provider is not configured }
     post:
       tags: [Orders]
-      summary: Start Huifu AUTH authorization for WeChat receipt
-      description: Queries and reuses pending or active consent, otherwise calls V3 /wx/auth/apply with a persisted merchant-generated number. The client uses wx.requestMerchantTransfer within the current mini-program and then re-queries status. Only verified TAKING_EFFECT activates authorization. Pending applications last 24 hours.
+      summary: Get Huifu receipt authorization navigation or a V3 authorization package
+      description: OAUTH calls 4.13 and returns method=miniProgram with the provider hf_appid as appId and its path plus query as path. The client calls wx.navigateToMiniProgram, then queries this server on return. Neither navigation success nor client is_auth activates consent. This flow pairs with 4.3 batch payout using the same server-owned account. V3 AUTH remains available with native wx.requestMerchantTransfer and server-verified TAKING_EFFECT.
       requestBody:
         required: false
         content:
@@ -1811,13 +1811,15 @@ paths:
               additionalProperties: false
       responses:
         "200":
-          description: Effective authorization or native WeChat authorization package
+          description: Effective authorization, mini-program navigation, or native WeChat authorization package
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status: { type: string, enum: [pending, active, revoked, expired] }
+                  status: { type: string, enum: [none, pending, active, revoked, expired] }
+                  method: { type: string, enum: [miniProgram, native] }
+                  path: { type: string, description: Provider page plus encoded query for wx.navigateToMiniProgram; do not log or persist on the client }
                   appId: { type: string }
                   mchId: { type: string }
                   authorizationPackage: { type: string, description: Passed as package to wx.requestMerchantTransfer when pending }

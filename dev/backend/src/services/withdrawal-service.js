@@ -84,15 +84,17 @@ async function submitWithdrawal(state, id) {
   // A prior send (including timeout) is reconciled, never blindly paid again.
   if (w.submission || w.submittedAt || w.status === "processing" || w.providerMerchantOrderId) return queryWithdrawal(state, id);
   const transferMode = huifu.transferMode(w);
+  if (transferMode === "OAUTH") return require("./huifu-batch-withdrawal-service").submit(state, w);
   if (!["AUTH", "CONFIRM", "CONFIRM_AUTH"].includes(transferMode)) return { ok: false, status: 503, error: "提现模式配置无效，请联系管理员" };
   let authorization = null;
   if (transferMode === "AUTH") {
+    const authEnv = { ...process.env, HF_TRANSFER_MODE: "AUTH" };
     const user = userRepository.findById(state, w.userId);
-    const local = huifu.activeAuthorization(user);
+    const local = huifu.activeAuthorization(user, authEnv);
     if (!local || local.openid !== w.openid || (w.authorizationNo && w.authorizationNo !== local.authorizationNo)) return { ok: false, status: 409, error: "微信收款授权无效，请重新授权" };
-    const checked = await authorizationService.statusForUser(state, user);
+    const checked = await authorizationService.statusForUser(state, user, authEnv);
     if (!checked.ok || checked.status !== "active") return { ok: false, status: checked.ok ? 409 : checked.status, error: checked.error || "微信收款授权已失效" };
-    authorization = huifu.activeAuthorization(user);
+    authorization = huifu.activeAuthorization(user, authEnv);
     if (!authorization || authorization.openid !== w.openid
       || (w.authorizationNo && w.authorizationNo !== authorization.authorizationNo)
       || (w.status === "processing" && !w.authorizationNo)) {
@@ -157,6 +159,7 @@ async function submitWithdrawal(state, id) {
 async function queryWithdrawal(state, id) {
   const w = state.withdrawRequests.find((x) => x.id === id); if (!w) return { ok: false, status: 404, error: "提现记录不存在" };
   if (!huifu.isConfigured()) return { ok: false, status: 503, error: "汇服八方提现通道未配置" };
+  if (huifu.transferMode(w) === "OAUTH") return require("./huifu-batch-withdrawal-service").query(state, w, handleCallback);
   if (!w.providerOrderId && !Number.isFinite(Date.parse(w.submittedAt || w.createdAt))) return { ok: false, status: 409, error: "历史提现缺少提交日期，请人工核对" };
   let result;
   try { result = await huifu.query(w.providerOrderId
@@ -213,6 +216,7 @@ async function reconcileCallback(state, data) {
   if (data?.notify_type !== "wx_transfer" || !data.order_id || !data.platform_order_id) return { ok: false, status: 400, error: "提现通知类型或单号无效" };
   const w = state.withdrawRequests.find(item => item.providerMerchantOrderId === data.order_id);
   if (!w) return { ok: false, status: 404, error: "提现记录不存在" };
+  if (huifu.transferMode(w) === "OAUTH") return { ok: false, status: 409, error: "该提现单须通过批次明细查询确认" };
   if (w.providerOrderId && w.providerOrderId !== data.platform_order_id) return { ok: false, status: 409, error: "提现通知单号不匹配" };
   return exclusive(w.id, () => queryWithdrawal(state, w.id));
 }

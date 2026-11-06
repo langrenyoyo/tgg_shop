@@ -165,9 +165,15 @@ function publicWithdrawal(withdrawal = {}) {
     "id", "amount", "fee", "arrivalAmount", "channel", "status", "recipientName",
     "reason", "transferState", "createdAt", "updatedAt", "submittedAt", "callbackAt", "lastQueryAt"
   ];
-  return Object.fromEntries(fields
+  const result = Object.fromEntries(fields
     .filter(key => Object.prototype.hasOwnProperty.call(withdrawal, key))
     .map(key => [key, withdrawal[key]]));
+  const tax = withdrawal.status === "success" && withdrawal.submission?.protocol === "OAUTH" && withdrawal.submission.taxInfo;
+  if (tax) {
+    result.actualArrivalAmount = tax.receivedAmountCents / 100;
+    result.withheldTaxAmount = (tax.vatAmountCents + tax.incomeTaxCents) / 100;
+  }
+  return result;
 }
 
 function requestWithdrawal(state, user, input) {
@@ -197,7 +203,7 @@ function requestWithdrawal(state, user, input) {
   }
   const amount = requestedAmount;
   const minAmount = Number(state.config.withdrawMinAmount || 1);
-  const maxAmount = Math.min(Number(state.config.withdrawMaxAmount || 500), 200);
+  const maxAmount = Math.min(Number(state.config.withdrawMaxAmount || 500), huifu.maxTransferAmount());
   const feeRate = Number(state.config.withdrawFeeRate ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "提现金额必须是正数" };
   if (!Number.isFinite(minAmount) || minAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
@@ -234,11 +240,11 @@ function requestWithdrawal(state, user, input) {
   }
 
   const transferMode = huifu.transferMode();
-  if (!["AUTH", "CONFIRM", "CONFIRM_AUTH"].includes(transferMode)) {
+  if (!["OAUTH", "AUTH", "CONFIRM", "CONFIRM_AUTH"].includes(transferMode)) {
     return { ok: false, status: 503, error: "提现模式配置无效，请联系管理员" };
   }
-  const authorization = transferMode === "AUTH" ? huifu.activeAuthorization(user) : null;
-  if (productionLike() && transferMode === "AUTH" && !authorization) {
+  const authorization = ["AUTH", "OAUTH"].includes(transferMode) ? huifu.activeAuthorization(user) : null;
+  if (productionLike() && ["AUTH", "OAUTH"].includes(transferMode) && !authorization) {
     return { ok: false, status: 409, error: "尚未取得有效的微信收款授权，暂不可提现，请联系管理员" };
   }
 

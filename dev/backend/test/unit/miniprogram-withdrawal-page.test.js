@@ -74,9 +74,50 @@ test("authorization lookup failure clears previous success and blocks withdrawal
   await page.load();
   assert.equal(page.data.authorizationStatus, "unknown");
   assert.equal(page.data.error, "授权状态查询失败");
+  assert.equal(page.data.balance, 600);
+  assert.equal(page.data.withdrawRules.minAmount, 1);
   page.data.amount = "1";
   await page.submit();
   assert.equal(requests.some(x => x.options?.method === "POST"), false);
+});
+
+test("4.13 opens provider mini-program and verifies consent on return instead of trusting navigation", async () => {
+  let status = "none";
+  const f = setup(600, { start: () => ({ method: "miniProgram", status: "none", appId: "wxabcdef1234567890", path: "pages/oauth/index?data=a%2Bb%3D" }),
+    authorization: () => ({ status, method: "miniProgram", required: true }) });
+  await f.page.load();
+  await f.page.authorizeWechat();
+  assert.equal(f.transfers.length, 0);
+  assert.equal(f.navigations.length, 1);
+  assert.equal(f.navigations[0].appId, "wxabcdef1234567890");
+  assert.equal(f.navigations[0].path, "pages/oauth/index?data=a%2Bb%3D");
+  assert.equal(f.navigations[0].envVersion, "release");
+  assert.equal(f.page.data.authorizationStatus, "none");
+  f.page.onHide();
+  await f.page.onShow({ referrerInfo: { extraData: { is_auth: 1 } } });
+  assert.equal(f.page.data.authorizationStatus, "none");
+  status = "active";
+  f.page.onHide(); await f.page.onShow();
+  assert.equal(f.page.data.authorizationStatus, "active");
+});
+
+test("4.13 cancellation, invalid target and changed owner never activate consent", async () => {
+  const f = setup(600, { navigationError: "navigateToMiniProgram:fail cancel", start: () => ({ method: "miniProgram", appId: "wxabcdef1234567890", path: "pages/oauth/index?data=x" }) });
+  await f.page.load(); await f.page.authorizeWechat();
+  assert.match(f.toasts.at(-1).title, /取消/);
+  assert.equal(f.page.data.submitting, false);
+  assert.notEqual(f.page.data.authorizationStatus, "active");
+  const invalid = setup(600, { start: () => ({ method: "miniProgram", appId: "bad", path: "https://example.test" }) });
+  await invalid.page.load(); await invalid.page.authorizeWechat();
+  assert.equal(invalid.navigations.length, 0);
+  let release;
+  const changed = setup(600, { start: () => new Promise(resolve => { release = resolve; }) });
+  await changed.page.load();
+  const pending = changed.page.authorizeWechat();
+  changed.storage.tgg_user = { id: "another" };
+  release({ method: "miniProgram", appId: "wxabcdef1234567890", path: "pages/oauth/index?data=x" });
+  await pending;
+  assert.equal(changed.navigations.length, 0);
 });
 
 test("late authorization status cannot restore another account's state or an unloaded page", async () => {

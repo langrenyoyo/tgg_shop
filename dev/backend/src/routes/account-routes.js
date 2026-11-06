@@ -85,7 +85,7 @@ async function handleAccountRoutes(ctx) {
   if (req.method === "POST" && url.pathname === "/api/withdrawals") {
     const input = await readBody(req);
     const existing = input.idempotencyKey && state.withdrawRequests.some(item => item.userId === user.id && item.idempotencyKey === input.idempotencyKey);
-    if (!existing && huifu.isConfigured() && huifu.transferMode() === "AUTH") {
+    if (!existing && huifu.isConfigured() && ["AUTH", "OAUTH"].includes(huifu.transferMode())) {
       const auth = await huifuAuthorization.statusForUser(state, user);
       if (!auth.ok || auth.status !== "active") return send(ctx.res, auth.ok ? 409 : auth.status, { error: auth.error || "请先完成微信收款授权" });
     }

@@ -50,11 +50,32 @@ The supplied payment material contains a test key only. Do not use it as the pro
 
 Fill `TGG_PG_URL`, `WECHAT_APPSECRET`, `LFWIN_BASE_URL`, `LFWIN_API_KEY`, and the provider-issued signing credentials in `.env.production`. RSA needs the merchant private key and provider verification public key; use literal `\n` for PEM line breaks. MD5 needs `LFWIN_SIGN_KEY` and `LFWIN_SIGN_TYPE=MD5` only if confirmed by the provider. Do not generate substitute provider keys.
 
-For Huifu Bafang, use the production API origin `https://tfapi.huifubafang.com`, bind the mini-program AppID and WeChat merchant ID in the provider console, and configure the generated `HF_CALLBACK_URL` (it contains the generated callback token). New withdrawals default to `AUTH`; set `HF_TRANSFER_MODE=AUTH` explicitly in the deployed environment file as existing `CONFIRM` overrides still take precedence. The server records a payout only after an encrypted provider callback or a verified terminal query. Existing submitted orders without a mode snapshot retain the legacy `CONFIRM` behavior, and their confirmation entry remains available. Retain `HF_WECHAT_MCH_ID` until those orders are resolved.
+For Huifu Bafang, use the production API origin `https://tfapi.huifubafang.com`. The selected integration is now Chapter 4.13 authorization with Chapter 4.3 payouts, as configured below. Explicitly switch the deployed environment; the runtime fallback stays `AUTH` for compatibility with existing installations. Existing orders use their saved transfer mode; submitted orders without a mode snapshot retain legacy `CONFIRM`. Retain existing V3 merchant and callback credentials until historical orders are resolved.
 
-### Native AUTH authorization (Apifox V3, updated 2026-11-06)
+### 4.13 mini-program authorization (current selection, 2026-11-06)
 
-Use `HF_TRANSFER_MODE=AUTH`, `HF_AUTHORIZATION_PATH=/wx/auth/apply` (also the default), and the shop's `HF_WECHAT_APPID`. Do not put a mini-program page path in this setting. The selected flow does not navigate to a Huifu mini-program and does not use Chapter 4 batch payouts.
+Set these together before restarting the backend:
+
+```dotenv
+HF_TRANSFER_MODE=OAUTH
+HF_AUTHORIZATION_PATH=/api/getOauthConfig
+```
+
+`OAUTH` is this application's internal channel selector; it is **not** a `transfer_mode` sent to the V3 endpoint. In the Huifu console, bind `HF_MERCHANT_ID` and `HF_WECHAT_APPID`, and select “是” for “授权登录”. Continue using the server-only `HF_COM_KEY/SECRET`. `HF_WECHAT_MCH_ID` is not used for new Chapter 4 authorizations; do not remove it while legacy confirmation orders remain.
+
+GET and POST `/api/withdrawals/authorization` use 4.13 with a deterministic account derived from the internal user ID and bound WeChat OpenID. POST returns `method=miniProgram`, `appId=hf_appid` and `path=path?query` for unconsented users. Preserve the query encoding. The mini-program uses `wx.navigateToMiniProgram` with the returned target, then re-queries on return. Only the server's `is_auth=1` enables withdrawal; navigation success and the documented client `extraData.is_auth` are not trusted. `is_auth=0` clears prior consent; transport and unknown responses block withdrawal. Publish the updated mini-program together with the server change.
+
+Each new OAUTH withdrawal is one batch with one detail in 4.3 `/api/wx/wxorderBatchPay`. `details[0].openid` is the same **account** used for 4.13, not the business mini-program's OpenID. Persist batch/detail IDs, China-time month, recipient, amount and channel before sending. A `code=200` response only means accepted. Timeout or any uncertain submission is queried using the original IDs and month, never resubmitted under new IDs. Month is replaced with the provider's month once a valid acceptance returns.
+
+Settlement uses 4.4 `/api/wx/wxBatchQuery` and 4.5 `/api/wx/wxBatchDetailQuery`. Validate the batch, its one detail, total amount and persisted identity. Only matching detail `pay_status=3` pays out and `4` unfreezes once; `-1`, pending or inconsistent results remain unresolved. A FINISHED batch is not automatically successful. Chapter 4 documents no corresponding payment callback here: user page refresh and finance's provider-query action reconcile these orders. V3 callbacks cannot settle a Chapter 4 order. Provider withholding from `tax_info` is checked against the original amount, retained in the submission record and exposed as actual receipt/tax amounts; it does not alter the user's original frozen amount.
+
+The Chapter 4 channel supports 0.1–500 yuan per transfer; the actual limit is the smaller of this and the admin setting. Existing daily limits and custom withdrawal notices are retained. Review any old notice still saying 200 yuan in admin. Real-name verification and tax restrictions still follow the provider's rules; do not treat a successful authorization-config query as proof of payout eligibility.
+
+Read-only server verification on 2026-11-06 returned `code=200, is_auth=0` and all navigation fields for 4.13. No actual mini-program authorization or payout was initiated by this check. Deployment and a real-device return-flow check remain separate from this result.
+
+### Native AUTH authorization (retained V3 alternative)
+
+For the V3 alternative only, use `HF_TRANSFER_MODE=AUTH`, `HF_AUTHORIZATION_PATH=/wx/auth/apply`, and the shop's `HF_WECHAT_APPID`. Do not put a mini-program page path in this setting. This alternative does not navigate to a Huifu mini-program and does not use Chapter 4 batch payouts.
 
 POST `/api/withdrawals/authorization` queries `/wx/auth/query` with the server-bound merchant/AppID/OpenID first. Existing pending/active authorization is reused; only a closed authorization or documented 1002 not-found response allows a new application. Other errors block the flow. The server persists a unique 5–32 character alphanumeric `authorization_no` before calling `/wx/auth/apply`, with `user_display_name`, `user_recv_perception` and `notify_url`. Network uncertainty retains that number. Pending applications expire after 24 hours; this is not the lifetime of effective consent.
 

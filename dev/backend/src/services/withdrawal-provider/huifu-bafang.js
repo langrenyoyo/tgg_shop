@@ -13,12 +13,20 @@ function activeAuthorization(user, env = process.env, now = Date.now()) {
   const appid = env.HF_WECHAT_APPID || env.WECHAT_APPID;
   if (!auth || auth.status !== "active" || !openid || !appid || !env.HF_MERCHANT_ID) return null;
   if (auth.openid !== openid || auth.appid !== appid || auth.merchantId !== env.HF_MERCHANT_ID) return null;
-  if (typeof auth.authorizationNo !== "string" || !auth.authorizationNo.trim()) return null;
+  if (transferMode({}, env) === "OAUTH") {
+    if (auth.mode !== "OAUTH" || auth.account !== oauthAccount(user)) return null;
+  } else if (auth.mode === "OAUTH" || typeof auth.authorizationNo !== "string" || !auth.authorizationNo.trim()) return null;
   const verifiedAt = Date.parse(auth.verifiedAt);
   if (!Number.isFinite(verifiedAt) || verifiedAt > now) return null;
   if (auth.expiresAt && !(Date.parse(auth.expiresAt) > now)) return null;
-  return { ...auth, authorizationNo: auth.authorizationNo.trim() };
+  return { ...auth, ...(auth.authorizationNo ? { authorizationNo: auth.authorizationNo.trim() } : {}) };
 }
+function oauthAccount(user) {
+  const openid = String(user?.wechatOpenid || user?.openid || "").trim();
+  if (!user?.id || !openid) return "";
+  return crypto.createHash("sha256").update(JSON.stringify([String(user.id), openid])).digest("hex").slice(0, 32);
+}
+function maxTransferAmount(env = process.env) { return transferMode({}, env) === "OAUTH" ? 500 : 200; }
 function isConfigured(env = process.env) {
   const appId = env.HF_WECHAT_APPID || env.WECHAT_APPID;
   return Boolean(env.HF_COM_KEY && env.HF_COM_SECRET && env.HF_BASE_URL && env.HF_MERCHANT_ID && appId);
@@ -79,6 +87,23 @@ async function authorizationStart(data, env = process.env, fetchImpl = global.fe
   }
 }
 
+async function oauthConfig(data, env = process.env, fetchImpl = global.fetch) {
+  const path = "/api/getOauthConfig";
+  if (env.HF_AUTHORIZATION_PATH && env.HF_AUTHORIZATION_PATH !== path) return { ok: false, configured: false };
+  const startedAt = Date.now();
+  try {
+    const result = await request(path, data, env, fetchImpl);
+    console.info("[huifu-auth] provider response", JSON.stringify({ event: "oauth_config_response", path,
+      httpStatus: result.httpStatus ?? null, providerCode: /^\d+$/.test(String(result.body?.code)) ? Number(result.body.code) : null,
+      ok: result.ok, durationMs: Date.now() - startedAt }));
+    return result;
+  } catch (error) {
+    console.error("[huifu-auth] provider request error", JSON.stringify({ event: "oauth_config_error", path,
+      timeout: error?.name === "TimeoutError", durationMs: Date.now() - startedAt }));
+    throw error;
+  }
+}
+
 function decodeCallback(body, env = process.env) {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("提现回调格式错误");
   if (body.comKey !== env.HF_COM_KEY || typeof body.data !== "string" || !Number.isSafeInteger(Number(body.timestamp)) || Number(body.timestamp) <= 0) throw new Error("回调加密信封无效");
@@ -87,12 +112,18 @@ function decodeCallback(body, env = process.env) {
 module.exports = {
   transferMode,
   activeAuthorization,
+  oauthAccount,
+  maxTransferAmount,
+  oauthConfig,
   isConfigured,
   encryptData,
   decryptData,
   decodeCallback,
   authorizationStart,
   authorizationQuery: (p, e, f) => request("/wx/auth/query", p, e, f),
+  batchSubmit: (p, e, f) => request("/api/wx/wxorderBatchPay", p, e, f),
+  batchQuery: (p, e, f) => request("/api/wx/wxBatchQuery", p, e, f),
+  batchDetailQuery: (p, e, f) => request("/api/wx/wxBatchDetailQuery", p, e, f),
   submit: (p, e, f) => request("/wx/transfer/pay", p, e, f),
   query: (p, e, f) => request("/wx/transfer/query", p, e, f)
 };

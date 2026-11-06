@@ -49,7 +49,7 @@
       <view wx:if="{{authorizationRequired !== false}}" class="withdraw-rules">
         <view>微信收款授权：{{authorizationStatus === 'active' ? '已授权' : authorizationStatus === 'pending' ? '等待授权结果' : authorizationStatus === 'expired' ? '已过期，请重新授权' : authorizationStatus === 'revoked' ? '已撤销，请重新授权' : authorizationStatus === 'unknown' ? '待查询' : '尚未确认授权'}}</view>
         <view wx:if="{{authorizationExpiresAt && authorizationStatus === 'active'}}" class="muted">授权有效期至：{{authorizationExpiresAt}}</view>
-        <view wx:if="{{authorizationStatus !== 'active'}}" class="muted">点击按钮，在微信授权窗口确认收款授权。完成后系统将查询授权结果；如尚未更新，请稍后刷新。</view>
+        <view wx:if="{{authorizationStatus !== 'active'}}" class="muted">{{authorizationMethod === 'miniProgram' ? '点击按钮前往汇服八方小程序完成收款授权，再返回本小程序。' : '点击按钮，在微信授权窗口确认收款授权。'}}返回后系统将查询授权结果；如尚未更新，请稍后刷新。</view>
         <button wx:if="{{authorizationStatus !== 'active'}}" class="btn btn-light" bindtap="authorizeWechat" disabled="{{submitting || loading || error}}">授权微信收款</button>
         <button class="btn btn-light" bindtap="load" disabled="{{submitting || loading}}">刷新授权状态</button>
       </view>
@@ -76,6 +76,7 @@
       <view>¥{{item.amount}} · {{item.statusText}}</view>
       <view class="muted">申请 {{item.createdAt}}</view>
       <view>手续费 ¥{{item.fee}}，预计到账 ¥{{item.arrivalAmount}}</view>
+      <view wx:if="{{item.actualArrivalAmount !== undefined}}">渠道代扣税费 ¥{{item.withheldTaxAmount}}，实际到账 ¥{{item.actualArrivalAmount}}</view>
       <view wx:if="{{item.reason}}">处理说明：{{item.reason}}</view>
       <button wx:if="{{item.status === 'processing' && item.transferState === 'WAIT_USER_CONFIRM'}}" class="btn btn-primary" data-id="{{item.id}}" bindtap="confirmTransfer" loading="{{submitting}}" disabled="{{submitting}}">确认收款</button>
     </view>

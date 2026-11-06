@@ -44,7 +44,8 @@ Page({
         this.setData({ points: Number(user.points || 0), config, exchangeEnabled: config.pointBalanceExchangeEnabled === true,
           exchangeAmount: "", exchangePreview: "0.00", exchangePointsError: this.exchangeError(this.data.exchangeAmount) });
       } else if (this.type === "withdraw") {
-        const [user, config, rows, authorization] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/withdrawals"), request("/api/withdrawals/authorization")]);
+        const [user, config, rows, authorization] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/withdrawals"),
+          request("/api/withdrawals/authorization").catch(loadError => ({ status: "unknown", required: true, loadError }))]);
         if (!current()) return;
         if (owner && user.id !== owner) throw new Error("账号信息已变化，请重新登录");
         const dailyCountLimit = Number(config.withdrawDailyCountLimit || 0);
@@ -79,6 +80,9 @@ Page({
           authorizationStatus: authorization.status || "none",
           authorizationRequired: authorization.required !== false,
           authorizationExpiresAt: authorization.expiresAt || "",
+          authorizationMethod: authorization.method || "native",
+          error: authorization.loadError?.message || "",
+          needLogin: authorization.loadError?.statusCode === 401,
           withdrawAmountError: this.amountError(this.data.amount),
           rows: safeRows
         });
@@ -95,17 +99,26 @@ Page({
     const owner = this.currentOwner();
     if (!owner) return this.login();
     if (this.authorizing) return;
-    if (typeof wx.requestMerchantTransfer !== "function" || (wx.canIUse && !wx.canIUse("requestMerchantTransfer"))) {
-      wx.showToast({ title: "当前微信版本不支持，请升级微信后重试", icon: "none" });
-      return;
-    }
     const version = this.loadVersion;
+    let jumped = false;
     this.authorizing = true;
     this.setData({ submitting: true });
     try {
       const result = await request("/api/withdrawals/authorization", { method: "POST", data: {} });
       if (this.disposed || owner !== this.currentOwner() || version !== this.loadVersion) return;
       if (result.status === "active") return;
+      if (result.method === "miniProgram") {
+        if (!/^wx[a-zA-Z0-9]{16}$/.test(result.appId || "") || !result.path || /^[a-z]+:\/\//i.test(result.path)) throw new Error("授权页面信息不完整，请刷新后重试");
+        if (typeof wx.navigateToMiniProgram !== "function") throw new Error("当前微信版本不支持，请升级微信后重试");
+        await new Promise((resolve, reject) => wx.navigateToMiniProgram({
+          appId: result.appId, path: result.path, envVersion: "release", success: resolve, fail: reject
+        }));
+        // Navigation success and referrerInfo.extraData.is_auth are not proof of consent.
+        // onShow reloads 4.13 from the server after the user returns.
+        jumped = true;
+        return;
+      }
+      if (typeof wx.requestMerchantTransfer !== "function" || (wx.canIUse && !wx.canIUse("requestMerchantTransfer"))) throw new Error("当前微信版本不支持，请升级微信后重试");
       const appId = wx.getAccountInfoSync?.().miniProgram?.appId;
       if (!appId || result.appId !== appId || !result.mchId || !result.authorizationPackage) throw new Error("授权信息不完整或与当前小程序不匹配");
       // Native success is only a UI result. The server queries Huifu for effective consent.
@@ -123,7 +136,10 @@ Page({
       });
     } finally {
       this.authorizing = false;
-      if (!this.disposed && owner === this.currentOwner()) { this.setData({ submitting: false }); await this.load(); }
+      if (!this.disposed && owner === this.currentOwner()) {
+        this.setData({ submitting: false });
+        if (!jumped && !this.wasHidden) await this.load();
+      }
     }
   },
   amountError(raw) {

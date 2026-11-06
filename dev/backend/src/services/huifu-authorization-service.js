@@ -70,6 +70,7 @@ async function refresh(state, user, env) {
   return applyResult(state, user, result.body?.data, env);
 }
 async function statusForUser(state, user, env = process.env) {
+  if (huifu.transferMode({}, env) === "OAUTH") return exclusive(user, () => require("./huifu-oauth-service").getConfig(user, env));
   if (huifu.transferMode({}, env) !== "AUTH") return { ok: true, required: false, status: "none" };
   return exclusive(user, async () => {
     const result = await refresh(state, user, env);
@@ -77,6 +78,7 @@ async function statusForUser(state, user, env = process.env) {
   });
 }
 async function start(state, user, input = {}, env = process.env) {
+  if (huifu.transferMode({}, env) === "OAUTH") return exclusive(user, () => require("./huifu-oauth-service").getConfig(user, env, true));
   if (huifu.transferMode({}, env) !== "AUTH") return failure("当前提现模式未启用 AUTH 授权", 409);
   const b = binding(user, env);
   if (!/^\d{5,20}$/.test(b.merchant_id) || (env.HF_WECHAT_MCH_ID && env.HF_WECHAT_MCH_ID !== b.merchant_id)) return failure("微信商户号配置不一致或无效", 503);
