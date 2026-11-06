@@ -93,6 +93,7 @@ test("the screenshot's custom amount-range wording loses its minimum on public r
 });
 
 test("old fee and daily policies are migrated without changing any existing withdrawal snapshots", () => {
+  assert.equal(withdrawalNotice("实际到账金额以提交页面展示为准。"), "提交页面展示预计到账金额，实际金额以到账记录为准。");
   const state = createSeed();
   Object.assign(state.config, { withdrawFeeRate: 0.01, withdrawDailyCountLimit: 2, withdrawDailyAmountLimit: 500,
     withdrawNotice: "单笔提现金额为 1 至 500 元，每人每日最多 2 次，每日 00:00 重置。\n全天 24 小时均可提交，正常情况下申请受理后 10 分钟内到账至已绑定的微信零钱。\n提现手续费为 1%，提现失败后金额退回余额。" });

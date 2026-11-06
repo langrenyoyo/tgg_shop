@@ -4,6 +4,7 @@ const withdrawalPolicy = Object.freeze({ withdrawFeeRate: 0, withdrawDailyCountL
 // Retire obsolete business rules without hiding channel/authorization requirements.
 function withdrawalNotice(value) {
   return String(value || "")
+    .replace(/实际到账金额以提交页面展示为准/g, "提交页面展示预计到账金额，实际金额以到账记录为准")
     .replace(/单笔提现(?:金额)?\s*(?:为|是|：|:)?\s*[¥￥]?\s*\d+(?:\.\d+)?\s*元?\s*[-—–~～至到]\s*[¥￥]?\s*(\d+(?:\.\d+)?)\s*元/g, "单笔提现上限 $1 元")
     .split(/([，,。；;\n])/)
     .reduce((result, part, index, parts) => {
