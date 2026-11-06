@@ -181,7 +181,28 @@ button {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-global-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-actions .admin-global-search button {
+  min-width: auto;
+  padding: 0 14px;
+}
+
+.search-target-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  overflow-wrap: anywhere;
 }
 
 .header-actions input {

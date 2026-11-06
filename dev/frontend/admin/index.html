@@ -43,7 +43,11 @@
           <p id="adminSubtitle">订单、商品、积分、权限和异常补偿的开发版控制台</p>
         </div>
         <div class="header-actions">
-          <input aria-label="搜索" placeholder="搜索订单 / 用户 / 商品" />
+          <form class="admin-global-search" data-admin-search role="search" aria-label="后台全局搜索">
+            <input id="adminSearchInput" name="q" type="search" aria-label="搜索订单、用户或商品" placeholder="搜索订单 / 用户 / 商品" maxlength="100" autocomplete="off" required />
+            <button type="submit">搜索</button>
+            <button type="button" data-admin-search-clear>清空</button>
+          </form>
           <button type="button" id="refresh">今日营业中</button>
           <span id="adminIdentity">未登录</span><button type="button" id="adminLogout">退出登录</button>
         </div>

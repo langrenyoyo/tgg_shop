@@ -45,6 +45,13 @@ async function handleAdminRoutes(ctx) {
     return identity ? send(ctx.res, 200, identity) : send(ctx.res, 401, { error: "请先登录后台" });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/admin/search") {
+    const identity = adminService.getAdminIdentity(req, state);
+    if (!identity) return send(ctx.res, 401, { error: "请先登录后台" });
+    const result = require("../services/admin-search-service").searchAdmin(state, url.searchParams.get("q"), identity.permissions);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
   const permissionByPath = {
     "/api/admin/summary": "order:read",
     "/api/admin/dashboard-views": "order:read",

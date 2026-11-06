@@ -107,6 +107,7 @@ const requiredPaths = [
   "/api/ranking",
   "/api/tickets",
   "/api/admin/auth/me",
+  "/api/admin/search",
   "/api/admin/summary",
   "/api/admin/orders",
   "/api/admin/orders/{orderId}/pickup-verify",

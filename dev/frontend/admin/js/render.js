@@ -5,6 +5,7 @@ import { adminAccountsView } from "./admin-accounts.js";
 import { stationAccountsView } from "./station-accounts.js";
 import { printingView } from "./printing.js";
 import { signinSettings } from "./signin-settings.js";
+import { renderGlobalSearch, renderSearchTarget, searchRecords } from "./global-search.js";
 let currentAdminState = {};
 
 const viewPermissions = {
@@ -34,6 +35,7 @@ const viewPermissions = {
 };
 
 const titles = {
+  search: ["全局搜索", "查询订单、用户和商品"],
   coinSignin: ["签到设置", "随机轮数、广告顺序、间隔倒计时和固定金币奖励"],
   printing: ["打印管理", "芯烨云设备、自动小票、任务核对与补打"],
   dashboard: ["运营仪表盘", "订单、商品、积分、权限和异常补偿的运营总览"],
@@ -167,6 +169,7 @@ export function renderAdminPage(state) {
   }
 
   const views = {
+    search: value => renderGlobalSearch(value, { escapeHtml, escapeAttr, simpleTable, trustedHtml, badge, can }),
     coinSignin: value => signinSettings(value, escapeAttr, can),
     printing: value => printingView(value),
     dashboard,
@@ -194,7 +197,7 @@ export function renderAdminPage(state) {
   const requiredPermission = viewPermissions[state.view];
   document.querySelector("#adminScreen").innerHTML = requiredPermission && !can(requiredPermission)
     ? permissionDenied(requiredPermission)
-    : (views[state.view] || dashboard)(state);
+    : renderSearchTarget(state, escapeHtml) + (views[state.view] || dashboard)(state);
   const pending = can("approval:request") ? pendingApprovalIntents() : [];
   if (pending.length) document.querySelector("#adminScreen").insertAdjacentHTML("afterbegin", `<section class="table-panel"><p>以下审批申请的提交结果待确认。核对原内容后可重试原申请，无需重新填写。</p>${simpleTable("待确认的审批申请", ["操作", "目标", "积分调整", "原申请原因", "操作"], pending.map(item => [zh(item.payload.action, "action"), item.payload.targetId, item.payload.payload?.pointsDelta ?? "-", item.payload.reason || "", trustedHtml(`<button class="action" data-approval-retry="${escapeAttr(item.id)}">重试原申请</button>`)]))}</section>`);
 }
@@ -209,7 +212,7 @@ function dashboard(state) {
 }
 
 function orders(state) {
-  return `<section class="table-panel">${ordersRows(state.orders || [])}</section>`;
+  return `<section class="table-panel">${ordersRows(searchRecords(state, "orders", state.orders || []))}</section>`;
 }
 
 function ordersRows(orders) {
@@ -262,7 +265,7 @@ function deliveryTeam(state) {
 }
 
 function products(state) {
-  const rows = (state.products || []).filter(item => (!state.productStatus || item.status === state.productStatus) && (!state.productSearch || `${item.name} ${item.category} ${item.id}`.includes(state.productSearch)));
+  const rows = searchRecords(state, "products", state.products || []).filter(item => (!state.productStatus || item.status === state.productStatus) && (!state.productSearch || `${item.name} ${item.category} ${item.id}`.includes(state.productSearch)));
   const editing = (state.products || []).find(item => item.id === state.editingProductId) || { purePointsOnly: Boolean(state.newProductPure), ...(state.newProductGift ? { category: "买商品送会员", membershipGiftDays: 30, supportsPoints: false } : {}) };
   return `
     ${statCards([["商品数", (state.products || []).length], ["上架", (state.products || []).filter((item) => item.status === "on").length], ["低库存", (state.products || []).filter((item) => Number(item.stock || 0) <= 20).length], ["纯积分", (state.products || []).filter((item) => item.purePointsOnly).length]])}
@@ -358,7 +361,7 @@ export function promotionEditor(item = {}) {
 }
 
 function users(state) {
-  return `<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "状态", "操作"], (state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberUntil ? trustedHtml(`月会员<br>${escapeHtml(formatDateTime(item.memberUntil))}`) : "-", badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">月会员支持后台续期、扣减与权益状态巡检。</section>`;
+  return `<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "状态", "操作"], searchRecords(state, "users", state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberUntil ? trustedHtml(`月会员<br>${escapeHtml(formatDateTime(item.memberUntil))}`) : "-", badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">月会员支持后台续期、扣减与权益状态巡检。</section>`;
 }
 
 function addressBook(state) {

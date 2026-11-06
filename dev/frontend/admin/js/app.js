@@ -3,6 +3,7 @@ import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
 import { printingClick, printingSubmit } from "./printing.js";
+import { createAdminSearch } from "./global-search.js";
 
 const state = {
   loading: true,
@@ -64,6 +65,7 @@ const state = {
   role: getAdminRole()
 };
 let dashboardLoadSequence = 0;
+const adminSearch = createAdminSearch(state, { api, render: renderAdminPage, reload: loadDashboard });
 
 async function loadDashboard() {
   const loadSequence = ++dashboardLoadSequence;
@@ -357,6 +359,7 @@ async function runDashboardBatch(kind, action) {
 }
 
 function setView(view) {
+  state.searchTarget = null;
   state.view = view;
   renderAdminPage(state);
 }
@@ -385,6 +388,10 @@ document.querySelector("#adminNav").addEventListener("click", (event) => {
 });
 
 document.querySelector("#refresh").addEventListener("click", () => {
+  if (state.view === "search") {
+    adminSearch.submit(state.globalSearch?.query);
+    return;
+  }
   loadDashboard().catch(() => renderAdminPage(state));
 });
 
@@ -392,6 +399,29 @@ document.body.addEventListener("click", (event) => {
   if (printingClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (stationAccountClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (event.target.closest("button:disabled")) return;
+  if (event.target.closest("[data-admin-search-clear]")) {
+    document.querySelector("#adminSearchInput").value = "";
+    adminSearch.reset();
+    return;
+  }
+  if (event.target.closest("[data-admin-search-retry]")) {
+    adminSearch.submit(state.globalSearch?.query);
+    return;
+  }
+  if (event.target.closest("[data-admin-search-back]")) {
+    adminSearch.back();
+    return;
+  }
+  if (event.target.closest("[data-admin-search-show-all]")) {
+    state.searchTarget = null;
+    renderAdminPage(state);
+    return;
+  }
+  const searchResult = event.target.closest("[data-admin-search-open]");
+  if (searchResult) {
+    adminSearch.open(searchResult.dataset.searchType, searchResult.dataset.adminSearchOpen).catch(error => window.alert(error.message));
+    return;
+  }
   const adminToggle = event.target.closest("[data-admin-toggle]");
   if (adminToggle) {
     const reason = window.prompt("请输入启用 / 禁用管理员的原因，禁用会使已登录会话失效：");
@@ -431,6 +461,7 @@ document.body.addEventListener("click", (event) => {
   }
   const productEdit = event.target.closest("[data-product-edit]");
   if (productEdit || event.target.closest("[data-product-edit-cancel], [data-product-new-pure], [data-product-new-gift]")) {
+    state.searchTarget = null;
     state.editingProductId = productEdit?.dataset.productEdit || null;
     state.newProductPure = Boolean(event.target.closest("[data-product-new-pure]"));
     state.newProductGift = Boolean(event.target.closest("[data-product-new-gift]"));
@@ -946,6 +977,12 @@ document.body.addEventListener("change", (event) => {
 });
 
 document.body.addEventListener("submit", (event) => {
+  const searchForm = event.target.closest("[data-admin-search]");
+  if (searchForm) {
+    event.preventDefault();
+    adminSearch.submit(new FormData(searchForm).get("q"));
+    return;
+  }
   if (printingSubmit(event, state, { api, reload: loadDashboard })) return;
   if (stationAccountSubmit(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   const loginForm = event.target.closest("[data-admin-login]");
@@ -991,6 +1028,7 @@ document.body.addEventListener("submit", (event) => {
   const productFilter = event.target.closest("[data-product-filter-form]");
   if (productFilter) {
     event.preventDefault();
+    state.searchTarget = null;
     const fields = new FormData(productFilter);
     state.productSearch = String(fields.get("search") || "").trim();
     state.productStatus = fields.get("status") || "";
@@ -1420,6 +1458,8 @@ function exportDashboardCsv() {
 renderAdminPage(state);
 window.addEventListener("tgg-admin-auth-expired", () => {
   dashboardLoadSequence += 1;
+  adminSearch.invalidate();
+  document.querySelector("#adminSearchInput").value = "";
   state.identity = null;
   state.loading = false;
   state.loginError = "登录已失效，请重新登录";
@@ -1431,7 +1471,7 @@ document.querySelector("#adminLogout").addEventListener("click", async () => {
 });
 loadDashboard().catch(() => renderAdminPage(state));
 window.setInterval(() => {
-  if (state.identity && document.visibilityState === "visible" && !["homeOps", "products", "pointsExchange"].includes(state.view) && !state.editingRoleId && !state.editingAdminId && !state.resetAdminId) {
+  if (state.identity && document.visibilityState === "visible" && !["search", "homeOps", "products", "pointsExchange"].includes(state.view) && !state.editingRoleId && !state.editingAdminId && !state.resetAdminId) {
     loadDashboard().catch(() => renderAdminPage(state));
   }
 }, 60000);

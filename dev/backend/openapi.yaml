@@ -1966,6 +1966,59 @@ paths:
         "200":
           description: Admin role
 
+  /api/admin/search:
+    get:
+      tags: [Admin]
+      summary: Search orders, users and products
+      description: Returns only groups allowed by the current admin's order:read, customer:read and product:read permissions. Matches identifiers, order item names, user nicknames/phones, product names/categories/location codes, case-insensitively. Each group contains at most 20 summary records and its full match count; exact identifiers are ranked first. Does not return pickup codes or authentication/provider metadata.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+          description: Nonblank keyword; surrounding whitespace is trimmed.
+      responses:
+        "200":
+          description: Search results grouped by permitted resource type
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, query, limit, total, groups]
+                properties:
+                  ok: { type: boolean }
+                  query: { type: string }
+                  limit: { type: integer, enum: [20] }
+                  total: { type: integer, minimum: 0 }
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, label, total, items]
+                      properties:
+                        type: { type: string, enum: [orders, users, products] }
+                        label: { type: string }
+                        total: { type: integer, minimum: 0 }
+                        items:
+                          type: array
+                          maxItems: 20
+                          items:
+                            type: object
+                            required: [id, title, description]
+                            properties:
+                              id: { type: string }
+                              title: { type: string }
+                              description: { type: string }
+                              status: { type: string }
+        "400":
+          description: Missing, blank or overly long keyword
+        "401":
+          description: Missing or expired admin session
+        "403":
+          description: No permission to read any searchable resource
+
   /api/admin/summary:
     get:
       tags: [Admin]
