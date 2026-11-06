@@ -1,4 +1,4 @@
-const { request, getBaseUrl } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const TITLES = { payments: "支付记录", ranking: "积分排行榜", pointExchange: "积分换余额", withdraw: "提现", customerService: "在线客服", feedback: "意见反馈", business: "商务合作", recruiting: "代理申请", pickupSite: "自提点" };
 const WITHDRAWAL_STATUSES = { pending_review: "审核中", approved: "审核通过，待提交", processing: "处理中", success: "已到账", failed: "提现失败", rejected: "已驳回", cancelled: "已撤销" };
 function withdrawalDayKey(value, timeZone) {
@@ -107,18 +107,6 @@ Page({
       const result = await request("/api/withdrawals/authorization", { method: "POST", data: {} });
       if (this.disposed || owner !== this.currentOwner() || version !== this.loadVersion) return;
       if (result.status === "active") return;
-      if (result.method === "urlScheme") {
-        if (!/^weixin:\/\/dl\/business\/\?t=[a-zA-Z0-9_%+\-=]+$/.test(result.scheme || "") || result.scheme.length > 4096
-          || !Number.isSafeInteger(result.expireTime) || result.expireTime < -1
-          || (result.expireTime !== -1 && result.expireTime * 1000 <= Date.now())) throw new Error("授权链接无效或已过期，请重新获取");
-        // URL Scheme is for external browsers. Android needs this H5 bridge.
-        // The fragment is not sent to the web server, so the ticket stays out of access logs.
-        const link = `${getBaseUrl()}/user/withdrawal-authorization.html#${encodeURIComponent(JSON.stringify({ scheme: result.scheme, expireTime: result.expireTime }))}`;
-        await new Promise((resolve, reject) => wx.setClipboardData({ data: link, success: resolve, fail: reject }));
-        if (this.disposed || owner !== this.currentOwner() || version !== this.loadVersion) return;
-        wx.showModal({ title: "授权链接已复制", content: "请打开手机系统浏览器，粘贴链接后点击“打开微信授权”。完成后返回本小程序，点击“刷新授权状态”。链接仅供本人使用。", showCancel: false });
-        return;
-      }
       if (result.method === "miniProgram") {
         if (!/^wx[a-zA-Z0-9]{16}$/.test(result.appId || "") || !result.path || /^[a-z]+:\/\//i.test(result.path)) throw new Error("授权页面信息不完整，请刷新后重试");
         if (typeof wx.navigateToMiniProgram !== "function") throw new Error("当前微信版本不支持，请升级微信后重试");

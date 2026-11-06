@@ -49,8 +49,8 @@
       <view wx:if="{{authorizationRequired !== false}}" class="withdraw-rules">
         <view>微信收款授权：{{authorizationStatus === 'active' ? '已授权' : authorizationStatus === 'pending' ? '等待授权结果' : authorizationStatus === 'expired' ? '已过期，请重新授权' : authorizationStatus === 'revoked' ? '已撤销，请重新授权' : authorizationStatus === 'unknown' ? '待查询' : '尚未确认授权'}}</view>
         <view wx:if="{{authorizationExpiresAt && authorizationStatus === 'active'}}" class="muted">授权有效期至：{{authorizationExpiresAt}}</view>
-        <view wx:if="{{authorizationStatus !== 'active'}}" class="muted">{{authorizationMethod === 'urlScheme' ? '复制授权链接，在手机系统浏览器粘贴打开，点击“打开微信授权”。完成后返回本小程序刷新状态。' : authorizationMethod === 'miniProgram' ? '点击按钮前往汇服八方小程序完成收款授权，再返回本小程序。' : '点击按钮，在微信授权窗口确认收款授权。'}}授权结果以刷新后的状态为准。</view>
-        <button wx:if="{{authorizationStatus !== 'active'}}" class="btn btn-light" bindtap="authorizeWechat" disabled="{{submitting || loading || error}}">{{authorizationMethod === 'urlScheme' ? '复制微信授权链接' : '授权微信收款'}}</button>
+        <view wx:if="{{authorizationStatus !== 'active'}}" class="muted">{{authorizationMethod === 'miniProgram' ? '点击按钮前往汇服八方小程序完成收款授权，再返回本小程序。' : '点击按钮，在微信授权窗口确认收款授权。'}}返回后系统将查询授权结果；如尚未更新，请稍后刷新。</view>
+        <button wx:if="{{authorizationStatus !== 'active'}}" class="btn btn-light" bindtap="authorizeWechat" disabled="{{submitting || loading || error}}">授权微信收款</button>
         <button class="btn btn-light" bindtap="load" disabled="{{submitting || loading}}">刷新授权状态</button>
       </view>
       <view class="withdraw-label">可提现余额</view>

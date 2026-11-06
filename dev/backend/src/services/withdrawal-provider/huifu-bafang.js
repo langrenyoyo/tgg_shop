@@ -87,10 +87,9 @@ async function authorizationStart(data, env = process.env, fetchImpl = global.fe
   }
 }
 
-function oauthPath(env = process.env) { return env.HF_AUTHORIZATION_PATH || "/api/mp/getScheme"; }
 async function oauthConfig(data, env = process.env, fetchImpl = global.fetch) {
-  const path = oauthPath(env);
-  if (!["/api/getOauthConfig", "/api/mp/getScheme"].includes(path)) return { ok: false, configured: false };
+  const path = "/api/getOauthConfig";
+  if (env.HF_AUTHORIZATION_PATH && env.HF_AUTHORIZATION_PATH !== path) return { ok: false, configured: false };
   const startedAt = Date.now();
   try {
     const result = await request(path, data, env, fetchImpl);
@@ -116,7 +115,6 @@ module.exports = {
   oauthAccount,
   maxTransferAmount,
   oauthConfig,
-  oauthPath,
   isConfigured,
   encryptData,
   decryptData,

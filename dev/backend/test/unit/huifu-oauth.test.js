@@ -7,8 +7,8 @@ const auth = require("../../src/services/huifu-authorization-service");
 const account = require("../../src/services/account-service");
 const withdrawals = require("../../src/services/withdrawal-service");
 
-function setup(t, authPath = "/api/getOauthConfig") {
-  const env = { HF_TRANSFER_MODE: "OAUTH", HF_AUTHORIZATION_PATH: authPath, HF_BASE_URL: "https://example.test",
+function setup(t) {
+  const env = { HF_TRANSFER_MODE: "OAUTH", HF_AUTHORIZATION_PATH: "/api/getOauthConfig", HF_BASE_URL: "https://example.test",
     HF_MERCHANT_ID: "merchant-bound", HF_WECHAT_APPID: "wx1234567890abcdef", HF_COM_KEY: "k".repeat(16), HF_COM_SECRET: "s".repeat(32), NODE_ENV: "production" };
   const before = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
   Object.assign(process.env, env);
@@ -241,68 +241,4 @@ test("switching to 4.13 does not send or query historical V3 orders as Chapter 4
   assert.equal((await withdrawals.queryWithdrawal(f.state, row.id)).ok, true);
   assert.equal(row.status, "success"); assert.equal(query.mock.callCount(), 1);
   assert.equal(f.batchQuery.mock.callCount() + f.detailQuery.mock.callCount() + f.submit.mock.callCount(), 0);
-});
-
-test("4.14 returns a validated scheme and keeps the same server account for Chapter 4 payout", async t => {
-  const f = setup(t, "/api/mp/getScheme");
-  const scheme = "weixin://dl/business/?t=ticket%2B123%3D";
-  const expireTime = Math.floor(Date.now() / 1000) + 300;
-  f.provider = { is_auth: 0, scheme, expire_time: expireTime };
-  const result = await auth.start(f.state, f.user, { account: "forged", is_auth: 1 });
-  assert.equal(result.method, "urlScheme");
-  assert.equal(result.status, "none");
-  assert.equal(result.scheme, scheme);
-  assert.equal(result.expireTime, expireTime);
-  assert.equal(result.appId, undefined);
-  assert.equal(result.path, undefined);
-  const status = await auth.statusForUser(f.state, f.user);
-  assert.equal(status.scheme, undefined);
-  assert.equal(status.status, "none");
-  f.provider = { is_auth: 2 }; // 4.14 documents ANY positive integer as authorized.
-  assert.equal((await auth.statusForUser(f.state, f.user)).status, "active");
-  const savedAccount = hf.activeAuthorization(f.user).account;
-  process.env.HF_AUTHORIZATION_PATH = "/api/getOauthConfig";
-  f.provider = { is_auth: 1 };
-  await auth.statusForUser(f.state, f.user);
-  assert.equal(hf.activeAuthorization(f.user).account, savedAccount);
-});
-
-test("4.14 rejects expired or malformed links and invalid consent while allowing permanent links", async t => {
-  const f = setup(t, "/api/mp/getScheme");
-  const scheme = "weixin://dl/business/?t=ticket123";
-  for (const value of [0, 1, Math.floor(Date.now() / 1000) - 1]) {
-    f.provider = { is_auth: 0, scheme, expire_time: value };
-    assert.equal((await auth.start(f.state, f.user)).status, 409);
-  }
-  for (const value of [null, true, "", undefined, -2, 1.5, 9999999999999999]) {
-    f.provider = { is_auth: 0, scheme, expire_time: value };
-    assert.equal((await auth.start(f.state, f.user)).status, 502);
-  }
-  for (const value of ["https://evil.test", "javascript:alert(1)", "weixin://dl/business/?t=abc#evil", "weixin://other/?t=abc", ""]) {
-    f.provider = { is_auth: 0, scheme: value, expire_time: -1 };
-    assert.equal((await auth.start(f.state, f.user)).ok, false);
-  }
-  for (const value of [true, false, null, -1, 1.1, "", {}, "1e2"]) {
-    f.provider = { is_auth: value, scheme, expire_time: -1 };
-    assert.equal((await auth.statusForUser(f.state, f.user)).ok, false);
-  }
-  f.provider = { is_auth: 1 };
-  await auth.statusForUser(f.state, f.user);
-  f.provider = { is_auth: 0, scheme, expire_time: 0 };
-  await auth.start(f.state, f.user);
-  assert.equal(hf.activeAuthorization(f.user), null);
-  f.provider = { is_auth: "0", scheme, expire_time: "-1" };
-  assert.equal((await auth.start(f.state, f.user)).expireTime, -1);
-});
-
-test("OAUTH's new default adapter calls 4.14 with encrypted account and bound platform appid", async t => {
-  const env = { HF_BASE_URL: "https://example.test", HF_COM_KEY: "k".repeat(16), HF_COM_SECRET: "s".repeat(32), HF_MERCHANT_ID: "merchant", HF_WECHAT_APPID: "platform-app" };
-  const payload = { account: "stable-account", merchant_id: "merchant", appid: "platform-app" };
-  t.mock.method(console, "info", () => {});
-  const result = await hf.oauthConfig(payload, env, async (url, options) => {
-    assert.equal(url, "https://example.test/api/mp/getScheme");
-    assert.deepEqual(hf.decryptData(JSON.parse(options.body).data, env.HF_COM_SECRET, env.HF_COM_KEY), payload);
-    return { ok: true, status: 200, json: async () => ({ code: 200, data: { is_auth: 0, scheme: "weixin://dl/business/?t=ticket", expire_time: -1 } }) };
-  });
-  assert.equal(result.ok, true);
 });

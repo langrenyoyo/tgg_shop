@@ -9,8 +9,6 @@ const STATION_DIR = path.join(ROOT, "frontend", "station");
 const ASSETS_DIR = path.resolve(ROOT, "..", "ui", "v17", "assets");
 const UPLOADS_DIR = path.join(ROOT, "backend", "data", "uploads");
 const ADMIN_STATIC_HEADERS = { "Cache-Control": "no-store" };
-const AUTHORIZATION_STATIC_HEADERS = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
-  "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" };
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -26,7 +24,6 @@ const contentTypes = {
 };
 
 function routeStatic(req, res, url) {
-  if (["/user/withdrawal-authorization.html", "/user/withdrawal-authorization.js"].includes(url.pathname)) return serveFile(res, path.join(USER_DIR, path.basename(url.pathname)), false, AUTHORIZATION_STATIC_HEADERS);
   if (url.pathname === "/" || url.pathname === "/user" || url.pathname === "/user/") return serveFile(res, path.join(USER_DIR, "index.html"));
   if (url.pathname === "/admin" || url.pathname === "/admin/") return serveFile(res, path.join(ADMIN_DIR, "index.html"), false, ADMIN_STATIC_HEADERS);
   if (url.pathname === "/admin/login" || url.pathname === "/admin/login/") return serveFile(res, path.join(ADMIN_DIR, "index.html"), false, ADMIN_STATIC_HEADERS);
