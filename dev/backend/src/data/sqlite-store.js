@@ -73,7 +73,7 @@ function ensureWithdrawalColumns(database) {
     ["provider_order_id", "TEXT"], ["provider_merchant_order_id", "TEXT"], ["provider_result_code", "TEXT"],
     ["provider_status", "TEXT"], ["provider_error_code", "TEXT"], ["provider_error_message", "TEXT"],
     ["transfer_package", "TEXT"], ["transfer_state", "TEXT"], ["submitted_at", "TEXT"],
-    ["callback_at", "TEXT"], ["last_query_at", "TEXT"], ["transfer_mode", "TEXT"], ["authorization_no", "TEXT"]
+    ["callback_at", "TEXT"], ["last_query_at", "TEXT"], ["transfer_mode", "TEXT"], ["authorization_no", "TEXT"], ["submission_json", "TEXT"], ["unfrozen_at", "TEXT"]
   ];
   for (const [name, definition] of additions) if (!columns.has(name)) database.exec(`ALTER TABLE withdraw_request ADD COLUMN ${name} ${definition};`);
 }
@@ -115,6 +115,8 @@ function readState(database) {
   }
   const stationPickupAttempts = Array.isArray(config.__stationPickupAttempts) ? config.__stationPickupAttempts : [];
   delete config.__stationPickupAttempts;
+  const huifuAuthorizationSessions = Array.isArray(config.__huifuAuthorizationSessions) ? config.__huifuAuthorizationSessions : [];
+  delete config.__huifuAuthorizationSessions;
 
   const users = database
     .prepare(
@@ -381,7 +383,7 @@ function readState(database) {
 
   const withdrawRequests = database
     .prepare(
-      "SELECT id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, transfer_mode, authorization_no, created_at, updated_at FROM withdraw_request ORDER BY created_at DESC"
+      "SELECT id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, transfer_mode, authorization_no, submission_json, unfrozen_at, created_at, updated_at FROM withdraw_request ORDER BY created_at DESC"
     )
     .all()
     .map((row) => ({
@@ -400,6 +402,7 @@ function readState(database) {
       transferPackage: parseJsonValue(row.transfer_package, null), transferState: row.transfer_state,
       submittedAt: row.submitted_at, callbackAt: row.callback_at, lastQueryAt: row.last_query_at,
       transferMode: row.transfer_mode, authorizationNo: row.authorization_no,
+      submission: row.submission_json ? JSON.parse(row.submission_json) : null, unfrozenAt: row.unfrozen_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -579,6 +582,7 @@ function readState(database) {
     stationAccounts,
     stationOrders,
     stationPickupAttempts,
+    huifuAuthorizationSessions,
     stationOperationLogs,
     inviteRelations,
     signinSessions,
@@ -666,7 +670,7 @@ function insertState(database, state) {
     insertAdmin.run(account.id, account.username, account.name, account.passwordHash, JSON.stringify(account.roleIds), account.status, account.createdAt, account.updatedAt, account.lastLoginAt || null);
   }
   const insertConfig = database.prepare("INSERT INTO app_config (config_key, config_value) VALUES (?, ?)");
-  for (const [key, value] of Object.entries({ ...state.config, __stationPickupAttempts: state.stationPickupAttempts || [], currentUserId: state.currentUserId })) {
+  for (const [key, value] of Object.entries({ ...state.config, __stationPickupAttempts: state.stationPickupAttempts || [], __huifuAuthorizationSessions: state.huifuAuthorizationSessions || [], currentUserId: state.currentUserId })) {
     insertConfig.run(key, JSON.stringify(value));
   }
 
@@ -895,7 +899,7 @@ function insertState(database, state) {
   }
 
   const insertWithdrawRequest = database.prepare(
-    "INSERT INTO withdraw_request (id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, transfer_mode, authorization_no, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO withdraw_request (id, user_id, amount_cents, fee_cents, arrival_amount_cents, channel, status, idempotency_key, provider, openid, recipient_name, provider_order_id, provider_merchant_order_id, provider_result_code, provider_status, provider_error_code, provider_error_message, transfer_package, transfer_state, submitted_at, callback_at, last_query_at, transfer_mode, authorization_no, submission_json, unfrozen_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   for (const item of state.withdrawRequests || []) {
     insertWithdrawRequest.run(
@@ -913,6 +917,7 @@ function insertState(database, state) {
       item.transferPackage == null ? null : JSON.stringify(item.transferPackage), item.transferState || null,
       item.submittedAt || null, item.callbackAt || null, item.lastQueryAt || null,
       item.transferMode || null, item.authorizationNo || null,
+      item.submission ? JSON.stringify(item.submission) : null, item.unfrozenAt || null,
       item.createdAt || new Date().toISOString(),
       item.updatedAt || item.createdAt || new Date().toISOString()
     );

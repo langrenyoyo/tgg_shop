@@ -879,6 +879,7 @@ function updateConfig(state, input, actor = {}) {
   const nextWithdrawMin = Number(input.withdrawMinAmount ?? state.config.withdrawMinAmount ?? 1);
   const nextWithdrawMax = Number(input.withdrawMaxAmount ?? state.config.withdrawMaxAmount ?? 500);
   if (nextWithdrawMin > nextWithdrawMax) return { ok: false, status: 400, error: "单笔提现上限不能低于最低提现金额" };
+  if ((Object.hasOwn(input, "withdrawMinAmount") || Object.hasOwn(input, "withdrawMaxAmount")) && nextWithdrawMin > 200) return { ok: false, status: 400, error: "最低提现金额不能超过当前渠道单笔上限 200 元" };
   const before = { ...state.config };
   if (Object.hasOwn(input, "coinSignin")) state.config.coinSignin = structuredClone(input.coinSignin);
   const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired", "pointBalanceExchangeEnabled"];

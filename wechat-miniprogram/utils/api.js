@@ -107,6 +107,9 @@ function refreshSession(version, token) {
 }
 
 function request(path, { method = "GET", data = null, retry = true, authRequired = false } = {}) {
+  // Every caller of the profile endpoint needs a session, including account,
+  // checkout, membership and balance pages that omit authRequired.
+  authRequired = authRequired || path.split("?")[0] === "/api/me";
   const version = sessionVersion;
   const token = getToken();
   const authPath = path.startsWith("/api/auth/");

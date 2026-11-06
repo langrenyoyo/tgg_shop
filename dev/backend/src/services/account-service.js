@@ -197,7 +197,7 @@ function requestWithdrawal(state, user, input) {
   }
   const amount = requestedAmount;
   const minAmount = Number(state.config.withdrawMinAmount || 1);
-  const maxAmount = Number(state.config.withdrawMaxAmount || 500);
+  const maxAmount = Math.min(Number(state.config.withdrawMaxAmount || 500), 200);
   const feeRate = Number(state.config.withdrawFeeRate ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "提现金额必须是正数" };
   if (!Number.isFinite(minAmount) || minAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
@@ -245,6 +245,7 @@ function requestWithdrawal(state, user, input) {
   const fee = roundMoney(amount * feeRate);
   const arrivalAmount = roundMoney(amount - fee);
   if (arrivalAmount <= 0) return { ok: false, status: 400, error: "扣除手续费后到账金额必须大于 0 元" };
+  if (arrivalAmount < 0.1) return { ok: false, status: 400, error: "渠道要求扣除手续费后到账金额至少为 0.1 元" };
   const now = new Date().toISOString();
   const withdrawal = {
     id: nextId("wd"),

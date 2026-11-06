@@ -43,14 +43,56 @@ function decryptData(value, secret, comKey) {
 }
 async function request(path, data, env = process.env, fetchImpl = global.fetch) {
   if (!isConfigured(env)) return { ok: false, configured: false, error: "汇服八方提现通道未配置" };
-  const response = await fetchImpl(`${String(env.HF_BASE_URL).replace(/\/$/, "")}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ comKey: env.HF_COM_KEY, timestamp: Math.floor(Date.now() / 1000), data: encryptData(data, env.HF_COM_SECRET, env.HF_COM_KEY) }) });
+  const response = await fetchImpl(`${String(env.HF_BASE_URL).replace(/\/$/, "")}${path}`, { method: "POST", signal: AbortSignal.timeout(15000), headers: { "content-type": "application/json" }, body: JSON.stringify({ comKey: env.HF_COM_KEY, timestamp: Math.floor(Date.now() / 1000), data: encryptData(data, env.HF_COM_SECRET, env.HF_COM_KEY) }) });
   const body = await response.json().catch(() => ({}));
   return { ok: response.ok && Number(body.code) === 200, httpStatus: response.status, body, error: Number(body.code) === 200 ? undefined : body.message || "汇服八方接口返回失败" };
 }
+async function authorizationStart(data, env = process.env, fetchImpl = global.fetch) {
+  const path = String(env.HF_AUTHORIZATION_PATH || "/wx/auth/apply").trim();
+  if (path !== "/wx/auth/apply") {
+    return { ok: false, configured: false, error: "汇付 AUTH 授权接口路径配置无效" };
+  }
+  const startedAt = Date.now();
+  try {
+    const result = await request(path, data, env, fetchImpl);
+    console.info("[huifu-auth] provider response", JSON.stringify({
+      event: "authorization_start_response",
+      path,
+      ok: result.ok,
+      configured: result.configured !== false,
+      httpStatus: result.httpStatus ?? null,
+      providerCode: result.body?.code ?? null,
+      responseKeys: result.body && typeof result.body === "object" ? Object.keys(result.body).sort() : [],
+      dataKeys: result.body?.data && typeof result.body.data === "object" ? Object.keys(result.body.data).sort() : [],
+      authorizationState: ["WAIT_USER_CONFIRM", "TAKING_EFFECT", "CLOSED"].includes(result.body?.data?.state) ? result.body.data.state : null,
+      durationMs: Date.now() - startedAt
+    }));
+    return result;
+  } catch (error) {
+    console.error("[huifu-auth] provider request error", JSON.stringify({
+      event: "authorization_start_error",
+      path,
+      errorType: error?.name || "Error",
+      durationMs: Date.now() - startedAt
+    }));
+    throw error;
+  }
+}
+
 function decodeCallback(body, env = process.env) {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("提现回调格式错误");
-  if (body.data && typeof body.data === "string") return decryptData(body.data, env.HF_COM_SECRET, env.HF_COM_KEY);
-  if (body.data && typeof body.data === "object") return body.data;
-  return body;
+  if (body.comKey !== env.HF_COM_KEY || typeof body.data !== "string" || !Number.isSafeInteger(Number(body.timestamp)) || Number(body.timestamp) <= 0) throw new Error("回调加密信封无效");
+  return decryptData(body.data, env.HF_COM_SECRET, env.HF_COM_KEY);
 }
-module.exports = { transferMode, activeAuthorization, isConfigured, encryptData, decryptData, decodeCallback, submit: (p, e, f) => request("/wx/transfer/pay", p, e, f), query: (p, e, f) => request("/wx/transfer/query", p, e, f) };
+module.exports = {
+  transferMode,
+  activeAuthorization,
+  isConfigured,
+  encryptData,
+  decryptData,
+  decodeCallback,
+  authorizationStart,
+  authorizationQuery: (p, e, f) => request("/wx/auth/query", p, e, f),
+  submit: (p, e, f) => request("/wx/transfer/pay", p, e, f),
+  query: (p, e, f) => request("/wx/transfer/query", p, e, f)
+};

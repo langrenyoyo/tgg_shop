@@ -136,3 +136,15 @@ test("a late rejected retry cannot clear a newly logged-in account", async () =>
   assert.equal(h.page.data.authNotice, "");
   assert.equal(h.page.data.error, "");
 });
+
+test("known expired profile session shows a visible login prompt without requesting me", async () => {
+  const h = setup({ refreshToken: "" });
+  h.storage.set("tgg_token_expires_at", new Date(0).toISOString());
+  await h.page.load();
+  assertSignedOut(h);
+  assert.equal(h.calls.length, 0);
+  const template = fs.readFileSync(path.join(root, "pages/me/index.wxml"), "utf8");
+  assert.match(template, /wx:if="\{\{authNotice\}\}"/);
+  assert.match(template, /\{\{authNotice\}\}/);
+  assert.match(template, /bindtap="goLogin">重新登录/);
+});

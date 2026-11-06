@@ -43,13 +43,17 @@ test("PostgreSQL staging is held to production configuration requirements", () =
   assert.equal(validateRuntimeConfig({ ...staging, TGG_ADMIN_PASSWORD_HASH: "" }).ok, false);
 });
 
-test("Huifu defaults to AUTH without a mini-program confirmation merchant ID", () => {
+test("Huifu native AUTH uses the bound WeChat merchant ID and official endpoint", () => {
   const hf = {
     ...valid, HF_BASE_URL: "https://tfapi.huifubafang.com", HF_COM_KEY: "k".repeat(16),
-    HF_COM_SECRET: "s".repeat(32), HF_CALLBACK_TOKEN: "t".repeat(32), HF_MERCHANT_ID: "merchant001",
-    HF_CALLBACK_URL: `https://shop.taoguoguo.cc/api/providers/huifu/withdraw-callback?token=${"t".repeat(32)}`
+    HF_COM_SECRET: "s".repeat(32), HF_CALLBACK_TOKEN: "t".repeat(32), HF_MERCHANT_ID: "1900000001",
+    HF_CALLBACK_URL: `https://shop.taoguoguo.cc/api/providers/huifu/withdraw-callback?token=${"t".repeat(32)}`,
+    HF_AUTHORIZATION_PATH: "/wx/auth/apply", HF_AUTHORIZATION_CALLBACK_TOKEN: "u".repeat(32),
+    HF_AUTHORIZATION_CALLBACK_URL: `https://shop.taoguoguo.cc/api/providers/huifu/authorization-callback?token=${"u".repeat(32)}`
   };
   assert.deepEqual(validateRuntimeConfig(hf).errors, []);
+  assert.equal(validateRuntimeConfig({ ...hf, HF_AUTHORIZATION_PATH: "/pages/authorize/mini_authorize_tf" }).ok, false);
+  assert.equal(validateRuntimeConfig({ ...hf, HF_WECHAT_MCH_ID: "1900000002" }).ok, false);
   assert.equal(validateRuntimeConfig({ ...hf, HF_TRANSFER_MODE: "AUTH" }).ok, true);
   assert.equal(validateRuntimeConfig({ ...hf, HF_TRANSFER_MODE: "CONFIRM" }).ok, false);
   assert.equal(validateRuntimeConfig({ ...hf, HF_TRANSFER_MODE: "CONFIRM", HF_WECHAT_MCH_ID: "1900000001" }).ok, true);
@@ -132,8 +136,8 @@ test("production initialization generates distinct secrets once and never prints
   const file = path.join(backend, ".env.production");
   const before = fs.readFileSync(file, "utf8");
   const env = readEnvFile(file);
-  const secrets = [env.TGG_AUTH_SECRET, env.TGG_TASK_CALLBACK_TOKEN, env.HF_CALLBACK_TOKEN];
-  assert.equal(new Set(secrets).size, 3);
+  const secrets = [env.TGG_AUTH_SECRET, env.TGG_TASK_CALLBACK_TOKEN, env.HF_CALLBACK_TOKEN, env.HF_AUTHORIZATION_CALLBACK_TOKEN];
+  assert.equal(new Set(secrets).size, 4);
   for (const secret of [...secrets, env.TGG_TASK_PLATFORM_KEY]) {
     assert.ok(!result.stdout.includes(secret));
     assert.ok(!result.stderr.includes(secret));

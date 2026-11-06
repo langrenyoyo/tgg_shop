@@ -152,3 +152,37 @@ test("public requests stay available even when a cached token has expired", asyn
   reply(calls[0], 200, { ok: true });
   await pending;
 });
+
+test("profile requests without auth options refresh expired credentials before sending", async () => {
+  const { api, calls } = setup();
+  api.saveSession({ token: "expired", expiresAt: new Date(0).toISOString(), refreshToken: "refresh", user: { id: "alice" } });
+  const pending = api.request("/api/me");
+  const second = api.request("/api/me?source=balance");
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/api\/auth\/refresh$/);
+  reply(calls[0], 200, { token: "renewed", expiresAt: new Date(Date.now() + 3600000).toISOString() });
+  await tick();
+  assert.equal(calls.length, 3);
+  for (const call of calls.slice(1)) {
+    assert.equal(call.header.Authorization, "Bearer renewed");
+    reply(call, 200, { id: "alice" });
+  }
+  await Promise.all([pending, second]);
+});
+
+test("guest profile request stops locally without sending an anonymous API request", async () => {
+  const { api, calls } = setup();
+  api.clearSession();
+  await assert.rejects(api.request("/api/me"), { code: "AUTH_REQUIRED" });
+  assert.equal(calls.length, 0);
+});
+
+test("legacy expired profile token without refresh becomes login required without HTTP 401", async () => {
+  const { api, calls, storage } = setup();
+  const payload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 })).toString("base64url");
+  api.saveSession({ token: payload + ".signature", user: { id: "alice" } });
+  await assert.rejects(api.request("/api/me"), { code: "AUTH_REQUIRED" });
+  assert.equal(calls.length, 0);
+  assert.equal(storage.has("tgg_token"), false);
+  assert.equal(storage.has("tgg_user"), false);
+});

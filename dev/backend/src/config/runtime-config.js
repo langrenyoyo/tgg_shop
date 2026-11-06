@@ -170,6 +170,20 @@ function validateRuntimeConfig(env = process.env, strict) {
       if (env.HF_USER_RECV_TYPE && !["CONFIRM_PAGE", "RED_PACKET"].includes(env.HF_USER_RECV_TYPE)) errors.push("HF_USER_RECV_TYPE must be CONFIRM_PAGE or RED_PACKET");
       if (String(env.HF_CALLBACK_TOKEN || "").trim().length < 24) errors.push("HF_CALLBACK_TOKEN must be at least 24 characters when production withdrawal provider is configured");
       if ((env.HF_TRANSFER_MODE || "AUTH") === "CONFIRM" && !/^\d{5,20}$/.test(String(env.HF_WECHAT_MCH_ID || ""))) errors.push("HF_WECHAT_MCH_ID must be the bound WeChat Pay merchant ID for CONFIRM transfer mode");
+      const authMode = String(env.HF_TRANSFER_MODE || "AUTH").toUpperCase();
+      if (authMode === "AUTH") {
+        if (env.HF_AUTHORIZATION_PATH && env.HF_AUTHORIZATION_PATH !== "/wx/auth/apply") errors.push("HF_AUTHORIZATION_PATH must be /wx/auth/apply");
+        if (!/^\d{5,20}$/.test(String(env.HF_MERCHANT_ID || ""))) errors.push("HF_MERCHANT_ID must be the bound WeChat Pay merchant ID for AUTH");
+        if (env.HF_WECHAT_MCH_ID && env.HF_WECHAT_MCH_ID !== env.HF_MERCHANT_ID) errors.push("HF_WECHAT_MCH_ID must match HF_MERCHANT_ID for AUTH");
+        if (String(env.HF_AUTHORIZATION_CALLBACK_TOKEN || "").trim().length < 24) errors.push("HF_AUTHORIZATION_CALLBACK_TOKEN must be at least 24 characters when AUTH authorization is enabled");
+        if (!env.HF_AUTHORIZATION_CALLBACK_URL) errors.push("HF_AUTHORIZATION_CALLBACK_URL is required when AUTH authorization is enabled");
+        if (env.HF_AUTHORIZATION_CALLBACK_URL) {
+          try {
+            const url = new URL(env.HF_AUTHORIZATION_CALLBACK_URL);
+            if (url.protocol !== "https:" || url.username || url.password || url.hash || url.pathname !== "/api/providers/huifu/authorization-callback" || url.searchParams.get("token") !== env.HF_AUTHORIZATION_CALLBACK_TOKEN || Array.from(url.searchParams.keys()).some(name => name !== "token")) throw new Error();
+          } catch { errors.push("HF_AUTHORIZATION_CALLBACK_URL must be the HTTPS AUTH callback URL with the configured token"); }
+        }
+      }
     }
   }
 

@@ -19,15 +19,16 @@ function initialize() {
     if (key === "LFWIN_BASE_URL" && /uat|sandbox/i.test(local[key] || "")) continue;
     if (/^(TGG_TASK_PLATFORM_|WECHAT_|LFWIN_|HF_)/.test(key) && local[key] && !isPlaceholder(local[key])) values[key] = local[key];
   }
-  for (const key of ["TGG_AUTH_SECRET", "TGG_TASK_CALLBACK_TOKEN", "HF_CALLBACK_TOKEN"]) values[key] = crypto.randomBytes(32).toString("hex");
+  for (const key of ["TGG_AUTH_SECRET", "TGG_TASK_CALLBACK_TOKEN", "HF_CALLBACK_TOKEN", "HF_AUTHORIZATION_CALLBACK_TOKEN"]) values[key] = crypto.randomBytes(32).toString("hex");
   values.WECHAT_APPID ||= JSON.parse(fs.readFileSync(path.join(miniRoot, "project.config.json"), "utf8")).appid;
   const hosts = require(path.join(miniRoot, "config/environments.js"));
   values.LFWIN_NOTIFY_URL = hosts.release ? hosts.release + "/api/payment-providers/lfwin/notify" : "";
   values.LFWIN_REFUND_NOTIFY_URL = hosts.release ? hosts.release + "/api/payment/lfwin/refund-notify" : "";
   values.HF_CALLBACK_URL = hosts.release ? `${hosts.release}/api/providers/huifu/withdraw-callback?token=${values.HF_CALLBACK_TOKEN}` : "";
+  values.HF_AUTHORIZATION_CALLBACK_URL = hosts.release ? `${hosts.release}/api/providers/huifu/authorization-callback?token=${values.HF_AUTHORIZATION_CALLBACK_TOKEN}` : "";
   const output = fs.readFileSync(templateFile, "utf8").replace(/^([A-Z][A-Z0-9_]*)=.*$/gm, (_, key) => `${key}=${values[key]}`);
   fs.writeFileSync(target, output, { flag: "wx", mode: 0o600 });
-  console.log("Created ignored dev/backend/.env.production; generated three independent secrets and copied existing provider settings for verification. No values printed.");
+  console.log("Created ignored dev/backend/.env.production; generated independent application, task and Huifu callback secrets and copied existing provider settings for verification. No values printed.");
 }
 
 function check() {

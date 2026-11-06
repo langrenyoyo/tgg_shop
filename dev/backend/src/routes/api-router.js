@@ -92,6 +92,7 @@ function requiresUserAuth(req, url) {
   if (req.method === "POST" && ["/api/payment/lfwin/refund-notify", "/api/payment-providers/lfwin/refund-notify"].includes(url.pathname)) return false;
   if (req.method === "POST" && url.pathname === "/api/task/callback") return false;
   if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") return false;
+  if (req.method === "POST" && ["/api/providers/huifu/authorization-callback", "/api/providers/huifu/authorization-revoked-callback"].includes(url.pathname)) return false;
   if (req.method === "POST" && url.pathname === "/api/pospal/callback") return false;
   return true;
 }

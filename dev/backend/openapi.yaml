@@ -1788,6 +1788,44 @@ paths:
         "404":
           description: Address not found
 
+  /api/withdrawals/authorization:
+    get:
+      tags: [Orders]
+      summary: Get the current user's Huifu AUTH authorization status
+      description: Queries V3 /wx/auth/query using server-bound identity. Query failure is an error, not missing consent.
+      responses:
+        "200": { description: Authorization status }
+        "409": { description: Authorization binding conflict or another operation in progress }
+        "502": { description: Provider query failed }
+        "503": { description: Provider is not configured }
+    post:
+      tags: [Orders]
+      summary: Start Huifu AUTH authorization for WeChat receipt
+      description: Queries and reuses pending or active consent, otherwise calls V3 /wx/auth/apply with a persisted merchant-generated number. The client uses wx.requestMerchantTransfer within the current mini-program and then re-queries status. Only verified TAKING_EFFECT activates authorization. Pending applications last 24 hours.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: Effective authorization or native WeChat authorization package
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [pending, active, revoked, expired] }
+                  appId: { type: string }
+                  mchId: { type: string }
+                  authorizationPackage: { type: string, description: Passed as package to wx.requestMerchantTransfer when pending }
+                  expiresAt: { type: string }
+        "409": { description: Missing merchant identity, wrong transfer mode or existing configuration conflict }
+        "502": { description: Provider apply or query failed }
+        "503": { description: AUTH provider endpoint is not configured }
+
   /api/withdrawals:
     get:
       tags: [Orders]
@@ -2793,7 +2831,7 @@ paths:
     post:
       tags: [Payments]
       summary: Receive trusted Huifu withdrawal status callback
-      description: Requires independent HF_CALLBACK_TOKEN in x-huifu-callback-token or query token. The Huifu Bafang body may contain encrypted data using AES-256-CBC with comKey as IV and comSecret as key; the server decrypts it before matching order_id/platform_order_id. User/admin Bearer tokens are not accepted. Only existing withdrawals are updated; terminal provider results settle according to the status mapping with idempotent ledger handling.
+      description: Requires independent HF_CALLBACK_TOKEN and encrypted comKey/timestamp/data envelope using AES-256-CBC. Requires notify_type wx_transfer and matching order_id/platform_order_id. The server queries V3 before settlement; documented amount-less success requires a matching persisted submission snapshot. Duplicate settlement is idempotent. ACK has code 200 and message SUCCESS.
       security: []
       parameters:
         - in: header
@@ -2807,12 +2845,66 @@ paths:
           application/json:
             schema:
               type: object
-              required: [out_order_no]
+              required: [comKey, timestamp, data]
+              properties:
+                comKey: { type: string }
+                timestamp: { type: integer }
+                data: { type: string }
               additionalProperties: true
       responses:
         "200": { description: Callback accepted }
         "401": { description: Invalid callback token }
         "404": { description: Withdrawal not found }
+        "503": { description: Callback token is not configured }
+
+  /api/providers/huifu/authorization-callback:
+    post:
+      tags: [Payments]
+      summary: Receive trusted Huifu AUTH authorization result callback
+      description: Requires independent HF_AUTHORIZATION_CALLBACK_TOKEN and encrypted comKey/timestamp/data envelope. Decrypted notify_type must be wx_transfer_auth. Validates authorization_no and full merchant/AppID/OpenID binding, then queries current authorization. State is WAIT_USER_CONFIRM, TAKING_EFFECT or CLOSED, never a nonce. ACK has code 200 and message SUCCESS.
+      security: []
+      parameters:
+        - in: header
+          name: x-huifu-authorization-token
+          required: false
+          schema: { type: string }
+          description: Must match HF_AUTHORIZATION_CALLBACK_TOKEN; query token is accepted for providers unable to set headers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200": { description: Authorization accepted or idempotent replay }
+        "401": { description: Invalid callback token }
+        "409": { description: Authorization binding validation failed or another operation in progress }
+        "502": { description: Provider reconciliation failed; retry notification }
+        "503": { description: Callback token is not configured }
+
+  /api/providers/huifu/authorization-revoked-callback:
+    post:
+      tags: [Payments]
+      summary: Receive trusted Huifu AUTH authorization revocation callback
+      description: Compatibility alias of authorization-callback with the same encrypted V3 protocol, required authorization_no, complete identity bindings and provider reconciliation. Does not force revocation from the URL.
+      security: []
+      parameters:
+        - in: header
+          name: x-huifu-authorization-token
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200": { description: Revocation accepted }
+        "401": { description: Invalid callback token }
+        "409": { description: Binding or session validation failed }
         "503": { description: Callback token is not configured }
 
   /api/admin/withdrawals:

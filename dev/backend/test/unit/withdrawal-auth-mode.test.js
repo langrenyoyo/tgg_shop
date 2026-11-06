@@ -33,6 +33,7 @@ function setup(t, overrides = {}) {
     verifiedAt: new Date(Date.now() - 60000).toISOString(),
     expiresAt: new Date(Date.now() + 3600000).toISOString()
   };
+  t.mock.method(huifu, "authorizationQuery", async () => ({ ok: true, body: { data: { merchant_id: env.HF_MERCHANT_ID, appid: env.HF_WECHAT_APPID, openid: user.wechatOpenid, authorization_no: user.huifuAuthorization?.authorizationNo, state: "TAKING_EFFECT" } } }));
   return { state, user };
 }
 
@@ -97,13 +98,15 @@ test("AUTH submits the verified number and keeps mode and provider key across co
     return { ok: true, body: { data: { platform_order_id: "auth-provider-order", transfer_state: "PROCESSING" } } };
   });
   assert.equal((await withdrawalService.submitWithdrawal(state, row.id)).ok, true);
+  t.mock.method(huifu, "query", async () => ({ ok: true, body: { data: { order_id: row.providerMerchantOrderId, platform_order_id: row.providerOrderId, pay_status: 2, error_code: "PROCESSING" } } }));
   process.env.HF_TRANSFER_MODE = "CONFIRM";
   assert.equal((await withdrawalService.submitWithdrawal(state, row.id)).ok, true);
   assert.equal(payloads[0].transfer_mode, "AUTH");
   assert.equal(payloads[0].authorization_no, user.huifuAuthorization.authorizationNo);
   assert.equal(payloads[0].openid, user.wechatOpenid);
   assert.equal(payloads[0].transfer_amount, Math.round(row.arrivalAmount * 100));
-  assert.equal(payloads[1].order_id, payloads[0].order_id);
+  assert.equal(payloads.length, 1);
+  assert.equal(row.submission.orderId, payloads[0].order_id);
   assert.equal(row.status, "processing");
   assert.equal(state.withdrawableLedger.some(item => item.changeType === "withdraw_payout"), false);
 });
@@ -129,24 +132,26 @@ test("legacy submitted CONFIRM order does not acquire AUTH requirements on retry
   delete user.huifuAuthorization;
   const row = {
     id: "legacy-confirm-order", userId: user.id, status: "processing", openid: user.wechatOpenid,
-    amount: 10, arrivalAmount: 10, providerMerchantOrderId: "legacy-provider-key"
+    amount: 10, arrivalAmount: 10, providerMerchantOrderId: "legacy-provider-key", createdAt: new Date().toISOString()
   };
   state.withdrawRequests.push(row);
   let payload;
-  t.mock.method(huifu, "submit", async input => {
+  const submit = t.mock.method(huifu, "submit", async () => { throw new Error("must not resubmit"); });
+  t.mock.method(huifu, "query", async input => {
     payload = input;
-    return { ok: true, body: { data: { package_info: "legacy-package", transfer_state: "WAIT_USER_CONFIRM" } } };
+    return { ok: true, body: { data: { order_id: row.providerMerchantOrderId, platform_order_id: "legacy-platform", package_info: "legacy-package", transfer_state: "WAIT_USER_CONFIRM" } } };
   });
   assert.equal((await withdrawalService.submitWithdrawal(state, row.id)).ok, true);
-  assert.equal(payload.transfer_mode, "CONFIRM");
+  assert.equal(submit.mock.callCount(), 0);
   assert.equal(payload.order_id, "legacy-provider-key");
-  assert.equal(row.transferMode, "CONFIRM");
+  assert.equal(huifu.transferMode(row), "CONFIRM");
   assert.equal(account.getWithdrawalTransferPackage(state, user.id, row.id).package, "legacy-package");
 });
 
 test("SQLite retains AUTH evidence and transfer snapshots across save and reload", t => {
   const { state, user } = setup(t);
   const row = account.requestWithdrawal(state, user, { amount: 10 }).withdrawal;
+  row.submission = { orderId: "snapshot-test", amountCents: 990, openid: user.wechatOpenid };
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-auth-sqlite-"));
   const file = path.join(root, "auth.sqlite");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -159,6 +164,7 @@ test("SQLite retains AUTH evidence and transfer snapshots across save and reload
   assert.equal(result.status, 0, result.stderr);
   const loaded = JSON.parse(result.stdout);
   const saved = loaded.withdrawRequests.find(item => item.id === row.id);
+  assert.deepEqual(saved.submission, row.submission);
   assert.equal(saved.transferMode, "AUTH");
   assert.equal(saved.authorizationNo, user.huifuAuthorization.authorizationNo);
   assert.deepEqual(loaded.users.find(item => item.id === user.id).huifuAuthorization, user.huifuAuthorization);

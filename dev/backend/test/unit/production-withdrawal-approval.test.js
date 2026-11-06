@@ -115,7 +115,8 @@ test("provider submission failure does not expose the raw provider response", as
   assert.equal(JSON.stringify(result).includes("provider-secret-code"), false);
   assert.equal(JSON.stringify(result).includes("internal provider detail"), false);
   assert.equal(JSON.stringify(result).includes("do-not-leak"), false);
-  assert.equal(requested.withdrawal.status, "approved");
+  assert.equal(requested.withdrawal.status, "processing");
+  assert.ok(requested.withdrawal.submission);
 });
 
 test("withdrawal callback rejects unknown and reverse terminal states, while duplicate terminal is idempotent", () => {
@@ -139,10 +140,10 @@ test("provider query shares callback state machine and does not reverse terminal
   t.after(() => { for (const [key, value] of Object.entries({ HF_BASE_URL: previous.base, HF_COM_KEY: previous.key, HF_COM_SECRET: previous.secret })) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
   const state = createSeed(), user = state.users.find(item => item.id === "u_1001"); user.withdrawableBalance = 100;
   const requested = requestWithdrawal(state, user, { amount: 10, openid: "wx-openid", recipientName: "收款人" });
-  requested.withdrawal.status = "processing"; requested.withdrawal.providerOrderId = "provider-q";
+  requested.withdrawal.status = "processing"; requested.withdrawal.providerOrderId = "provider-q"; requested.withdrawal.providerMerchantOrderId = "merchant-q";
   t.mock.method(huifu, "isConfigured", () => true);
   let providerStatus = "SUCCESS";
-  t.mock.method(huifu, "query", async () => ({ ok: true, body: { data: { status: providerStatus, order_id: "provider-q", transfer_amount: "990" } } }));
+  t.mock.method(huifu, "query", async () => ({ ok: true, body: { data: { status: providerStatus, order_id: "merchant-q", platform_order_id: "provider-q", transfer_amount: "990" } } }));
   assert.equal((await withdrawalService.queryWithdrawal(state, requested.withdrawal.id)).ok, true);
   assert.equal(requested.withdrawal.status, "success");
   const before = JSON.stringify(state);

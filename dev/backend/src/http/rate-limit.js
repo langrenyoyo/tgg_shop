@@ -2,7 +2,9 @@ const buckets = new Map();
 
 const RULES = [
   { match: /^\/api\/(?:admin\/auth|station\/auth|auth)\/(?:login|wechat-login|refresh)$/, methods: ["POST"], limit: 12, windowMs: 60_000 },
-  { match: /^\/api\/(?:task\/callback|payment-providers\/lfwin\/(?:notify|refund-notify)|payment\/lfwin\/refund-notify|providers\/huifu\/withdraw-callback|pospal\/callback)$/, methods: ["POST"], limit: 30, windowMs: 60_000 },
+  { match: /^\/api\/(?:task\/callback|payment-providers\/lfwin\/(?:notify|refund-notify)|payment\/lfwin\/refund-notify|providers\/huifu\/(?:withdraw|authorization(?:-revoked)?)-callback|pospal\/callback)$/, methods: ["POST"], limit: 30, windowMs: 60_000 },
+  { match: /^\/api\/withdrawals\/authorization$/, methods: ["POST"], limit: 5, windowMs: 60_000 },
+  { match: /^\/api\/withdrawals(?:\/authorization)?$/, methods: ["GET"], limit: 30, windowMs: 60_000 },
   { match: /^\/api\/(?:home|products|tasks|task-types|pickup-sites|delivery\/teams|config)$/, methods: ["GET"], limit: 180, windowMs: 60_000 }
 ];
 

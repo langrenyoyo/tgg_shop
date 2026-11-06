@@ -2,9 +2,30 @@ const accountService = require("../services/account-service");
 const withdrawalService = require("../services/withdrawal-service");
 const { authenticateCallback } = require("../services/callback-auth");
 const huifu = require("../services/withdrawal-provider/huifu-bafang");
+const huifuAuthorization = require("../services/huifu-authorization-service");
 
 async function handleAccountRoutes(ctx) {
   const { req, url, state, user, send, readBody } = ctx;
+
+  if (req.method === "POST" && url.pathname === "/api/withdrawals/authorization") {
+    const result = await huifuAuthorization.start(state, user, await readBody(req));
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/withdrawals/authorization") {
+    const result = await huifuAuthorization.statusForUser(state, user);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
+
+  if (req.method === "POST" && ["/api/providers/huifu/authorization-callback", "/api/providers/huifu/authorization-revoked-callback"].includes(url.pathname)) {
+    const auth = authenticateCallback(req, url, "HF_AUTHORIZATION_CALLBACK_TOKEN", "x-huifu-authorization-token");
+    if (!auth.ok) return send(ctx.res, auth.status, { error: auth.error });
+    let body;
+    try { body = huifu.decodeCallback(await readBody(req)); }
+    catch { return send(ctx.res, 400, { error: "AUTH 授权回调格式错误" }); }
+    const result = await huifuAuthorization.handleCallback(state, body);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { code: 200, message: "SUCCESS" } : { error: result.error });
+  }
 
   if (req.method === "POST" && url.pathname === "/api/providers/huifu/withdraw-callback") {
     const auth = authenticateCallback(req, url, "HF_CALLBACK_TOKEN", "x-huifu-callback-token");
@@ -12,8 +33,8 @@ async function handleAccountRoutes(ctx) {
     let body;
     try { body = huifu.decodeCallback(await readBody(req)); }
     catch { return send(ctx.res, 400, { error: "提现回调格式错误" }); }
-    const result = withdrawalService.handleCallback(state, body);
-    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { success: true } : { error: result.error });
+    const result = await withdrawalService.reconcileCallback(state, body);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? { code: 200, message: "SUCCESS" } : { error: result.error });
   }
 
   if (req.method === "GET" && url.pathname === "/api/pickup-sites") {
@@ -44,6 +65,10 @@ async function handleAccountRoutes(ctx) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/withdrawals") {
+    if (huifu.isConfigured()) {
+      const pending = state.withdrawRequests.filter(item => item.userId === user.id && item.status === "processing").slice(0, 3);
+      for (const item of pending) await withdrawalService.queryWithdrawal(state, item.id);
+    }
     return send(ctx.res, 200, accountService.listWithdrawals(state, user.id));
   }
   const withdrawalPackageMatch = url.pathname.match(/^\/api\/withdrawals\/([^/]+)\/transfer-package$/);
@@ -58,7 +83,13 @@ async function handleAccountRoutes(ctx) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/withdrawals") {
-    const result = accountService.requestWithdrawal(state, user, await readBody(req));
+    const input = await readBody(req);
+    const existing = input.idempotencyKey && state.withdrawRequests.some(item => item.userId === user.id && item.idempotencyKey === input.idempotencyKey);
+    if (!existing && huifu.isConfigured() && huifu.transferMode() === "AUTH") {
+      const auth = await huifuAuthorization.statusForUser(state, user);
+      if (!auth.ok || auth.status !== "active") return send(ctx.res, auth.ok ? 409 : auth.status, { error: auth.error || "请先完成微信收款授权" });
+    }
+    const result = accountService.requestWithdrawal(state, user, input);
     return send(ctx.res, result.ok ? 201 : result.status, result.ok ? accountService.publicWithdrawal(result.withdrawal) : { error: result.error });
   }
 

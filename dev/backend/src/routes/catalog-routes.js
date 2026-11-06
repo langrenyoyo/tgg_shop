@@ -7,6 +7,7 @@ async function handleCatalogRoutes(ctx) {
 
   if (req.method === "GET" && url.pathname === "/api/config") return send(ctx.res, 200, {
     ...activeConfig(state.config),
+    withdrawMaxAmount: Math.min(Number(state.config.withdrawMaxAmount || 500), 200),
     testBypassEnabled: mockOperationsEnabled(),
     cashEnabled: cashPaymentsEnabled()
   });

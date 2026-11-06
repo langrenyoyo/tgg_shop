@@ -46,6 +46,13 @@
 
   <block wx:elif="{{type === 'withdraw'}}">
     <view class="card withdraw-panel">
+      <view wx:if="{{authorizationRequired !== false}}" class="withdraw-rules">
+        <view>微信收款授权：{{authorizationStatus === 'active' ? '已授权' : authorizationStatus === 'pending' ? '等待授权结果' : authorizationStatus === 'expired' ? '已过期，请重新授权' : authorizationStatus === 'revoked' ? '已撤销，请重新授权' : authorizationStatus === 'unknown' ? '待查询' : '尚未确认授权'}}</view>
+        <view wx:if="{{authorizationExpiresAt && authorizationStatus === 'active'}}" class="muted">授权有效期至：{{authorizationExpiresAt}}</view>
+        <view wx:if="{{authorizationStatus !== 'active'}}" class="muted">点击按钮，在微信授权窗口确认收款授权。完成后系统将查询授权结果；如尚未更新，请稍后刷新。</view>
+        <button wx:if="{{authorizationStatus !== 'active'}}" class="btn btn-light" bindtap="authorizeWechat" disabled="{{submitting || loading || error}}">授权微信收款</button>
+        <button class="btn btn-light" bindtap="load" disabled="{{submitting || loading}}">刷新授权状态</button>
+      </view>
       <view class="withdraw-label">可提现余额</view>
       <view class="withdraw-balance">¥{{balance}}</view>
       <view class="withdraw-rules">
@@ -63,7 +70,7 @@
       <view wx:elif="{{withdrawLimitReached}}" class="muted">今日提现次数或额度已用完，请按页面显示的规则再次申请。</view>
       <input class="withdraw-input" type="digit" value="{{amount}}" bindinput="input" placeholder="请输入提现金额" />
       <view wx:if="{{withdrawAmountError}}" class="muted">{{withdrawAmountError}}</view>
-      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || balanceBelowMinimum || withdrawLimitReached || withdrawAmountError}}" loading="{{submitting}}">申请提现</button>
+      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || balanceBelowMinimum || withdrawLimitReached || withdrawAmountError || !amount || (authorizationRequired !== false && authorizationStatus !== 'active')}}" loading="{{submitting}}">申请提现</button>
     </view>
     <view wx:for="{{rows}}" wx:key="id" class="card">
       <view>¥{{item.amount}} · {{item.statusText}}</view>
