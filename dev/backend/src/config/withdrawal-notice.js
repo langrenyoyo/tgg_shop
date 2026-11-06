@@ -2,7 +2,7 @@
 // fees, daily caps, authorization requirements and other operational terms.
 function withdrawalNotice(value) {
   return String(value || "")
-    .replace(/单笔提现\s*[¥￥]?\s*\d+(?:\.\d+)?\s*[-—–~～至]\s*(\d+(?:\.\d+)?)\s*元/g, "单笔提现上限 $1 元")
+    .replace(/单笔提现(?:金额)?\s*(?:为|是|：|:)?\s*[¥￥]?\s*\d+(?:\.\d+)?\s*元?\s*[-—–~～至到]\s*[¥￥]?\s*(\d+(?:\.\d+)?)\s*元/g, "单笔提现上限 $1 元")
     .split(/([，,。；;\n])/)
     .reduce((result, part, index, parts) => {
       if (index % 2) return result;

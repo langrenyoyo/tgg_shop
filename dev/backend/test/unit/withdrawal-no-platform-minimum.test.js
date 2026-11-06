@@ -77,3 +77,16 @@ test("admin saves cleaned notices and cannot reinstate the retired minimum", () 
   assert.equal(JSON.stringify(state.config), before);
   assert.equal(updateConfig(state, { withdrawMinAmount: 0, reason: "取消" }, actor).withdrawMinAmount, undefined);
 });
+
+test("the screenshot's custom amount-range wording loses its minimum on public reads, reload and admin saves", () => {
+  const actor = { role: { id: "super_admin", permissions: ["*"] } };
+  for (const range of ["单笔提现金额为 1 至 500 元", "单笔提现金额为1至500元", "单笔提现金额：1元到500元", "单笔提现 1-500 元"]) {
+    const state = createSeed();
+    const suffix = "，每人每日最多 2 次，每日 00:00 重置。\n提现手续费为 1%。";
+    state.config.withdrawNotice = range + suffix;
+    const expected = "单笔提现上限 500 元" + suffix;
+    assert.equal(activeConfig(state.config).withdrawNotice, expected);
+    assert.equal(normalizeState(state).config.withdrawNotice, expected);
+    assert.equal(updateConfig(state, { withdrawNotice: range + suffix, reason: "清理截图中的旧说明" }, actor).withdrawNotice, expected);
+  }
+});
