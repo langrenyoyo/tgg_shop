@@ -23,13 +23,14 @@ const publicConfigKeys = new Set([
   "homeBannerImage", "homeCarouselImages", "homeServiceBadges", "homeCategoryShortcuts",
   "customerServiceQrCode",
   "homePromotionEntries", "homeDeliveryPromise", "purePointsNoCashTopup",
-  "withdrawMinAmount", "withdrawMaxAmount", "withdrawFeeRate", "withdrawDailyCountLimit",
+  "withdrawMaxAmount", "withdrawFeeRate", "withdrawDailyCountLimit",
   "withdrawDailyAmountLimit", "withdrawNotice", "paymentTimeoutMinutes", "autoConfirmDeliveryDays"
 ]);
 
 // Filter responses while preserving stored historical configuration for audit.
 function activeConfig(config) {
   const result = Object.fromEntries(Object.entries(config).filter(([key]) => publicConfigKeys.has(key) && !retiredAdKeys.has(key)));
+  if (Object.hasOwn(result, "withdrawNotice")) result.withdrawNotice = require("./withdrawal-notice").withdrawalNotice(result.withdrawNotice);
   if (Array.isArray(result.homePromotionEntries)) result.homePromotionEntries = result.homePromotionEntries.filter(item => item.page !== "signin");
   return result;
 }

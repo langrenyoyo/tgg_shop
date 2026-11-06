@@ -65,7 +65,7 @@ test("a lower daily limit still applies and default notice migration preserves c
   assert.match(account.requestWithdrawal(state, user, { amount: 101 }).error, /每日提现金额不能超过 300/);
   assert.equal(user.withdrawableBalance, 800);
   const { normalizeState } = require("../../src/data/state-normalizer");
-  state.config.withdrawNotice = createSeed().config.withdrawNotice.replace("1-200", "1-500");
+  state.config.withdrawNotice = createSeed().config.withdrawNotice.replace("单笔提现上限 200 元", "单笔提现 1-500 元");
   assert.equal(normalizeState(state).config.withdrawNotice, createSeed().config.withdrawNotice);
   state.config.withdrawNotice = "自定义公告";
   assert.equal(normalizeState(state).config.withdrawNotice, "自定义公告");

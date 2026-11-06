@@ -1840,7 +1840,7 @@ paths:
     post:
       tags: [Orders]
       summary: Request withdrawal to WeChat
-      description: Freezes withdrawable balance and writes withdrawable_ledger with an idempotency_key.
+      description: Freezes withdrawable balance and writes withdrawable_ledger with an idempotency_key. No platform minimum withdrawal amount or membership/task prerequisite. Amount must be positive with at most two decimal places. Channel rules still require net arrival of at least 0.10 yuan after fees; per-request and daily limits, available balance and verified recipient authorization remain enforced. Historical withdrawMinAmount configuration is ignored and retired.
       responses:
         "201":
           description: Withdrawal requested

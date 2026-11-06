@@ -860,7 +860,7 @@ function updateConfig(state, input, actor = {}) {
     inviteCommissionRate: value => value >= 0 && value <= 1,
     monthlyPointRewardSettlementHour: value => Number.isInteger(value) && value >= 0 && value <= 23,
     monthlyPointRewardSettlementMinute: value => Number.isInteger(value) && value >= 0 && value <= 59,
-    withdrawMinAmount: value => value > 0,
+    withdrawMinAmount: value => value === 0,
     withdrawMaxAmount: value => value > 0,
     withdrawFeeRate: value => value >= 0 && value <= 1,
     paymentTimeoutMinutes: value => value === 0 || value >= 1,
@@ -876,10 +876,6 @@ function updateConfig(state, input, actor = {}) {
     const value = Number(input[key]);
     if (!Number.isFinite(value) || !validate(value)) return { ok: false, status: 400, error: `${key} 配置无效` };
   }
-  const nextWithdrawMin = Number(input.withdrawMinAmount ?? state.config.withdrawMinAmount ?? 1);
-  const nextWithdrawMax = Number(input.withdrawMaxAmount ?? state.config.withdrawMaxAmount ?? 500);
-  if (nextWithdrawMin > nextWithdrawMax) return { ok: false, status: 400, error: "单笔提现上限不能低于最低提现金额" };
-  if ((Object.hasOwn(input, "withdrawMinAmount") || Object.hasOwn(input, "withdrawMaxAmount")) && nextWithdrawMin > huifu.maxTransferAmount()) return { ok: false, status: 400, error: `最低提现金额不能超过当前渠道单笔上限 ${huifu.maxTransferAmount()} 元` };
   const before = { ...state.config };
   if (Object.hasOwn(input, "coinSignin")) state.config.coinSignin = structuredClone(input.coinSignin);
   const booleanKeys = ["pickupEnabled", "deliveryEnabled", "deliveryFeeEnabled", "stationPickingEnabled", "stationBatchPickingEnabled", "stationScanRequired", "pointBalanceExchangeEnabled"];
@@ -897,7 +893,6 @@ function updateConfig(state, input, actor = {}) {
     "inviteCommissionRate",
     "monthlyPointRewardSettlementHour",
     "monthlyPointRewardSettlementMinute",
-    "withdrawMinAmount",
     "withdrawMaxAmount",
     "withdrawFeeRate",
     "paymentTimeoutMinutes",
@@ -909,6 +904,7 @@ function updateConfig(state, input, actor = {}) {
     "autoConfirmDeliveryDays"
   ];
   const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "customerServiceQrCode", "stationSortMode", "stationShelfPrefix", "withdrawNotice"];
+  delete state.config.withdrawMinAmount;
 
   for (const key of booleanKeys) {
     if (Object.prototype.hasOwnProperty.call(input, key)) state.config[key] = Boolean(input[key]);
@@ -928,6 +924,7 @@ function updateConfig(state, input, actor = {}) {
   for (const key of textKeys) {
     if (typeof input[key] === "string") state.config[key] = input[key].trim();
   }
+  state.config.withdrawNotice = require("../config/withdrawal-notice").withdrawalNotice(state.config.withdrawNotice);
   if (Object.prototype.hasOwnProperty.call(input, "stationSortMode") && !["location", "createdAt"].includes(String(input.stationSortMode))) {
     state.config.stationSortMode = "location";
   }

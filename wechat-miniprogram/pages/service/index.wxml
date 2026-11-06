@@ -56,7 +56,6 @@
       <view class="withdraw-label">可提现余额</view>
       <view class="withdraw-balance">¥{{balance}}</view>
       <view class="withdraw-rules">
-        <view>最低提现：¥{{withdrawRules.minAmount}}</view>
         <view>单笔上限：¥{{withdrawRules.maxAmount}}</view>
         <view>手续费：{{withdrawRules.feePercent}}%</view>
         <view>每日次数：{{withdrawRules.dailyCount}}</view>
@@ -66,11 +65,11 @@
         <view wx:if="{{withdrawNoticeLines.length}}" class="withdraw-notice-title">提现说明</view>
         <view wx:for="{{withdrawNoticeLines}}" wx:key="*this" class="muted withdraw-notice-line">{{item}}</view>
       </view>
-      <view wx:if="{{balanceBelowMinimum}}" class="muted">当前余额低于最低提现金额，达到最低金额后可申请。</view>
+      <view wx:if="{{noWithdrawableBalance}}" class="muted">暂无可提现余额。</view>
       <view wx:elif="{{withdrawLimitReached}}" class="muted">今日提现次数或额度已用完，请按页面显示的规则再次申请。</view>
       <input class="withdraw-input" type="digit" value="{{amount}}" bindinput="input" placeholder="请输入提现金额" />
       <view wx:if="{{withdrawAmountError}}" class="muted">{{withdrawAmountError}}</view>
-      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || balanceBelowMinimum || withdrawLimitReached || withdrawAmountError || !amount || (authorizationRequired !== false && authorizationStatus !== 'active')}}" loading="{{submitting}}">申请提现</button>
+      <button class="btn btn-primary withdraw-submit" bindtap="submit" disabled="{{submitting || loading || error || noWithdrawableBalance || withdrawLimitReached || withdrawAmountError || !amount || (authorizationRequired !== false && authorizationStatus !== 'active')}}" loading="{{submitting}}">申请提现</button>
     </view>
     <view wx:for="{{rows}}" wx:key="id" class="card">
       <view>¥{{item.amount}} · {{item.statusText}}</view>

@@ -11,7 +11,7 @@ function withdrawalDayKey(value, timeZone) {
   }
 }
 Page({
-  data: { type: "payments", title: "支付记录", rows: [], balance: 0, points: 0, config: {}, exchangeAmount: "", exchangePreview: "0.00", exchangePointsError: "", exchangeEnabled: false, withdrawRules: {}, withdrawNoticeLines: [], withdrawLimitReached: false, balanceBelowMinimum: false, withdrawAmountError: "", authorizationStatus: "none", authorizationExpiresAt: "", loading: true, error: "", needLogin: false, submitting: false },
+  data: { type: "payments", title: "支付记录", rows: [], balance: 0, points: 0, config: {}, exchangeAmount: "", exchangePreview: "0.00", exchangePointsError: "", exchangeEnabled: false, withdrawRules: {}, withdrawNoticeLines: [], withdrawLimitReached: false, noWithdrawableBalance: false, withdrawAmountError: "", authorizationStatus: "none", authorizationExpiresAt: "", loading: true, error: "", needLogin: false, submitting: false },
   onLoad(query) { this.type = query.type || "payments"; this.setData({ type: this.type, title: TITLES[this.type] || "用户服务" }); this.load(); },
   onHide() {
     this.wasHidden = true;
@@ -50,7 +50,6 @@ Page({
         if (owner && user.id !== owner) throw new Error("账号信息已变化，请重新登录");
         const dailyCountLimit = Number(config.withdrawDailyCountLimit || 0);
         const dailyAmountLimit = Number(config.withdrawDailyAmountLimit || 0);
-        const minAmount = Number(config.withdrawMinAmount || 1);
         const maxAmount = Number(config.withdrawMaxAmount || 500);
         const timeZone = config.deliveryTimeZone || "Asia/Shanghai";
         const safeRows = (Array.isArray(rows) ? rows : []).map(item => ({ ...item, statusText: WITHDRAWAL_STATUSES[item.status] || "状态待核对" }));
@@ -59,13 +58,12 @@ Page({
         const usedToday = countedToday.reduce((sum, item) => sum + Number(item.amount || 0), 0);
         const balance = Number(user.withdrawableBalance || 0);
         const countLimitReached = dailyCountLimit > 0 && countedToday.length >= dailyCountLimit;
-        const amountLimitReached = dailyAmountLimit > 0 && dailyAmountLimit - usedToday < minAmount - 0.005;
-        this.withdrawContext = { minAmount, maxAmount, balance, dailyAmountLimit, usedToday };
+        const amountLimitReached = dailyAmountLimit > 0 && dailyAmountLimit - usedToday < 0.005;
+        this.withdrawContext = { maxAmount, balance, dailyAmountLimit, usedToday, feeRate: Number(config.withdrawFeeRate ?? 0) };
         this.setData({
           balance,
           config,
           withdrawRules: {
-            minAmount,
             maxAmount,
             feePercent: Number(config.withdrawFeeRate ?? 0) * 100,
             dailyCount: dailyCountLimit > 0 ? `${dailyCountLimit} 次/日` : "不限",
@@ -76,7 +74,7 @@ Page({
           },
           withdrawNoticeLines: String(config.withdrawNotice || "").trim().split(/\r?\n/).filter(Boolean),
           withdrawLimitReached: countLimitReached || amountLimitReached,
-          balanceBelowMinimum: balance < minAmount,
+          noWithdrawableBalance: balance <= 0,
           authorizationStatus: authorization.status || "none",
           authorizationRequired: authorization.required !== false,
           authorizationExpiresAt: authorization.expiresAt || "",
@@ -159,10 +157,12 @@ Page({
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount <= 0) return "请输入有效的提现金额";
     const context = this.withdrawContext || {};
-    if (amount < Number(context.minAmount || 1)) return `最低提现金额为 ¥${Number(context.minAmount || 1)}`;
+    if (Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) return "提现金额最多支持两位小数";
     if (amount > Number(context.maxAmount || 500)) return `单笔提现金额不能超过 ¥${Number(context.maxAmount || 500)}`;
     if (amount > Number(context.balance || 0)) return "提现金额不能超过可提现余额";
     if (Number(context.dailyAmountLimit || 0) > 0 && Number(context.usedToday || 0) + amount > Number(context.dailyAmountLimit) + 0.005) return "提现金额超过今日剩余额度";
+    const fee = Math.round(amount * Number(context.feeRate || 0) * 100) / 100;
+    if (Math.round((amount - fee) * 100) < 10) return "渠道要求扣除手续费后到账金额至少为 0.1 元";
     return "";
   },
   exchangeError(raw) {
@@ -203,8 +203,8 @@ Page({
   async submit() {
     if (this.data.submitting) return;
     if (this.type === "withdraw" && (this.disposed || this.data.loading || this.data.error)) return;
-    if (this.type === "withdraw" && (this.data.balanceBelowMinimum || this.data.withdrawLimitReached || !this.data.amount || this.amountError(this.data.amount))) {
-      const error = this.data.balanceBelowMinimum ? "可提现余额未达到最低提现金额" : this.data.withdrawLimitReached ? "今日提现次数或额度已用完" : this.amountError(this.data.amount) || "请输入提现金额";
+    if (this.type === "withdraw" && (this.data.noWithdrawableBalance || this.data.withdrawLimitReached || !this.data.amount || this.amountError(this.data.amount))) {
+      const error = this.data.noWithdrawableBalance ? "暂无可提现余额" : this.data.withdrawLimitReached ? "今日提现次数或额度已用完" : this.amountError(this.data.amount) || "请输入提现金额";
       wx.showToast({ title: error, icon: "none" });
       return;
     }

@@ -78,7 +78,7 @@ test("authorization lookup failure clears previous success and blocks withdrawal
   assert.equal(page.data.authorizationStatus, "unknown");
   assert.equal(page.data.error, "授权状态查询失败");
   assert.equal(page.data.balance, 600);
-  assert.equal(page.data.withdrawRules.minAmount, 1);
+  assert.equal(page.data.withdrawRules.minAmount, undefined);
   page.data.amount = "1";
   await page.submit();
   assert.equal(requests.some(x => x.options?.method === "POST"), false);
@@ -179,7 +179,7 @@ test("late authorization status cannot restore another account's state or an unl
 test("withdraw page presents configured limits and excludes rejected requests from today's usage", async () => {
   const { page, requests } = setup();
   await page.load();
-  assert.equal(page.data.withdrawRules.minAmount, 1);
+  assert.equal(page.data.withdrawRules.minAmount, undefined);
   assert.equal(page.data.withdrawRules.feePercent, 1);
   assert.equal(page.data.withdrawRules.dailyCount, "2 次/日");
   assert.equal(page.data.withdrawRules.dailyAmount, "¥500/日");
@@ -194,15 +194,31 @@ test("withdraw page presents configured limits and excludes rejected requests fr
   assert.equal(requests.some(item => item.url === "/api/withdrawals" && item.options?.method === "POST"), false);
 });
 
-test("withdraw page explains a below-minimum balance and does not submit", async () => {
-  const { page, requests, toasts } = setup(0.5);
+test("withdraw page accepts a sub-yuan balance despite old minimum config", async () => {
+  const { page, requests } = setup(0.5, { authorization: () => ({ required: true, status: "active" }) });
   await page.load();
-
-  assert.equal(page.data.balanceBelowMinimum, true);
+  assert.equal(page.data.noWithdrawableBalance, false);
+  page.input({ detail: { value: "0.5" } });
+  assert.equal(page.data.withdrawAmountError, "");
   await page.submit();
+  const submitted = requests.find(item => item.url === "/api/withdrawals" && item.options?.method === "POST");
+  assert.equal(submitted.options.data.amount, 0.5);
+});
 
-  assert.equal(toasts.at(-1).title, "可提现余额未达到最低提现金额");
+test("empty balance and invalid channel amounts cannot submit", async () => {
+  const { page, requests, toasts } = setup(0);
+  await page.load();
+  assert.equal(page.data.noWithdrawableBalance, true);
+  await page.submit();
+  assert.equal(toasts.at(-1).title, "暂无可提现余额");
   assert.equal(requests.some(item => item.url === "/api/withdrawals" && item.options?.method === "POST"), false);
+  const funded = setup(0.5);
+  await funded.page.load();
+  assert.match(funded.page.amountError("0.09"), /渠道/);
+  assert.equal(funded.page.amountError("0.10"), "");
+  assert.match(funded.page.amountError("0.101"), /两位小数/);
+  const template = fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/service/index.wxml"), "utf8");
+  assert.doesNotMatch(template, /最低提现|最低金额|balanceBelowMinimum/);
 });
 
 test("withdraw page requests the owner's provider package and invokes WeChat merchant transfer confirmation", async () => {

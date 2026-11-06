@@ -559,7 +559,6 @@ function settings(state) {
     <section class="panel" id="settings-finance">
       <div class="panel-head"><h2>财务规则设置</h2><span>提现和配送完成后的结算规则</span></div>
       <form class="config-form" data-config-form="finance">
-        <label>最低提现金额（元）<input name="withdrawMinAmount" type="number" min="0.01" step="0.01" value="${Number(config.withdrawMinAmount || 1)}"></label>
         <label>单笔提现金额上限（元）<input name="withdrawMaxAmount" type="number" min="0.01" step="0.01" value="${Number(config.withdrawMaxAmount ?? 500)}"></label>
         <label>提现手续费（%）<input name="withdrawFeeRatePercent" type="number" min="0" max="100" step="0.01" value="${Number(config.withdrawFeeRate || 0) * 100}"></label>
         <label>每日提现次数上限<input name="withdrawDailyCountLimit" type="number" min="0" step="1" value="${Number(config.withdrawDailyCountLimit ?? 2)}"></label>

@@ -8,6 +8,8 @@ function normalizeState(nextState) {
   const legacyWithdrawNotice = "单笔提现 1-500 元，每人每日最多 2 次，每日 00:00 重置。\n全天 24 小时均可提交，正常情况下申请受理后 10 分钟内到账至已绑定的微信零钱。\n提现手续费为 1%，实际到账金额以提交页面展示为准。提现失败后，金额会退回可提现余额。";
   // Migrate only the exact old default; preserve notices edited by finance.
   if (nextState.config.withdrawNotice === legacyWithdrawNotice) nextState.config.withdrawNotice = seed.config.withdrawNotice;
+  delete nextState.config.withdrawMinAmount;
+  nextState.config.withdrawNotice = require("../config/withdrawal-notice").withdrawalNotice(nextState.config.withdrawNotice);
   if (Array.isArray(nextState.config.homePromotionEntries)) {
     nextState.config.homePromotionEntries = nextState.config.homePromotionEntries.map(item =>
       item.page === "dailySignin" && item.title === "签到领积分"

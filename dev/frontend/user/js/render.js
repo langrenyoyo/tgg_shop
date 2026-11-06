@@ -492,8 +492,8 @@ function agentScanView() {
 function withdrawView(state) {
   const balance = Number(state.user?.withdrawableBalance || 0);
   return `
-    <section class="field-card"><h3>可提现余额</h3><p style="font-size:22px;color:var(--green);font-weight:900">${money(balance)}</p><p class="muted">最低提现金额 ${money(state.config?.withdrawMinAmount || 1)}，手续费率 ${Number(state.config?.withdrawFeeRate || 0.01) * 100}%。</p></section>
-    <button type="button" class="primary" style="width:100%;margin-top:12px" data-action="withdraw" ${balance < Number(state.config?.withdrawMinAmount || 1) ? "disabled" : ""}>申请提现 1 元</button>
+    <section class="field-card"><h3>可提现余额</h3><p style="font-size:22px;color:var(--green);font-weight:900">${money(balance)}</p><p class="muted">手续费率 ${Number(state.config?.withdrawFeeRate ?? 0) * 100}%。</p><label>提现金额<input id="withdrawAmount" type="number" min="0.01" step="0.01" placeholder="请输入提现金额"></label></section>
+    <button type="button" class="primary" style="width:100%;margin-top:12px" data-action="withdraw" ${balance <= 0 ? "disabled" : ""}>申请提现</button>
     <div class="stack" style="margin-top:12px">${(state.withdrawals || []).map((item) => `<article class="list-card"><h3>${money(item.amount)} · ${homeEscape(withdrawStatusLabel(item.status))}</h3><p>${homeEscape(item.channel || "wechat")} · 手续费 ${money(item.fee || 0)}</p></article>`).join("") || `<div class="empty">暂无提现记录</div>`}</div>
   `;
 }

@@ -241,7 +241,9 @@ async function requestRefund(orderId) {
 }
 
 async function requestWithdrawal() {
-  const withdrawal = await api("/api/withdrawals", { method: "POST", body: JSON.stringify({ amount: 1, channel: "wechat" }) });
+  const amount = Number(document.querySelector("#withdrawAmount")?.value);
+  if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) throw new Error("请输入有效的提现金额，最多支持两位小数");
+  const withdrawal = await api("/api/withdrawals", { method: "POST", body: JSON.stringify({ amount, channel: "wechat" }) });
   const completed = state.config?.testBypassEnabled
     ? await api(`/api/test/withdrawals/${encodeURIComponent(withdrawal.id)}/complete`, { method: "POST", body: "{}" })
     : null;
