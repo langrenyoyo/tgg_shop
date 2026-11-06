@@ -1792,7 +1792,7 @@ paths:
     get:
       tags: [Orders]
       summary: Get the current user's Huifu receipt authorization status
-      description: OAUTH queries 4.13 /api/getOauthConfig with a server-generated account bound to the user and WeChat identity. Only is_auth=1 is active. V3 AUTH continues to query /wx/auth/query. Query failure is an error, not missing consent.
+      description: OAUTH queries 4.14 /api/mp/getScheme with a server-generated account bound to the user and WeChat identity. Only a positive is_auth is active. V3 AUTH continues to query /wx/auth/query. Query failure is an error, not missing consent.
       responses:
         "200": { description: Authorization status }
         "409": { description: Authorization binding conflict or another operation in progress }
@@ -1801,7 +1801,7 @@ paths:
     post:
       tags: [Orders]
       summary: Get Huifu receipt authorization navigation or a V3 authorization package
-      description: OAUTH calls 4.13 and returns method=miniProgram with the provider hf_appid as appId and its path plus query as path. The client calls wx.navigateToMiniProgram, then queries this server on return. Neither navigation success nor client is_auth activates consent. This flow pairs with 4.3 batch payout using the same server-owned account. V3 AUTH remains available with native wx.requestMerchantTransfer and server-verified TAKING_EFFECT.
+      description: OAUTH calls 4.14 and returns method=urlScheme with a validated scheme and expiry. The client copies a no-referrer HTTPS bridge URL whose private fragment contains the scheme, opens it in a system browser and then queries this server on return. Neither opening the bridge nor client is_auth activates consent. This flow pairs with 4.3 batch payout using the same server-owned account. V3 AUTH remains available with native wx.requestMerchantTransfer and server-verified TAKING_EFFECT.
       requestBody:
         required: false
         content:
@@ -1818,7 +1818,9 @@ paths:
                 type: object
                 properties:
                   status: { type: string, enum: [none, pending, active, revoked, expired] }
-                  method: { type: string, enum: [miniProgram, native] }
+                  method: { type: string, enum: [urlScheme, miniProgram, native] }
+                  scheme: { type: string, description: Validated weixin URL Scheme; returned only when method=urlScheme }
+                  expireTime: { type: integer, description: Provider expiry timestamp; -1 means permanent }
                   path: { type: string, description: Provider page plus encoded query for wx.navigateToMiniProgram; do not log or persist on the client }
                   appId: { type: string }
                   mchId: { type: string }

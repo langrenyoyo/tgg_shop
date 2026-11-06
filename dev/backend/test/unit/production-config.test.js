@@ -79,6 +79,7 @@ test("4.13 OAUTH accepts its bound merchant without V3 authorization callbacks a
     HF_MERCHANT_ID: "merchant-bound", HF_CALLBACK_TOKEN: "t".repeat(32),
     HF_CALLBACK_URL: `https://shop.taoguoguo.cc/api/providers/huifu/withdraw-callback?token=${"t".repeat(32)}` };
   assert.deepEqual(validateRuntimeConfig(env).errors, []);
+  assert.equal(validateRuntimeConfig({ ...env, HF_AUTHORIZATION_PATH: "/api/mp/getScheme" }).ok, true);
   assert.equal(validateRuntimeConfig({ ...env, HF_AUTHORIZATION_PATH: "/wx/auth/apply" }).ok, false);
   assert.equal(validateRuntimeConfig({ ...env, HF_TRANSFER_MODE: "AUTH" }).ok, false);
 });
@@ -156,7 +157,7 @@ test("production initialization generates distinct secrets once and never prints
   assert.equal(env.LFWIN_BASE_URL, "https://api2.lfwin.com");
   assert.equal(env.WECHAT_APPID, valid.WECHAT_APPID);
   assert.equal(env.HF_TRANSFER_MODE, "OAUTH");
-  assert.equal(env.HF_AUTHORIZATION_PATH, "/api/getOauthConfig");
+  assert.equal(env.HF_AUTHORIZATION_PATH, "/api/mp/getScheme");
   assert.equal(env.LFWIN_NOTIFY_URL, valid.LFWIN_NOTIFY_URL);
   assert.equal(env.HF_CALLBACK_URL, `https://shop.taoguoguo.cc/api/providers/huifu/withdraw-callback?token=${env.HF_CALLBACK_TOKEN}`);
   assert.equal(spawnSync(process.execPath, args).status, 1);

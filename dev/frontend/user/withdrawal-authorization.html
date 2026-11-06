@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
+  <title>微信收款授权</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f5f8f5; color: #233c32; font: 16px/1.7 system-ui, sans-serif; }
+    main { max-width: 440px; margin: 12vh auto; padding: 28px 24px; }
+    .card { padding: 30px 24px; border: 1px solid #e1ebe4; border-radius: 20px; background: white; }
+    .label { color: #00865b; font-size: 13px; letter-spacing: 2px; }
+    h1 { font-size: 26px; margin: 12px 0 20px; }
+    p { color: #627269; margin: 14px 0; }
+    button { width: 100%; margin-top: 18px; padding: 14px; border: 0; border-radius: 12px; background: #009e60; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+    button:disabled { background: #e0e7e2; color: #6c7b71; cursor: default; }
+    .footnote { font-size: 13px; text-align: center; }
+  </style>
+  <script src="/user/withdrawal-authorization.js" defer></script>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="label">微信收款</div>
+      <h1>完成收款授权</h1>
+      <p id="status" role="status" aria-live="polite">正在检查授权链接…</p>
+      <button id="open-wechat" type="button" disabled>打开微信授权</button>
+      <p>完成后，请返回原小程序的提现页，点击“刷新授权状态”。</p>
+    </section>
+    <p class="footnote">此链接仅供本人收款授权使用。</p>
+  </main>
+</body>
+</html>
