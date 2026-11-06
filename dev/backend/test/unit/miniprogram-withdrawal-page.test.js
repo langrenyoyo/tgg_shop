@@ -24,7 +24,7 @@ function setup(balance = 600, options = {}) {
       if (url === "/api/me") return { id: storage.tgg_user?.id, withdrawableBalance: balance };
       if (url === "/api/withdrawals/authorization" && requestOptions?.method === "POST") return options.start ? options.start() : { appId: "wx123", mchId: "1900000001", authorizationPackage: "native-package", status: "pending" };
       if (url === "/api/withdrawals/authorization") return options.authorization ? options.authorization() : { status: "none", required: true };
-      if (url === "/api/config") return { withdrawMinAmount: 1, withdrawMaxAmount: 200, withdrawFeeRate: 0.01, withdrawDailyCountLimit: 2, withdrawDailyAmountLimit: 500, deliveryTimeZone: "Asia/Shanghai" };
+      if (url === "/api/config") return { withdrawMinAmount: 1, withdrawMaxAmount: 200, withdrawFeeRate: 0.01, withdrawDailyCountLimit: 2, withdrawDailyAmountLimit: 500, deliveryTimeZone: "Asia/Shanghai", ...options.config };
       if (url === "/api/withdrawals" && !requestOptions) return rows;
       if (url.endsWith("/transfer-package")) return { package: "provider-package", mchId: "1900000001" };
       return { ok: true };
@@ -188,7 +188,7 @@ test("withdraw page retains channel caps and history but does not expose retired
   assert.equal(page.data.rows[1].reason, "请核对收款信息");
 
   page.input({ detail: { value: "451" } });
-  assert.equal(page.data.withdrawAmountError, "单笔提现金额不能超过 ¥200");
+  assert.equal(page.data.withdrawAmountError, "当前支付渠道单笔最多支持 ¥200，请调整金额");
   await page.submit();
   assert.equal(requests.some(item => item.url === "/api/withdrawals" && item.options?.method === "POST"), false);
 });
@@ -239,6 +239,16 @@ test("withdrawal preview clears invalid input and has no fee even when older con
   assert.doesNotMatch(template, /每日次数|每日额度|withdrawLimitReached|10\s*分钟/);
   assert.match(template, /预计到账：¥\{\{withdrawPreview.arrivalAmount\}\}/);
   assert.match(template, /代扣的税费/);
+});
+
+test("page uses the authoritative channel amount and removes the fixed single-request cap row", async () => {
+  const { page } = setup(1000, { config: { withdrawChannelMaxAmount: 500, withdrawMaxAmount: 1 } });
+  await page.load();
+  assert.equal(page.amountError("500"), "");
+  assert.match(page.amountError("500.01"), /支付渠道单笔最多支持 ¥500/);
+  const template = fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/service/index.wxml"), "utf8");
+  assert.doesNotMatch(template, /单笔上限|withdrawRules.maxAmount|500/);
+  assert.match(template, /提现金额须符合支付渠道要求/);
 });
 
 test("withdraw page requests the owner's provider package and invokes WeChat merchant transfer confirmation", async () => {

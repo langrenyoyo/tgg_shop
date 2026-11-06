@@ -56,7 +56,7 @@
       <view class="withdraw-label">可提现余额</view>
       <view class="withdraw-balance">¥{{balance}}</view>
       <view class="withdraw-rules">
-        <view>单笔上限：¥{{withdrawRules.maxAmount}}</view>
+        <view>提现金额须符合支付渠道要求</view>
         <view>平台提现手续费：不收取</view>
         <view>申请时间：全天可提交</view>
         <view>到账进度：提交申请 → 审核 → 渠道处理 → 到账</view>

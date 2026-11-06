@@ -7,7 +7,9 @@ async function handleCatalogRoutes(ctx) {
 
   if (req.method === "GET" && url.pathname === "/api/config") return send(ctx.res, 200, {
     ...activeConfig(state.config),
-    withdrawMaxAmount: Math.min(Number(state.config.withdrawMaxAmount || 500), require("../services/withdrawal-provider/huifu-bafang").maxTransferAmount()),
+    withdrawChannelMaxAmount: require("../services/withdrawal-provider/huifu-bafang").maxTransferAmount(),
+    // Compatibility for released clients; this is the channel limit, not an admin setting.
+    withdrawMaxAmount: require("../services/withdrawal-provider/huifu-bafang").maxTransferAmount(),
     testBypassEnabled: mockOperationsEnabled(),
     cashEnabled: cashPaymentsEnabled()
   });

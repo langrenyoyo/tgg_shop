@@ -861,7 +861,7 @@ function updateConfig(state, input, actor = {}) {
     monthlyPointRewardSettlementHour: value => Number.isInteger(value) && value >= 0 && value <= 23,
     monthlyPointRewardSettlementMinute: value => Number.isInteger(value) && value >= 0 && value <= 59,
     withdrawMinAmount: value => value === 0,
-    withdrawMaxAmount: value => value > 0,
+    withdrawMaxAmount: value => value === 0,
     withdrawFeeRate: value => value === 0,
     paymentTimeoutMinutes: value => value === 0 || value >= 1,
     stationPickupHoldHours: value => Number.isInteger(value) && value >= 1 && value <= 720,
@@ -893,7 +893,6 @@ function updateConfig(state, input, actor = {}) {
     "inviteCommissionRate",
     "monthlyPointRewardSettlementHour",
     "monthlyPointRewardSettlementMinute",
-    "withdrawMaxAmount",
     "withdrawFeeRate",
     "paymentTimeoutMinutes",
     "stationPickupHoldHours",
@@ -905,6 +904,7 @@ function updateConfig(state, input, actor = {}) {
   ];
   const textKeys = ["homeBannerTitle", "homeBannerSubtitle", "homeBannerProductId", "customerServiceQrCode", "stationSortMode", "stationShelfPrefix", "withdrawNotice"];
   delete state.config.withdrawMinAmount;
+  delete state.config.withdrawMaxAmount;
   Object.assign(state.config, require("../config/withdrawal-notice").withdrawalPolicy);
 
   for (const key of booleanKeys) {

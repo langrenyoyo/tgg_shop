@@ -559,7 +559,6 @@ function settings(state) {
     <section class="panel" id="settings-finance">
       <div class="panel-head"><h2>财务规则设置</h2><span>提现和配送完成后的结算规则</span></div>
       <form class="config-form" data-config-form="finance">
-        <label>单笔提现金额上限（元）<input name="withdrawMaxAmount" type="number" min="0.01" step="0.01" value="${Number(config.withdrawMaxAmount ?? 500)}"></label>
         <p class="note wide">新提现申请不收取平台手续费，不限制每日次数和每日累计金额。渠道单笔限额与收款授权仍适用；历史提现单按原申请记录处理。</p>
         <label class="wide">小程序提现说明<textarea name="withdrawNotice" rows="6" maxlength="2000" placeholder="每行一条规则">${escapeHtml(config.withdrawNotice || "")}</textarea><small>保存后立即展示在小程序提现页，支持换行，最多 2000 个字符。</small></label>
         <label>自动确认收货天数<input name="autoConfirmDeliveryDays" type="number" min="1" max="365" step="1" value="${Number(config.autoConfirmDeliveryDays || 7)}"></label>

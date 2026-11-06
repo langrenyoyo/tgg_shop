@@ -1340,7 +1340,6 @@ function buildConfigPayload(group, formData) {
       purePointsNoCashTopup: true
     }),
     finance: () => ({
-      withdrawMaxAmount: Number(formData.get("withdrawMaxAmount")),
       withdrawNotice: String(formData.get("withdrawNotice") || "").trim(),
       autoConfirmDeliveryDays: Number(formData.get("autoConfirmDeliveryDays")),
       purePointsNoCashTopup: true

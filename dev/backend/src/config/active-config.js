@@ -23,7 +23,7 @@ const publicConfigKeys = new Set([
   "homeBannerImage", "homeCarouselImages", "homeServiceBadges", "homeCategoryShortcuts",
   "customerServiceQrCode",
   "homePromotionEntries", "homeDeliveryPromise", "purePointsNoCashTopup",
-  "withdrawMaxAmount", "withdrawFeeRate", "withdrawDailyCountLimit",
+  "withdrawFeeRate", "withdrawDailyCountLimit",
   "withdrawDailyAmountLimit", "withdrawNotice", "paymentTimeoutMinutes", "autoConfirmDeliveryDays"
 ]);
 

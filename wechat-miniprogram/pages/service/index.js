@@ -39,7 +39,7 @@ Page({
           request("/api/withdrawals/authorization").catch(loadError => ({ status: "unknown", required: true, loadError }))]);
         if (!current()) return;
         if (owner && user.id !== owner) throw new Error("账号信息已变化，请重新登录");
-        const maxAmount = Number(config.withdrawMaxAmount || 500);
+        const maxAmount = Number(config.withdrawChannelMaxAmount ?? config.withdrawMaxAmount);
         const safeRows = (Array.isArray(rows) ? rows : []).map(item => ({ ...item, statusText: WITHDRAWAL_STATUSES[item.status] || "状态待核对" }));
         const balance = Number(user.withdrawableBalance || 0);
         this.withdrawContext = { maxAmount, balance };
@@ -136,7 +136,7 @@ Page({
     if (!Number.isFinite(amount) || amount <= 0) return "请输入有效的提现金额";
     const context = this.withdrawContext || {};
     if (Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) return "提现金额最多支持两位小数";
-    if (amount > Number(context.maxAmount || 500)) return `单笔提现金额不能超过 ¥${Number(context.maxAmount || 500)}`;
+    if (Number.isFinite(context.maxAmount) && context.maxAmount > 0 && amount > context.maxAmount) return `当前支付渠道单笔最多支持 ¥${context.maxAmount}，请调整金额`;
     if (amount > Number(context.balance || 0)) return "提现金额不能超过可提现余额";
     if (Math.round(amount * 100) < 10) return "支付渠道支持的单笔金额需达到 0.1 元";
     return "";

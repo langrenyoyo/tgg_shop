@@ -17,7 +17,7 @@ test("admin can save and publish a multiline withdrawal notice", () => {
   assert.equal(result.withdrawNotice, notice);
   assert.equal(activeConfig(state.config).withdrawNotice, notice);
   assert.equal(activeConfig(state.config).withdrawDailyCountLimit, 0);
-  assert.equal(activeConfig(state.config).withdrawMaxAmount, 500);
+  assert.equal(activeConfig(state.config).withdrawMaxAmount, undefined);
   assert.equal(activeConfig(state.config).withdrawDailyAmountLimit, 0);
 });
 
@@ -39,7 +39,7 @@ test("withdrawal requests enforce the per-request maximum", () => {
   const result = account.requestWithdrawal(state, user, { amount: 500.01, idempotencyKey: "max-amount" });
 
   assert.equal(result.ok, false);
-  assert.match(result.error, /不能超过 200 元/);
+  assert.match(result.error, /支付渠道单笔最多支持 200 元/);
   assert.equal(user.withdrawableBalance, 1000);
 });
 

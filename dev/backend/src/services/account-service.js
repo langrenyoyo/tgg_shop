@@ -206,11 +206,11 @@ function requestWithdrawal(state, user, input) {
     }
   }
   const amount = requestedAmount;
-  const maxAmount = Math.min(Number(state.config.withdrawMaxAmount || 500), huifu.maxTransferAmount());
+  const maxAmount = huifu.maxTransferAmount();
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, status: 400, error: "提现金额必须是正数" };
   if (!Number.isFinite(maxAmount) || maxAmount <= 0) return { ok: false, status: 500, error: "提现配置无效，请联系管理员" };
   if (productionLike() && !requestedOpenid) return { ok: false, status: 400, error: "请先使用已绑定微信登录后再申请提现" };
-  if (amount > maxAmount) return { ok: false, status: 400, error: `单笔提现金额不能超过 ${maxAmount} 元` };
+  if (amount > maxAmount) return { ok: false, status: 400, error: `当前支付渠道单笔最多支持 ${maxAmount} 元，请调整金额` };
   if (amount > user.withdrawableBalance) return { ok: false, status: 400, error: "可提现余额不足" };
 
   // A live PostgreSQL deployment must never freeze funds until its payout rail is configured.

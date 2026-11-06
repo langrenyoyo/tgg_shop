@@ -48,7 +48,8 @@ test("historical notices remove platform thresholds but retain operational and c
   const notice = "最低提现金额 1 元，单笔提现 1-200 元，每日 2 次。\n1元起提。全天可提交。\n渠道要求扣除手续费后到账金额至少为 0.1 元。";
   const cleaned = withdrawalNotice(notice);
   assert.doesNotMatch(cleaned, /最低提现|1元起提|1-200/);
-  assert.match(cleaned, /单笔提现上限 200 元/);
+  assert.match(cleaned, /提现金额须符合支付渠道要求/);
+  assert.doesNotMatch(cleaned, /单笔提现上限/);
   assert.doesNotMatch(cleaned, /每日 2 次/);
   assert.match(cleaned, /全天可提交/);
   assert.match(cleaned, /渠道要求扣除手续费后到账金额至少为 0.1 元/);
@@ -85,11 +86,36 @@ test("the screenshot's custom amount-range wording loses its minimum on public r
     const state = createSeed();
     const suffix = "，每人每日最多 2 次，每日 00:00 重置。\n提现手续费为 1%。";
     state.config.withdrawNotice = range + suffix;
-    const expected = "单笔提现上限 500 元。";
+    const expected = "提现金额须符合支付渠道要求。";
     assert.equal(activeConfig(state.config).withdrawNotice, expected);
     assert.equal(normalizeState(state).config.withdrawNotice, expected);
     assert.equal(updateConfig(state, { withdrawNotice: range + suffix, reason: "清理截图中的旧说明" }, actor).withdrawNotice, expected);
   }
+});
+
+test("retired platform maximum cannot restrict withdrawals or be reinstated; channel cap remains authoritative", async t => {
+  const huifu = require("../../src/services/withdrawal-provider/huifu-bafang");
+  const { handleCatalogRoutes } = require("../../src/routes/catalog-routes");
+  t.mock.method(huifu, "maxTransferAmount", () => 500);
+  const state = createSeed(), user = state.users[1];
+  state.config.withdrawMaxAmount = 1;
+  user.withdrawableBalance = 1000;
+  assert.equal(requestWithdrawal(state, user, { amount: 500, idempotencyKey: "channel-cap" }).ok, true);
+  const before = JSON.stringify(state);
+  assert.match(requestWithdrawal(state, user, { amount: 500.01 }).error, /支付渠道单笔最多支持 500/);
+  assert.equal(JSON.stringify(state), before);
+  let config;
+  await handleCatalogRoutes({ req: { method: "GET" }, url: new URL("https://example.test/api/config"), state, send: (_, status, body) => { assert.equal(status, 200); config = body; } });
+  assert.equal(config.withdrawChannelMaxAmount, 500);
+  assert.equal(config.withdrawMaxAmount, 500); // Released clients still receive the true channel constraint.
+  normalizeState(state);
+  assert.equal(state.config.withdrawMaxAmount, undefined);
+  assert.equal(activeConfig(state.config).withdrawMaxAmount, undefined);
+  const actor = { role: { id: "super_admin", permissions: ["*"] } };
+  assert.equal(updateConfig(state, { withdrawMaxAmount: 500, reason: "legacy setting" }, actor).ok, false);
+  assert.equal(updateConfig(state, { withdrawMaxAmount: 0, reason: "retire setting" }, actor).withdrawMaxAmount, undefined);
+  t.mock.method(huifu, "maxTransferAmount", () => 200);
+  assert.match(requestWithdrawal(state, user, { amount: 200.01 }).error, /支付渠道单笔最多支持 200/);
 });
 
 test("old fee and daily policies are migrated without changing any existing withdrawal snapshots", () => {
