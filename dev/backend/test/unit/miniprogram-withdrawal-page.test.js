@@ -9,6 +9,7 @@ function setup(balance = 600, options = {}) {
   const toasts = [];
   const transfers = [];
   const navigations = [];
+  const clipboard = [], modals = [];
   const storage = { tgg_user: { id: "user-1" } };
   let page;
   const now = new Date().toISOString();
@@ -18,7 +19,7 @@ function setup(balance = 600, options = {}) {
   ];
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/service/index.js"), "utf8"), {
     Page: value => { page = value; },
-    require: name => ({ request: async (url, requestOptions) => {
+    require: name => ({ getBaseUrl: () => "https://shop.example.test", request: async (url, requestOptions) => {
       requests.push({ url, options: requestOptions });
       if (url === "/api/me") return { id: storage.tgg_user?.id, withdrawableBalance: balance };
       if (url === "/api/withdrawals/authorization" && requestOptions?.method === "POST") return options.start ? options.start() : { appId: "wx123", mchId: "1900000001", authorizationPackage: "native-package", status: "pending" };
@@ -29,6 +30,8 @@ function setup(balance = 600, options = {}) {
       return { ok: true };
     } }),
     wx: {
+      setClipboardData: value => { if (options.clipboardError) value.fail({ errMsg: "setClipboardData:fail" }); else { clipboard.push(value.data); value.success({}); } },
+      showModal: value => modals.push(value),
       getStorageSync: key => storage[key],
       navigateToMiniProgram: value => { navigations.push(value); if (options.navigationError) value.fail({ errMsg: options.navigationError }); else value.success({}); },
       showToast: value => toasts.push(value), getAccountInfoSync: () => ({ miniProgram: { appId: "wx123" } }), requestMerchantTransfer: value => { transfers.push(value); if (options.navigationError) value.fail({ errMsg: options.navigationError }); else value.success({}); }
@@ -37,7 +40,7 @@ function setup(balance = 600, options = {}) {
   page.setData = value => Object.assign(page.data, value);
   page.type = "withdraw";
   page.setData({ type: "withdraw" });
-  return { page, requests, toasts, transfers, navigations, storage };
+  return { page, requests, toasts, transfers, navigations, storage, clipboard, modals };
 }
 
 test("authorization requests a server package and opens native WeChat without trusting UI success", async () => {
@@ -118,6 +121,44 @@ test("4.13 cancellation, invalid target and changed owner never activate consent
   release({ method: "miniProgram", appId: "wxabcdef1234567890", path: "pages/oauth/index?data=x" });
   await pending;
   assert.equal(changed.navigations.length, 0);
+});
+
+test("4.14 copies an HTTPS browser link with a private fragment and verifies on return", async () => {
+  let status = "none";
+  const scheme = "weixin://dl/business/?t=secret%2Bticket%3D";
+  const f = setup(600, { start: () => ({ method: "urlScheme", status: "none", scheme, expireTime: -1 }),
+    authorization: () => ({ status, method: "urlScheme", required: true }) });
+  await f.page.load(); await f.page.authorizeWechat();
+  assert.equal(f.transfers.length + f.navigations.length, 0);
+  assert.equal(f.clipboard.length, 1);
+  const link = new URL(f.clipboard[0]);
+  assert.equal(link.origin, "https://shop.example.test");
+  assert.equal(link.pathname, "/user/withdrawal-authorization.html");
+  assert.equal(link.search, "");
+  assert.deepEqual(JSON.parse(decodeURIComponent(link.hash.slice(1))), { scheme, expireTime: -1 });
+  assert.match(f.modals[0].content, /系统浏览器/);
+  assert.equal(f.page.data.authorizationStatus, "none");
+  f.page.onHide(); await f.page.onShow();
+  assert.equal(f.page.data.authorizationStatus, "none");
+  status = "active";
+  f.page.onHide(); await f.page.onShow();
+  assert.equal(f.page.data.authorizationStatus, "active");
+});
+
+test("4.14 expired/malformed links and clipboard denial never indicate authorization or a copied link", async () => {
+  for (const result of [
+    { scheme: "weixin://dl/business/?t=abc", expireTime: 0 },
+    { scheme: "weixin://dl/business/?t=abc", expireTime: null },
+    { scheme: "javascript:alert(1)", expireTime: -1 }
+  ]) {
+    const f = setup(600, { start: () => ({ method: "urlScheme", ...result }) });
+    await f.page.load(); await f.page.authorizeWechat();
+    assert.equal(f.clipboard.length, 0); assert.equal(f.modals.length, 0);
+    assert.notEqual(f.page.data.authorizationStatus, "active");
+  }
+  const f = setup(600, { clipboardError: true, start: () => ({ method: "urlScheme", scheme: "weixin://dl/business/?t=abc", expireTime: -1 }) });
+  await f.page.load(); await f.page.authorizeWechat();
+  assert.equal(f.modals.length, 0); assert.equal(f.page.data.submitting, false);
 });
 
 test("late authorization status cannot restore another account's state or an unloaded page", async () => {

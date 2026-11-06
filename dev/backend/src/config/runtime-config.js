@@ -171,7 +171,7 @@ function validateRuntimeConfig(env = process.env, strict) {
       if (String(env.HF_CALLBACK_TOKEN || "").trim().length < 24) errors.push("HF_CALLBACK_TOKEN must be at least 24 characters when production withdrawal provider is configured");
       if ((env.HF_TRANSFER_MODE || "AUTH") === "CONFIRM" && !/^\d{5,20}$/.test(String(env.HF_WECHAT_MCH_ID || ""))) errors.push("HF_WECHAT_MCH_ID must be the bound WeChat Pay merchant ID for CONFIRM transfer mode");
       const authMode = String(env.HF_TRANSFER_MODE || "AUTH").toUpperCase();
-      if (authMode === "OAUTH" && env.HF_AUTHORIZATION_PATH && env.HF_AUTHORIZATION_PATH !== "/api/getOauthConfig") errors.push("HF_AUTHORIZATION_PATH must be /api/getOauthConfig for OAUTH");
+      if (authMode === "OAUTH" && env.HF_AUTHORIZATION_PATH && !["/api/mp/getScheme", "/api/getOauthConfig"].includes(env.HF_AUTHORIZATION_PATH)) errors.push("HF_AUTHORIZATION_PATH must be /api/mp/getScheme or /api/getOauthConfig for OAUTH");
       if (authMode === "AUTH") {
         if (env.HF_AUTHORIZATION_PATH && env.HF_AUTHORIZATION_PATH !== "/wx/auth/apply") errors.push("HF_AUTHORIZATION_PATH must be /wx/auth/apply");
         if (!/^\d{5,20}$/.test(String(env.HF_MERCHANT_ID || ""))) errors.push("HF_MERCHANT_ID must be the bound WeChat Pay merchant ID for AUTH");
