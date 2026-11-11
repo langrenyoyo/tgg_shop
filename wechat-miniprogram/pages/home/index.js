@@ -8,6 +8,27 @@ Page({
     home: { user: {}, pickupSite: {}, banners: [{ title: "时令鲜果季", subtitle: "每日新鲜到家" }], recommendProducts: [] }
   },
 
+  onLoad() {
+    if (typeof wx.showShareMenu === "function") {
+      wx.showShareMenu({ menus: ["shareAppMessage", "shareTimeline"] });
+    }
+  },
+  onShareAppMessage() {
+    return {
+      title: "小鹿超省",
+      path: "/pages/home/index",
+      imageUrl: "/assets/fresh-strawberry.jpg"
+    };
+  },
+  onShareTimeline() {
+    return {
+      title: "小鹿超省",
+      // 首页分享不转发进入页面时携带的邀请码或其他查询参数。
+      query: "",
+      imageUrl: "/assets/fresh-strawberry.jpg"
+    };
+  },
+
   onShow() {
     this.setData({ cartQuantities: productCart.quantities() });
     this.load();
