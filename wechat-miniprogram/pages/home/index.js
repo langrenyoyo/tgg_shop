@@ -30,10 +30,11 @@ Page({
   },
 
   onShow() {
-    this.setData({ cartQuantities: productCart.quantities() });
+    this.disposed = false;
+    this.setData({ cartQuantities: productCart.quantities(), navigating: false });
     this.load();
   },
-  onUnload() { this.version = (this.version || 0) + 1; },
+  onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
 
   async load() {
     const version = this.version = (this.version || 0) + 1;
@@ -55,6 +56,7 @@ Page({
   changeCart(e) {
     productCart.change(this, this.data.home.recommendProducts.find(item => item.id === e.currentTarget.dataset.id), Number(e.currentTarget.dataset.delta));
   },
+  buyGift(e) { productCart.buyGift(this, this.data.home.recommendProducts.find(item => item.id === e.currentTarget.dataset.id)); },
   goShop() { wx.switchTab({ url: "/pages/shop/index" }); },
   openBanner() {
     const productId = this.data.home?.bannerProduct?.id;

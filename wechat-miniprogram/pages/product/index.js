@@ -38,6 +38,7 @@ Page({
   changeCart(e) { productCart.change(this, this.data.product, Number(e.currentTarget.dataset.delta)); },
   buy() {
     if (!this.canPurchase()) return;
+    if (this.data.product.category === "买商品送会员") return productCart.buyGift(this, this.data.product);
     if (!wx.getStorageSync("tgg_token")) return this.open("/pages/login/index");
     if (!this.data.isMember && !(this.data.product.membershipGiftDays > 0 && this.data.product.category === "买商品送会员")) return this.open("/pages/membership/index");
     cart.writeCheckout([{ productId: this.id, quantity: 1 }]);

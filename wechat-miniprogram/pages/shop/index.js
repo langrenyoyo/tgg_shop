@@ -4,8 +4,8 @@ const { request } = shopApi;
 const resolveAssetUrl = shopApi.resolveAssetUrl || (value => value);
 Page({
   data: { products: [], allProducts: [], category: "", search: "", categories: [], categoryCollapsed: false },
-  onShow() { const entry = wx.getStorageSync("tgg_shop_entry"); if (entry) { this.setData(entry); wx.removeStorageSync("tgg_shop_entry"); } this.load(); },
-  onUnload() { this.version = (this.version || 0) + 1; },
+  onShow() { this.disposed = false; this.setData({ navigating: false }); const entry = wx.getStorageSync("tgg_shop_entry"); if (entry) { this.setData(entry); wx.removeStorageSync("tgg_shop_entry"); } this.load(); },
+  onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
   async load() {
     this.setData({ cartQuantities: productCart.quantities() });
     const version = this.version = (this.version || 0) + 1;
@@ -18,6 +18,7 @@ Page({
   category(e) { this.setData({ category: e.currentTarget.dataset.category }, () => this.filter()); },
   toggleCategoryMenu() { this.setData({ categoryCollapsed: !this.data.categoryCollapsed }); },
   changeCart(e) { productCart.change(this, this.data.products.find(item => item.id === e.currentTarget.dataset.id), Number(e.currentTarget.dataset.delta)); },
+  buyGift(e) { productCart.buyGift(this, this.data.products.find(item => item.id === e.currentTarget.dataset.id)); },
   search(e) { this.setData({ search: e.detail.value }, () => this.filter()); },
   open(e) { wx.navigateTo({ url: "/pages/product/index?id=" + encodeURIComponent(e.currentTarget.dataset.id) }); }
 });
