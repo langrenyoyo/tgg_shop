@@ -3,6 +3,7 @@ const { saveState } = require("../data/store");
 const { isMember } = require("../domain/rules");
 const { getMemberCode } = require("./member-code-service");
 const { exchangePhoneCode } = require("./wechat-phone-service");
+const { verifiedPhone } = require("./phone-binding-service");
 const { createPospalClient, isConfigured } = require("../integrations/pospal/pospal-client");
 
 // Serializes callers within one state instance. PostgreSQL's state CAS persists
@@ -42,7 +43,7 @@ async function run(state, user, input, dependencies) {
   if (attempt?.retryAt && Date.parse(attempt.retryAt) > Date.now()) return fail(429, "会员资料正在同步，请稍后重试");
   try {
     if (!attempt) {
-      const phone = await verifyPhone(input.phoneCode);
+      const phone = verifiedPhone(state, user)?.phone || await verifyPhone(input.phoneCode);
       if (!/^1\d{10}$/.test(phone)) return fail(400, "请授权有效的中国大陆手机号");
       if (state.users.some(other => other.id !== user.id && other.phone === phone)) return fail(409, "该手机号已用于其他账号，请联系客服核对");
       const digest = crypto.createHash("sha256").update(`${client.config.account}:${user.id}`).digest("hex");

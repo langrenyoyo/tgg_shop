@@ -121,6 +121,14 @@ npm start
 
 ## Mini-program profile authorization
 
+### Urgent login/profile update (2026-11-16)
+
+The login button now uses native `getPhoneNumber`. Unverified/new accounts must send both `wx.login` code and phone authorization code; verification happens server-side before creating the user, trial or invitation reward. Existing verified users can still use their prior login flow. Existing logged-in accounts without a phone can bind through `POST /api/me/phone`. The durable verification record is stored in private config `userPhoneVerifications` and reused when provisioning a POS member; it is excluded from public config.
+
+Release the new mini-program and backend together: old clients cannot register or log in an unverified account without the phone authorization code. Enable the WeChat phone-number capability and configure privacy disclosures for phone verification and POS association before release. No plaintext code, provider token or app secret is logged or stored in the user profile.
+
+Avatar taps now open the album/camera chooser, with the native `chooseAvatar` action available separately. Nickname uses native `type="nickname"`. WeChat does not support silently populating a user's avatar/name on login; the user chooses them explicitly. Real-device acceptance: refuse/allow phone consent, verify existing-account binding without duplicate accounts, select WeChat avatar or album image, cancel a picker, save/reopen profile, and retry a failed upload. Browser simulation cannot validate WeChat authorization sheets.
+
 Deploy the backend with `PATCH /api/me` before releasing the updated mini-program login page. Login requires an explicit consent selection and uses WeChat privacy authorization when available. New accounts can select an avatar with `chooseAvatar`, enter a nickname with `type="nickname"`, or skip profile completion. Existing accounts can edit their profile from the account page. Configure the real user privacy protection guidelines in the WeChat console, including the use of avatar/nickname for profile display; the mini-program opens these guidelines through `wx.openPrivacyContract`.
 
 Avatars use the existing authenticated upload endpoint and store a relative `/uploads/` path. Persist `dev/backend/data/uploads` across deployments and serve it from the mini-program HTTPS origin. Multiple backend instances must share the upload directory. SQLite adds the avatar column automatically; JSON and PostgreSQL retain the profile in their existing state snapshots. Verify consent refusal, avatar selection, nickname entry and relogin on a real device before release.

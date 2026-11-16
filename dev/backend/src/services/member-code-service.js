@@ -1,4 +1,5 @@
 const { isMember } = require("../domain/rules");
+const { verifiedPhone } = require("./phone-binding-service");
 // Only a synchronized POS card number identifies an existing checkout customer.
 function getMemberCode(state, user) {
   if (!user) return { status: 401, body: { error: "请先登录" } };
@@ -13,7 +14,7 @@ function getMemberCode(state, user) {
   const uid = user.pospalUid || mapping?.pospalUid;
   if (!uid || typeof number !== "string" || !number) {
     if (membership.isMember && !uid && !number && !mapping) {
-      const verified = state.config?.pospalIntegration?.memberProvisions?.[user.id]?.verifiedAt;
+      const verified = state.config?.pospalIntegration?.memberProvisions?.[user.id]?.verifiedAt || verifiedPhone(state, user);
       return { status: 200, body: { available: false, ...membership, reason: "provision_required", canProvision: true,
         needsPhoneAuthorization: !verified, message: verified ? "正在为你关联门店会员，请稍候" : "小程序会员已开通。首次使用请授权手机号，系统将自动关联或创建门店会员，无需再次付费。" } };
     }

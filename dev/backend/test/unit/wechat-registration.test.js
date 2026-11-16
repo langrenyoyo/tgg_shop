@@ -21,12 +21,15 @@ test("WeChat registration binds invite once, grants trial and survives SQLite re
   });
   process.env.WECHAT_APPID = "test-app";
   process.env.WECHAT_APPSECRET = "test-secret";
-  global.fetch = async () => ({ json: async () => ({ openid: "test-openid-registration" }) });
+  global.fetch = async url => ({ ok: true, json: async () => url.includes("stable_token") ? { access_token: "test-token" }
+    : url.includes("getuserphonenumber") ? { phone_info: { purePhoneNumber: "13912345678", countryCode: "86", watermark: { appid: "test-app" } } }
+    : { openid: "test-openid-registration" } });
   const state = resetState();
   const inviter = state.users[0];
   const initial = inviter.points;
-  const first = await auth.wechatLogin(state, { code: "test-code", inviteCode: inviter.inviteCode });
+  const first = await auth.wechatLogin(state, { code: "test-code", phoneCode: "phone-code", inviteCode: inviter.inviteCode });
   assert.equal(first.ok, true);
+  assert.equal(first.user.phone, "13912345678");
   assert.ok(first.user.inviteCode);
   assert.equal(first.user.isMember, true);
   assert.equal(inviter.points, initial + state.config.inviteRewardPoints);

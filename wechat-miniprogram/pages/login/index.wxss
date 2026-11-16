@@ -30,3 +30,7 @@ page { background: #f4f8f0; }
 .login-page .avatar-picker { background: #e0eed5; color: #4f7942; border: 8rpx solid #fff; box-sizing: border-box; width: 168rpx; min-width: 168rpx; max-width: 168rpx; height: 168rpx; padding: 0; overflow: hidden; flex-shrink: 0; }
 .login-page .primary, .login-page .secondary { width: 100%; box-sizing: border-box; }
 .nickname { border-color: #dbe7d3; border-radius: 22rpx; background: #fff; }
+.avatar-actions { display: flex; justify-content: center; gap: 24rpx; margin: 0 0 16rpx; }
+.avatar-action { width: auto; min-width: 0; margin: 0; padding: 12rpx 20rpx; font-size: 24rpx; line-height: 1.5; color: #008e55; background: #e8f0e2; border-radius: 999rpx; }
+.avatar-action::after { border: 0; }
+.profile-hint { margin-bottom: 32rpx; text-align: center; font-size: 23rpx; line-height: 1.6; color: #76856d; }

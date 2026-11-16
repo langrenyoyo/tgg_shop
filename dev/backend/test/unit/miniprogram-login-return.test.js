@@ -20,7 +20,7 @@ for (const depth of [1, 2]) {
     });
     page.setData = value => Object.assign(page.data, value);
     page.setData({ agreed: true });
-    await page.handleLogin();
+    await page.handleLogin({ detail: { code: "phone-code" } });
     assert.equal(destination, depth === 1 ? "/pages/home/index" : 1);
     assert.equal(page.data.loading, false);
   });

@@ -21,6 +21,27 @@ tags:
   - name: POSPAL
   - name: Testing
 paths:
+  /api/me/phone:
+    post:
+      tags: [Auth]
+      summary: Bind a verified WeChat phone number to the authenticated account
+      description: Exchanges a getPhoneNumber code on the server. Rejects raw phone input, numbers owned by another account and changes conflicting with existing phone or POS records. Does not merge accounts or change balances and membership.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [phoneCode]
+              properties:
+                phoneCode: { type: string, maxLength: 512 }
+      responses:
+        "200": { description: Updated public user }
+        "400": { description: Invalid or denied phone authorization }
+        "401": { description: User login required }
+        "403": { description: Account disabled }
+        "409": { description: Phone association conflict }
   /api/me/member-code:
     get:
       tags: [Auth, POSPAL]
@@ -936,6 +957,7 @@ paths:
     post:
       tags: [Auth]
       summary: Exchange WeChat login code for an application session
+      description: New and not-yet-verified accounts must provide phoneCode from the native getPhoneNumber authorization. Already verified accounts may omit it for existing client compatibility. Identity is keyed by WeChat OpenID; phone matches never merge accounts automatically.
       security: []
       requestBody:
         required: true
@@ -950,11 +972,17 @@ paths:
                 inviteCode:
                   type: string
                   description: Optional invitation code bound on first registration.
+                phoneCode:
+                  type: string
+                  maxLength: 512
+                  description: One-time getPhoneNumber code, required for first phone verification.
       responses:
         "200":
           description: Application token, refreshToken and user; new registrations receive configured trial membership.
         "400":
           description: Missing or invalid code
+        "409":
+          description: Authorized phone belongs to another account or conflicts with linked records
 
   /api/member/payments:
     post:

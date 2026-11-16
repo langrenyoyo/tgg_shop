@@ -6,6 +6,8 @@ const { authSecret, productionLike } = require("../config/runtime-safety");
 const { getBearerToken, issueToken, publicRole, verifyToken } = require("../domain/auth");
 const { publicUser } = require("../http/http-utils");
 const userRepository = require("../repositories/user-repository");
+const { exchangePhoneCode } = require("./wechat-phone-service");
+const { verifiedPhone, phoneConflict, recordPhone } = require("./phone-binding-service");
 
 const MAX_FAILED_ATTEMPTS = Number(process.env.TGG_AUTH_MAX_FAILED_ATTEMPTS || 5);
 const LOCK_MINUTES = Number(process.env.TGG_AUTH_LOCK_MINUTES || 15);
@@ -57,6 +59,17 @@ async function wechatLogin(state, input = {}) {
   const data = session.data;
   if (!data.openid) return { ok: false, status: 401, error: data.errmsg || "微信 code 无效" };
   let user = state.users.find((item) => item.wechatOpenid === data.openid);
+  if (user && user.status !== "active") return { ok: false, status: 403, error: "账号已停用" };
+  let phone = verifiedPhone(state, user)?.phone;
+  if (input.phoneCode || !phone) {
+    try { phone = await exchangePhoneCode(input.phoneCode); }
+    catch (error) { return { ok: false, status: 400, error: error.message }; }
+  }
+  // Re-read after network awaits so simultaneous registrations share one user.
+  user = state.users.find((item) => item.wechatOpenid === data.openid);
+  if (user && user.status !== "active") return { ok: false, status: 403, error: "账号已停用" };
+  const conflict = phoneConflict(state, user, phone);
+  if (conflict) return { ok: false, status: 409, error: conflict };
   if (!user) {
     const inviter = input.inviteCode ? state.users.find(item => item.inviteCode === String(input.inviteCode).trim() && item.status === "active") : null;
     if (input.inviteCode && !inviter) return { ok: false, status: 400, error: "邀请码无效，请核对后重试" };
@@ -78,6 +91,7 @@ async function wechatLogin(state, input = {}) {
     }
   }
   if (user.status !== "active") return { ok: false, status: 403, error: "账号已停用" };
+  recordPhone(state, user, phone);
   userRepository.setCurrentUser(state, user.id);
   const result = tokenResult(state, { user: publicUser(user), tokenPayload: { type: "user", userId: user.id } });
   await saveState(); return result;

@@ -4,13 +4,18 @@ const { request, uploadFile, resolveAssetUrl } = require("../../utils/api");
 Page({
   data: {
     loading: false, agreed: false, stage: "login", nickname: "",
-    avatarPreview: "", error: "", editing: false
+    avatarPreview: "", error: "", editing: false, selectingAvatar: false
   },
 
   onLoad(query = {}) {
     this.disposed = false;
     this.setData({ editing: query.edit === "1" });
-    if (wx.getStorageSync("tgg_token") && wx.getStorageSync("tgg_user")?.id) this.openProfile(wx.getStorageSync("tgg_user"));
+    const user = wx.getStorageSync("tgg_user");
+    if (wx.getStorageSync("tgg_token") && user?.id) {
+      this.ownerId = user.id;
+      if (!user.phone && !this.data.editing) this.setData({ stage: "phone" });
+      else this.openProfile(user);
+    }
   },
   onUnload() { this.disposed = true; },
   onConsentChange(e) { if (!this.data.loading) this.setData({ agreed: e.detail.value.includes("agree") }); },
@@ -19,9 +24,11 @@ Page({
     wx.openPrivacyContract({ fail: () => wx.showToast({ title: "隐私保护指引暂不可用，请稍后重试", icon: "none" }) });
   },
 
-  async handleLogin() {
+  async handleLogin(e) {
     if (this.disposed || this.data.loading) return;
     if (!this.data.agreed) return wx.showToast({ title: "请先阅读并同意登录授权说明", icon: "none" });
+    const phoneCode = e?.detail?.code;
+    if (!phoneCode) return this.setData({ error: "请允许微信手机号授权后登录，可在授权窗口选择其他手机号" });
     this.setData({ loading: true, error: "" });
     try {
       if (wx.requirePrivacyAuthorize) {
@@ -30,7 +37,7 @@ Page({
         }));
       }
       if (this.disposed) return;
-      const res = await wechatLogin({ isCurrent: () => !this.disposed });
+      const res = await wechatLogin({ isCurrent: () => !this.disposed, phoneCode });
       if (this.disposed) return;
       this.openProfile(res.user);
       if (res.user.avatarUrl && res.user.nickname && res.user.nickname !== "微信用户") this.finish();
@@ -39,6 +46,21 @@ Page({
     } finally {
       if (!this.disposed) this.setData({ loading: false });
     }
+  },
+  async bindPhone(e) {
+    if (this.data.loading || !this.isCurrentUser()) return;
+    if (!e.detail?.code) return this.setData({ error: "请允许微信手机号授权，完成账号绑定" });
+    this.setData({ loading: true, error: "" });
+    try {
+      const user = await request("/api/me/phone", { method: "POST", data: { phoneCode: e.detail.code } });
+      if (!this.isCurrentUser()) return;
+      if (user.id !== this.ownerId) throw new Error("账号信息不一致，请重新登录");
+      wx.setStorageSync("tgg_user", user);
+      getApp().globalData.user = user;
+      this.openProfile(user);
+      if (user.avatarUrl && user.nickname && user.nickname !== "微信用户") this.finish();
+    } catch (error) { if (this.isCurrentUser()) this.setData({ error: error.message || "绑定失败，请重试" }); }
+    finally { if (!this.disposed) this.setData({ loading: false }); }
   },
   openProfile(user) {
     this.ownerId = user.id;
@@ -55,9 +77,28 @@ Page({
     this.avatarPath = "";
     this.setData({ avatarPreview: this.avatarTemp, error: "" });
   },
+  async chooseAvatarFromAlbum() {
+    if (this.data.loading || this.data.selectingAvatar || !this.isCurrentUser()) return;
+    const owner = this.ownerId;
+    this.setData({ selectingAvatar: true, error: "" });
+    try {
+      if (wx.requirePrivacyAuthorize) await new Promise((resolve, reject) => wx.requirePrivacyAuthorize({ success: resolve, fail: reject }));
+      if (!this.isCurrentUser() || owner !== this.ownerId) return;
+      const file = await new Promise((resolve, reject) => {
+        if (wx.chooseMedia) wx.chooseMedia({ count: 1, mediaType: ["image"], sourceType: ["album", "camera"], sizeType: ["compressed"], success: r => resolve(r.tempFiles?.[0]?.tempFilePath), fail: reject });
+        else if (wx.chooseImage) wx.chooseImage({ count: 1, sourceType: ["album", "camera"], sizeType: ["compressed"], success: r => resolve(r.tempFilePaths?.[0]), fail: reject });
+        else reject(new Error("请升级微信后选择头像"));
+      });
+      if (!this.isCurrentUser() || owner !== this.ownerId) return;
+      if (!file) throw new Error("未获取到图片，请重新选择");
+      this.onChooseAvatar({ detail: { avatarUrl: file } });
+    } catch (error) {
+      if (this.isCurrentUser() && owner === this.ownerId && !/cancel/i.test(error.errMsg || error.message || "")) this.setData({ error: "无法打开相册，请检查微信的相册权限后重试" });
+    } finally { if (!this.disposed) this.setData({ selectingAvatar: false }); }
+  },
   onNicknameInput(e) { if (!this.data.loading) this.setData({ nickname: e.detail.value }); },
   async saveProfile(e) {
-    if (this.disposed || this.data.loading) return;
+    if (this.disposed || this.data.loading || this.data.selectingAvatar) return;
     if (!this.isCurrentUser()) return this.setData({ error: "登录状态已变化，请重新打开页面" });
     const nickname = String(e?.detail?.value?.nickname ?? this.data.nickname).trim();
     if (!nickname || [...nickname].length > 32) return this.setData({ error: "请填写 1 至 32 个字符的昵称" });
@@ -92,7 +133,7 @@ Page({
       }
     } finally { if (!this.disposed) this.setData({ loading: false }); }
   },
-  skipProfile() { if (!this.data.loading && this.isCurrentUser()) this.finish(); },
+  skipProfile() { if (!this.data.loading && !this.data.selectingAvatar && this.isCurrentUser()) this.finish(); },
   finish() {
     if (this.disposed) return;
     if (getCurrentPages().length > 1) wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: "/pages/home/index" }) });
