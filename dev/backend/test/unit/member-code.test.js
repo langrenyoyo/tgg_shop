@@ -40,6 +40,37 @@ test("member code endpoint requires auth and ignores requested user IDs", async 
   assert.equal(body.pospalUid, undefined);
 });
 
+test("active membership without POS identity gives association guidance, not a purchase prompt", () => {
+  const user = { id: "u1", memberUntil: new Date(Date.now() + 86400000).toISOString() };
+  const state = { users: [user], config: {} };
+  let result = getMemberCode(state, user).body;
+  assert.equal(result.available, false);
+  assert.equal(result.isMember, true);
+  assert.equal(result.reason, "phone_missing");
+  assert.match(result.message, /无需重复购买/);
+  user.phone = "13800000000";
+  result = getMemberCode(state, user).body;
+  assert.equal(result.reason, "association_missing");
+  user.memberUntil = "2000-01-01";
+  assert.equal(getMemberCode(state, user).body.isMember, false);
+});
+
+test("existing owner mapping supplies missing mirrored fields without guessing from a phone", () => {
+  const user = { id: "u1", phone: "13800000000" };
+  const mapping = { tggUserId: "u1", pospalUid: "p1", number: "000123" };
+  const state = { users: [user], config: { pospalIntegration: { customerMappings: [mapping] } } };
+  const before = JSON.stringify(state);
+  assert.equal(getMemberCode(state, user).body.number, "000123");
+  assert.equal(JSON.stringify(state), before);
+  user.pospalUid = "different";
+  assert.equal(getMemberCode(state, user).body.reason, "association_conflict");
+  delete user.pospalUid;
+  state.config.pospalIntegration.customerMappings.push({ ...mapping });
+  assert.equal(getMemberCode(state, user).body.reason, "association_conflict");
+  state.config.pospalIntegration.customerMappings = [{ ...mapping, tggUserId: "other", phone: user.phone }];
+  assert.equal(getMemberCode(state, user).body.available, false);
+});
+
 test("barcode drawing retains quiet zones and uses integer physical pixels", () => {
   for (const number of ["001234567890", "VIP-001", "12345678901"]) {
     const rectangles = [];

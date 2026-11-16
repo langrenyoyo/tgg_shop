@@ -5,7 +5,7 @@
     <view class="muted code-caption">结账时向收银员出示</view>
     <view wx:if="{{!loggedIn}}" class="code-state"><view>登录后查看你的会员码</view><button class="btn btn-primary" bindtap="goLogin">去登录</button></view>
     <view wx:elif="{{loading}}" class="code-state">会员码加载中…</view>
-    <view wx:elif="{{error || message}}" class="code-state"><view>{{error || message}}</view><button class="btn btn-light" bindtap="load">重新加载</button></view>
+    <view wx:elif="{{error || message}}" class="code-state"><view>{{error || message}}</view><button wx:if="{{message}}" class="btn btn-primary" open-type="contact">联系客服核对</button><button class="btn btn-light" bindtap="load">{{message ? '已处理，重新查询' : '重新加载'}}</button></view>
     <view wx:if="{{number}}" class="code-content">
       <canvas id="member-barcode" type="2d" class="barcode" hidden="{{!!barcodeError}}"></canvas>
       <view wx:if="{{barcodeError}}" class="code-state">{{barcodeError}}<button class="btn btn-light" bindtap="load">重试</button></view>
