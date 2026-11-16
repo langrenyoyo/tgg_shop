@@ -34,6 +34,8 @@ test("member code endpoint requires auth and ignores requested user IDs", async 
   const url = new URL("http://localhost/api/me/member-code?userId=someone-else");
   await routeApi({ method: "GET", headers: {} }, res, url);
   assert.equal(status, 401);
+  await routeApi({ method: "POST", headers: {}, async *[Symbol.asyncIterator]() { throw new Error("must authenticate before reading body"); } }, res, url);
+  assert.equal(status, 401);
   await routeApi({ method: "GET", headers: { authorization: `Bearer ${session.token}` } }, res, url);
   assert.equal(status, 200); assert.equal(body.userId, user.id); assert.equal(body.number, "00123456");
   assert.equal(headers["Cache-Control"], "no-store");
@@ -46,11 +48,12 @@ test("active membership without POS identity gives association guidance, not a p
   let result = getMemberCode(state, user).body;
   assert.equal(result.available, false);
   assert.equal(result.isMember, true);
-  assert.equal(result.reason, "phone_missing");
-  assert.match(result.message, /无需重复购买/);
+  assert.equal(result.reason, "provision_required");
+  assert.equal(result.needsPhoneAuthorization, true);
+  assert.match(result.message, /无需再次付费/);
   user.phone = "13800000000";
   result = getMemberCode(state, user).body;
-  assert.equal(result.reason, "association_missing");
+  assert.equal(result.reason, "provision_required");
   user.memberUntil = "2000-01-01";
   assert.equal(getMemberCode(state, user).body.isMember, false);
 });
@@ -92,7 +95,7 @@ function setup() {
   const requests = [], storage = new Map([["tgg_user", { id: "alice" }], ["tgg_token", "token"]]);
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/member-code/index.js"), "utf8"), {
     Page(value) { page = value; },
-    require: name => name.includes("member-barcode") ? barcode : { request: () => new Promise((resolve, reject) => requests.push({ resolve, reject })) },
+    require: name => name.includes("member-barcode") ? barcode : { request: (url, options) => new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })) },
     wx: { getStorageSync: key => storage.get(key) }
   });
   page.setData = values => Object.assign(page.data, values);
@@ -125,5 +128,35 @@ test("member-code page explains an undeployed backend endpoint", async () => {
   h.requests[0].reject(Object.assign(new Error("API not found"), { statusCode: 404 }));
   await load;
   assert.match(h.page.data.error, /服务尚未上线/);
+  assert.equal(h.page.data.number, "");
+});
+
+test("page requests phone consent once, then provisions with the returned code", async () => {
+  const h = setup(); const load = h.page.load();
+  h.requests[0].resolve({ available: false, canProvision: true, needsPhoneAuthorization: true, message: "请授权" });
+  await load;
+  assert.equal(h.page.data.needsPhoneAuthorization, true);
+  h.page.authorizePhone({ detail: {} });
+  assert.equal(h.requests.length, 1);
+  const provision = h.page.authorizePhone({ detail: { code: "wx-code" } });
+  h.requests[1].resolve({ available: false, canProvision: true, needsPhoneAuthorization: true });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.requests[2].options.method, "POST");
+  assert.equal(h.requests[2].options.data.phoneCode, "wx-code");
+  h.requests[2].resolve({ available: true, userId: "alice", number: "00123", format: "CODE128" });
+  await provision;
+  assert.equal(h.page.data.number, "00123");
+  assert.equal(h.page.data.needsPhoneAuthorization, false);
+});
+
+test("page resumes a verified pending attempt and hides results after account switch", async () => {
+  const h = setup(); const load = h.page.load();
+  h.requests[0].resolve({ available: false, canProvision: true, needsPhoneAuthorization: false });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.requests[1].options.method, "POST");
+  assert.equal(Object.keys(h.requests[1].options.data).length, 0);
+  h.storage.set("tgg_user", { id: "bob" });
+  h.requests[1].resolve({ available: true, userId: "alice", number: "00123", format: "CODE128" });
+  await load;
   assert.equal(h.page.data.number, "");
 });

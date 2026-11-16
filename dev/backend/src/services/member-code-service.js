@@ -12,6 +12,11 @@ function getMemberCode(state, user) {
   const number = user.pospalNumber || mapping?.number;
   const uid = user.pospalUid || mapping?.pospalUid;
   if (!uid || typeof number !== "string" || !number) {
+    if (membership.isMember && !uid && !number && !mapping) {
+      const verified = state.config?.pospalIntegration?.memberProvisions?.[user.id]?.verifiedAt;
+      return { status: 200, body: { available: false, ...membership, reason: "provision_required", canProvision: true,
+        needsPhoneAuthorization: !verified, message: verified ? "正在为你关联门店会员，请稍候" : "小程序会员已开通。首次使用请授权手机号，系统将自动关联或创建门店会员，无需再次付费。" } };
+    }
     const prefix = membership.isMember ? "小程序会员已开通，无需重复购买。" : "";
     return unavailable(user.phone ? "association_missing" : "phone_missing", prefix + (user.phone
       ? "门店会员卡尚未关联，请联系门店核对账号并同步银豹会员资料。"

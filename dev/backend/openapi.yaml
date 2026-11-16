@@ -41,8 +41,31 @@ paths:
                   format: { type: string, enum: [CODE128] }
                   message: { type: string }
                   isMember: { type: boolean, description: Current mini-program membership status; independent of POS association }
-                  reason: { type: string, enum: [phone_missing, association_missing, association_conflict, unsupported_number] }
+                  reason: { type: string, enum: [phone_missing, association_missing, association_conflict, unsupported_number, provision_required] }
+                  canProvision: { type: boolean }
+                  needsPhoneAuthorization: { type: boolean }
         "401": { description: User login required }
+    post:
+      tags: [Auth, POSPAL]
+      summary: Verify WeChat phone authorization and provision or link an existing POS membership
+      description: Active mini-program membership required. First use exchanges phoneCode through WeChat; later retries reuse the durable verified phone and fixed card number. Queries existing members before creation, rejects conflicts, and does not change balances, points or discount categories. Never accepts raw phone numbers or a target user ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                phoneCode: { type: string, maxLength: 512, description: One-time code from getPhoneNumber; omit when resuming a saved attempt }
+      responses:
+        "200": { description: Confirmed linked card number using the GET response shape }
+        "400": { description: Invalid input }
+        "401": { description: User login required }
+        "403": { description: Active mini-program membership required }
+        "409": { description: Identity or account association requires reconciliation }
+        "429": { description: Wait before retrying provider synchronization }
+        "503": { description: Provider unavailable or uncertain result; retry reconciles before creating }
   /api/admin/printing:
     get:
       tags: [Admin]

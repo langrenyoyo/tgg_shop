@@ -60,9 +60,8 @@ function createPospalClient(options = {}) {
         signal: controller.signal
       });
     } catch (error) {
-      throw new PospalApiError(`POSPAL request failed: ${error.message}`, { code: "POSPAL_NETWORK_ERROR", cause: error, requestId, path });
-    } finally {
       clearTimeout(timeout);
+      throw new PospalApiError(`POSPAL request failed: ${error.message}`, { code: "POSPAL_NETWORK_ERROR", cause: error, requestId, path });
     }
 
     let result;
@@ -70,6 +69,8 @@ function createPospalClient(options = {}) {
       result = await response.json();
     } catch (error) {
       throw new PospalApiError("POSPAL returned invalid JSON", { code: "POSPAL_INVALID_RESPONSE", httpStatus: response.status, requestId, path, cause: error });
+    } finally {
+      clearTimeout(timeout);
     }
     if (!response.ok || result?.status !== "success") {
       throw new PospalApiError(result?.messages?.join(" | ") || `POSPAL returned HTTP ${response.status}`, {

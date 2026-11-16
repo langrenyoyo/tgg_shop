@@ -2,6 +2,7 @@ const authService = require("../services/auth-service");
 const { updateProfile } = require("../services/profile-service");
 const { resolveStation } = require("../domain/auth");
 const { getMemberCode } = require("../services/member-code-service");
+const { provisionMember } = require("../services/member-provision-service");
 
 async function handleAuthRoutes(ctx) {
   const { req, url, state, user, send, readBody, publicUser } = ctx;
@@ -76,6 +77,11 @@ async function handleAuthRoutes(ctx) {
 
   if (req.method === "GET" && url.pathname === "/api/me/member-code") {
     const result = getMemberCode(state, user);
+    return send(ctx.res, result.status, result.body, { "Cache-Control": "no-store" });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/me/member-code") {
+    const result = await provisionMember(state, user, await readBody(req));
     return send(ctx.res, result.status, result.body, { "Cache-Control": "no-store" });
   }
 
