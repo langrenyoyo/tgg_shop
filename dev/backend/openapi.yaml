@@ -21,6 +21,26 @@ tags:
   - name: POSPAL
   - name: Testing
 paths:
+  /api/me/member-code:
+    get:
+      tags: [Auth, POSPAL]
+      summary: Get the authenticated user's synchronized POS membership barcode number
+      description: Returns only the caller's existing POSPAL card number, preserving leading zeros. Does not create POS members or change balances or membership benefits. Missing, unsupported or conflicting associations return available=false. Response is not cacheable.
+      responses:
+        "200":
+          description: Card number or association guidance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                properties:
+                  available: { type: boolean }
+                  userId: { type: string }
+                  number: { type: string, maxLength: 32 }
+                  format: { type: string, enum: [CODE128] }
+                  message: { type: string }
+        "401": { description: User login required }
   /api/admin/printing:
     get:
       tags: [Admin]

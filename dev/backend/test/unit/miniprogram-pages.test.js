@@ -59,7 +59,7 @@ const nativeTags = new Set([
   "ad", "ad-custom",
   "view", "text", "image", "scroll-view", "button", "input", "textarea",
   "navigator", "picker", "radio", "radio-group", "checkbox", "checkbox-group",
-  "label", "form", "rich-text", "block", "template", "import", "include", "wxs", "swiper", "swiper-item"
+  "label", "form", "rich-text", "block", "template", "import", "include", "wxs", "swiper", "swiper-item", "canvas"
 ]);
 
 for (const page of manifest.pages) {

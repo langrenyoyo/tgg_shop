@@ -46,6 +46,7 @@ Page({
     wx.navigateTo({ url: "/pages/points/index" });
   },
   goMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
+  goMemberCode() { wx.navigateTo({ url: "/pages/member-code/index" }); },
 
   goInvite() {
     wx.navigateTo({ url: "/pages/invite/index" });
