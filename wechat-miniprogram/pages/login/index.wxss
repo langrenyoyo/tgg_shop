@@ -34,3 +34,8 @@ page { background: #f4f8f0; }
 .avatar-action { width: auto; min-width: 0; margin: 0; padding: 12rpx 20rpx; font-size: 24rpx; line-height: 1.5; color: #008e55; background: #e8f0e2; border-radius: 999rpx; }
 .avatar-action::after { border: 0; }
 .profile-hint { margin-bottom: 32rpx; text-align: center; font-size: 23rpx; line-height: 1.6; color: #76856d; }
+.phone-binding-row { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; padding: 28rpx 0 12rpx; }
+.phone-binding-row .field-label { margin-bottom: 8rpx; }
+.phone-binding-value { font-size: 28rpx; color: #27452f; }
+.phone-binding-status { color: #008e55; font-size: 24rpx; }
+.phone-binding-note { color: #76856d; font-size: 23rpx; line-height: 1.6; }

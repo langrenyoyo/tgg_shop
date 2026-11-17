@@ -25,6 +25,8 @@
     <view class="profile-hint">点击头像可选图片；点击昵称输入框可使用微信昵称</view>
     <view class="field-label">昵称</view>
     <input class="nickname" name="nickname" type="nickname" value="{{nickname}}" maxlength="32" placeholder="使用微信昵称或填写昵称" bindinput="onNicknameInput" bindblur="onNicknameInput" disabled="{{loading}}" />
+    <view class="phone-binding-row"><view><view class="field-label">手机号</view><view class="phone-binding-value">{{maskedPhone || '尚未绑定'}}</view></view><button wx:if="{{!maskedPhone}}" class="avatar-action" open-type="getPhoneNumber" bindgetphonenumber="bindPhone" disabled="{{loading || selectingAvatar}}">微信授权绑定</button><text wx:else class="phone-binding-status">已绑定</text></view>
+    <view wx:if="{{!maskedPhone}}" class="phone-binding-note">经你同意后获取微信验证的手机号，用于账号绑定及门店会员关联。</view>
     <button class="primary" form-type="submit" loading="{{loading}}" disabled="{{loading || selectingAvatar}}">{{editing ? '保存' : '保存并继续'}}</button>
     <button class="secondary" bindtap="skipProfile" disabled="{{loading || selectingAvatar}}">{{editing ? '取消' : '稍后完善'}}</button>
   </form>

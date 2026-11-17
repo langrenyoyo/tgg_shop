@@ -131,6 +131,13 @@ test("member-code page explains an undeployed backend endpoint", async () => {
   assert.equal(h.page.data.number, "");
 });
 
+test("member phone authorization explains missing privacy declaration without submitting", () => {
+  const h = setup();
+  h.page.authorizePhone({ detail: { errno: 112 } });
+  assert.match(h.page.data.error, /声明尚未生效/);
+  assert.equal(h.requests.length, 0);
+});
+
 test("page requests phone consent once, then provisions with the returned code", async () => {
   const h = setup(); const load = h.page.load();
   h.requests[0].resolve({ available: false, canProvision: true, needsPhoneAuthorization: true, message: "请授权" });

@@ -1,10 +1,19 @@
 const { wechatLogin } = require("../../utils/auth");
 const { request, uploadFile, resolveAssetUrl } = require("../../utils/api");
 
+function phoneAuthorizationError(detail = {}) {
+  const message = String(detail.errMsg || "");
+  if (Number(detail.errno) === 112 || /not declared|privacy agreement/i.test(message)) {
+    return "手机号授权暂不可用：小程序隐私保护指引中的手机号声明尚未生效，请联系客服";
+  }
+  if (/deny|cancel/i.test(message)) return "你已取消手机号授权，可重新点击授权，并在窗口中选择手机号";
+  return "未获取到手机号授权，请在最新版微信中重试；如持续失败请联系客服";
+}
+
 Page({
   data: {
     loading: false, agreed: false, stage: "login", nickname: "",
-    avatarPreview: "", error: "", editing: false, selectingAvatar: false
+    avatarPreview: "", error: "", editing: false, selectingAvatar: false, maskedPhone: ""
   },
 
   onLoad(query = {}) {
@@ -28,7 +37,7 @@ Page({
     if (this.disposed || this.data.loading) return;
     if (!this.data.agreed) return wx.showToast({ title: "请先阅读并同意登录授权说明", icon: "none" });
     const phoneCode = e?.detail?.code;
-    if (!phoneCode) return this.setData({ error: "请允许微信手机号授权后登录，可在授权窗口选择其他手机号" });
+    if (!phoneCode) return this.setData({ error: phoneAuthorizationError(e?.detail) });
     this.setData({ loading: true, error: "" });
     try {
       if (wx.requirePrivacyAuthorize) {
@@ -49,7 +58,8 @@ Page({
   },
   async bindPhone(e) {
     if (this.data.loading || !this.isCurrentUser()) return;
-    if (!e.detail?.code) return this.setData({ error: "请允许微信手机号授权，完成账号绑定" });
+    if (!e.detail?.code) return this.setData({ error: phoneAuthorizationError(e?.detail) });
+    const wasEditing = this.data.stage === "profile";
     this.setData({ loading: true, error: "" });
     try {
       const user = await request("/api/me/phone", { method: "POST", data: { phoneCode: e.detail.code } });
@@ -57,16 +67,21 @@ Page({
       if (user.id !== this.ownerId) throw new Error("账号信息不一致，请重新登录");
       wx.setStorageSync("tgg_user", user);
       getApp().globalData.user = user;
-      this.openProfile(user);
-      if (user.avatarUrl && user.nickname && user.nickname !== "微信用户") this.finish();
+      if (wasEditing) {
+        this.setData({ maskedPhone: this.maskPhone(user.phone) });
+      } else {
+        this.openProfile(user);
+        if (user.avatarUrl && user.nickname && user.nickname !== "微信用户") this.finish();
+      }
     } catch (error) { if (this.isCurrentUser()) this.setData({ error: error.message || "绑定失败，请重试" }); }
     finally { if (!this.disposed) this.setData({ loading: false }); }
   },
+  maskPhone(phone) { return /^1\d{10}$/.test(String(phone || "")) ? String(phone).replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2") : ""; },
   openProfile(user) {
     this.ownerId = user.id;
     this.avatarPath = user.avatarUrl || "";
     this.avatarTemp = "";
-    this.setData({ stage: "profile", nickname: user.nickname === "微信用户" ? "" : user.nickname || "", avatarPreview: resolveAssetUrl(this.avatarPath), error: "" });
+    this.setData({ stage: "profile", nickname: user.nickname === "微信用户" ? "" : user.nickname || "", avatarPreview: resolveAssetUrl(this.avatarPath), maskedPhone: this.maskPhone(user.phone), error: "" });
   },
   isCurrentUser() {
     return !this.disposed && Boolean(wx.getStorageSync("tgg_token")) && this.ownerId === wx.getStorageSync("tgg_user")?.id;

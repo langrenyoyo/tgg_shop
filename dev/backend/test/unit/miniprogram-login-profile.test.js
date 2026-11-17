@@ -175,3 +175,26 @@ test("legacy logged-in user binds a phone without recreating the account", async
   assert.equal(h.storage.get("tgg_user").phone, "13912345678");
   assert.equal(h.page.data.stage, "profile");
 });
+
+test("profile phone binding masks the number and preserves unsaved avatar and nickname", async () => {
+  const h = setup(); edit(h);
+  h.page.setData({ nickname: "Unsaved nickname" });
+  const binding = h.page.bindPhone({ detail: { code: "phone-code" } });
+  h.pending[0].resolve({ id: "alice", phone: "13912345678", nickname: "Alice" });
+  await binding;
+  assert.equal(h.page.data.maskedPhone, "139****5678");
+  assert.equal(h.page.data.nickname, "Unsaved nickname");
+  assert.equal(h.page.avatarTemp, "wxfile://selected.png");
+  assert.equal(h.navigations(), 0);
+});
+
+test("privacy declaration error is not described as user denial and sends no request", async () => {
+  const h = setup(); h.page.setData({ agreed: true });
+  await h.page.handleLogin({ detail: { errno: 112, errMsg: "getPhoneNumber:fail api scope is not declared in the privacy agreement" } });
+  assert.match(h.page.data.error, /声明尚未生效/);
+  assert.equal(h.logins(), 0);
+  edit(h);
+  await h.page.bindPhone({ detail: { errno: 112 } });
+  assert.match(h.page.data.error, /声明尚未生效/);
+  assert.equal(h.pending.length, 0);
+});

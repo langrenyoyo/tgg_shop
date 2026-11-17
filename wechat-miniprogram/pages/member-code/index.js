@@ -53,7 +53,10 @@ Page({
   authorizePhone(e) {
     if (this.data.loading) return;
     if (!e.detail?.code) {
-      this.setData({ error: "需要授权手机号才能自动关联门店会员，你的小程序会员权益不受影响" });
+      const privacyMissing = Number(e.detail?.errno) === 112 || /not declared|privacy agreement/i.test(String(e.detail?.errMsg || ""));
+      this.setData({ error: privacyMissing
+        ? "手机号授权暂不可用：小程序隐私保护指引中的手机号声明尚未生效，请联系客服"
+        : "未获得手机号授权，请重新授权后关联门店会员，你的小程序会员权益不受影响" });
       return;
     }
     return this.load({ phoneCode: e.detail.code });
