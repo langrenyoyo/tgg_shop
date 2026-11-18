@@ -13,7 +13,7 @@ function phoneAuthorizationError(detail = {}) {
 Page({
   data: {
     loading: false, agreed: false, stage: "login", nickname: "",
-    avatarPreview: "", error: "", editing: false, selectingAvatar: false, maskedPhone: ""
+    avatarPreview: "", error: "", editing: false, selectingAvatar: false, maskedPhone: "", inviteCode: ""
   },
 
   onLoad(query = {}) {
@@ -27,6 +27,15 @@ Page({
     }
   },
   onUnload() { this.disposed = true; },
+  onShow() { this.setData({ inviteCode: wx.getStorageSync("tgg_pending_invite") || "" }); },
+  editInvite(e) {
+    if (this.data.loading) return;
+    const code = String(e.detail.value || "").trim();
+    this.setData({ inviteCode: code, error: "" });
+    if (code) wx.setStorageSync("tgg_pending_invite", code);
+    else wx.removeStorageSync("tgg_pending_invite");
+  },
+  clearInvite() { this.editInvite({ detail: { value: "" } }); },
   onConsentChange(e) { if (!this.data.loading) this.setData({ agreed: e.detail.value.includes("agree") }); },
   openPrivacy() {
     if (!wx.openPrivacyContract) return wx.showToast({ title: "请升级微信后查看隐私保护指引", icon: "none" });

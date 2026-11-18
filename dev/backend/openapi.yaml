@@ -1589,6 +1589,35 @@ paths:
         "503":
           description: Callback credential has not been configured
 
+  /api/invite/code:
+    get:
+      tags: [Growth]
+      summary: Generate the authenticated user's official WeChat invitation code
+      description: Uses the user's own inviteCode as scene and pages/home/index as the target. No target user, scene or environment input is accepted. Server credentials stay private. Codes are cached for 24 hours; HTTP responses use no-store. Rate limited to 10 requests per minute per client address. Only new registrations bind the inviter and receive the configured registration reward once.
+      responses:
+        "200":
+          description: PNG or JPEG image encoded as base64
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, inviteCode, page, envVersion, mimeType, imageBase64]
+                properties:
+                  userId: { type: string }
+                  inviteCode: { type: string, maxLength: 32 }
+                  page: { type: string, enum: [pages/home/index] }
+                  envVersion: { type: string, enum: [release, trial, develop] }
+                  mimeType: { type: string, enum: [image/png, image/jpeg] }
+                  imageBase64: { type: string, format: byte }
+        "401": { description: Login required }
+        "409": { description: Invalid invitation code or account changed }
+        "429": { description: Rate limit exceeded }
+        "502": { description: WeChat error, unpublished page, quota exhausted or invalid image }
+        "503": { description: WeChat credentials or environment not configured, or service busy }
+
   /api/invite/info:
     get:
       tags: [Growth]

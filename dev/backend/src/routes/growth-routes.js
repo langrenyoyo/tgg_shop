@@ -4,6 +4,11 @@ const coinSignin = require("../services/coin-signin-service");
 async function handleGrowthRoutes(ctx) {
   const { req, url, state, user, send } = ctx;
 
+  if (req.method === "GET" && url.pathname === "/api/invite/code") {
+    const result = await require("../services/invite-code-service").getInviteCode(user);
+    return send(ctx.res, result.status, result.body, { "Cache-Control": "no-store" });
+  }
+
   if ((req.method === "GET" || req.method === "POST") && url.pathname === "/api/invite/info") {
     return send(ctx.res, 200, growthService.getInviteInfo(state, user));
   }

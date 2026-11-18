@@ -25,7 +25,7 @@ module.exports = {
     checkCurrent();
     saveSession(res);
     mergeGuestCart();
-    wx.removeStorageSync("tgg_pending_invite");
+    if (wx.getStorageSync("tgg_pending_invite") === inviteCode) wx.removeStorageSync("tgg_pending_invite");
     return res;
   }
 };

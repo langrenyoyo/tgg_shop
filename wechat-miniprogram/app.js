@@ -27,6 +27,11 @@ App({
     cart.syncTabBarBadge();
   },
   captureInvite(options) {
-    if (options.query?.inviteCode) wx.setStorageSync("tgg_pending_invite", options.query.inviteCode);
+    const query = options.query || {};
+    let code = query.inviteCode || query.scene;
+    if (typeof code !== "string") return;
+    try { code = decodeURIComponent(code); } catch { return; }
+    if (code.startsWith("inviteCode=")) code = code.slice(11);
+    if (/^[a-zA-Z0-9_-]{1,32}$/.test(code)) wx.setStorageSync("tgg_pending_invite", code);
   }
 });

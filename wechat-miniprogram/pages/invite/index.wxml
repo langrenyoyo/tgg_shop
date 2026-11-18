@@ -14,6 +14,16 @@
       <button class="btn btn-primary" open-type="share" disabled="{{!info.inviteCode}}">邀请好友</button>
     </view>
     <view class="muted">累计邀请 {{info.totalInvited || 0}} 人 · 累计提成 {{info.totalCommission || 0}} 积分</view>
+    <view class="invite-code">
+      <view class="title">我的邀请小程序码</view>
+      <view class="muted">好友用微信扫码进入小程序，首次注册后绑定邀请关系。</view>
+      <image wx:if="{{codePath}}" class="invite-code-image" src="{{codePath}}" mode="aspectFit" bindtap="previewCode" show-menu-by-longpress="{{true}}" />
+      <button wx:if="{{!codePath}}" class="btn btn-primary" bindtap="generateCode" loading="{{generating}}" disabled="{{generating}}">{{generating ? '正在生成' : '生成专属小程序码'}}</button>
+      <button wx:if="{{codePath}}" class="btn btn-primary" bindtap="saveCode" loading="{{saving}}" disabled="{{saving}}">保存小程序码到相册</button>
+      <view wx:if="{{codeError}}" class="invite-code-error">{{codeError}}</view>
+      <button wx:if="{{albumDenied}}" open-type="openSetting">打开相册权限设置</button>
+      <view wx:if="{{codePath}}" class="muted">保存后可发送给好友，或打印展示。已有账号不会重复绑定或发放注册奖励。</view>
+    </view>
   </view>
 
   <view class="card">

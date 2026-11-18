@@ -1,2 +1,6 @@
 .invite-actions { display: flex; flex-direction: column; gap: 16rpx; margin-top: 20rpx; margin-bottom: 18rpx; }
 .invite-actions button { width: 100%; margin: 0; }
+.invite-code { margin-top: 28rpx; padding-top: 28rpx; border-top: 1rpx solid #eee; display: flex; flex-direction: column; gap: 18rpx; }
+.invite-code-image { width: 430rpx; height: 430rpx; align-self: center; background: #fff; }
+.invite-code button { width: 100%; }
+.invite-code-error { color: #c53b31; font-size: 26rpx; }
