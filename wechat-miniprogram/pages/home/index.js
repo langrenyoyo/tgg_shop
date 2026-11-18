@@ -32,18 +32,24 @@ Page({
   onShow() {
     this.disposed = false;
     this.setData({ cartQuantities: productCart.quantities(), navigating: false });
-    this.load();
+    const returning = this.returningFromProduct;
+    this.returningFromProduct = false;
+    if (returning && this.loaded && this.ownerId === wx.getStorageSync("tgg_user")?.id) return;
+    return this.load();
   },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
 
   async load() {
     const version = this.version = (this.version || 0) + 1;
     const owner = wx.getStorageSync("tgg_user")?.id;
+    this.ownerId = owner;
+    this.loaded = false;
     const active = () => version === this.version && owner === wx.getStorageSync("tgg_user")?.id;
     this.setData({ home: emptyHome(), error: "", loading: true });
     try {
       const home = await request("/api/home");
       if (!active()) return;
+      this.loaded = true;
       this.setData({ home: normalizeHome(home), error: "" });
     } catch (error) {
       if (active()) this.setData({ error: error.message });
@@ -89,7 +95,8 @@ Page({
   },
 
   openProduct(e) {
-    wx.navigateTo({ url: `/pages/product/index?id=${encodeURIComponent(e.currentTarget.dataset.id)}` });
+    this.returningFromProduct = true;
+    wx.navigateTo({ url: `/pages/product/index?id=${encodeURIComponent(e.currentTarget.dataset.id)}`, fail: () => { this.returningFromProduct = false; } });
   }
 });
 

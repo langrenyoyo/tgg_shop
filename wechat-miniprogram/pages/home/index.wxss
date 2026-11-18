@@ -6,8 +6,8 @@
 .location-label { font-size: 20rpx; color: #80937b; letter-spacing: 2rpx; }
 .location-name { font-size: 32rpx; font-weight: 700; margin-top: 2rpx; }
 .location-address { font-size: 22rpx; color: #718574; margin-top: 4rpx; overflow-wrap: break-word; }
-.brand-mark { color: #008754; font-size: 30rpx; font-weight: 800; letter-spacing: 2rpx; text-align: center; }
-.brand-mark text { display: block; font-size: 15rpx; letter-spacing: 5rpx; }
+.brand-mark { flex-shrink: 0; color: #008754; font-size: 30rpx; font-weight: 800; letter-spacing: 2rpx; text-align: center; }
+.brand-mark text { display: block; font-size: 22rpx; letter-spacing: 2rpx; }
 .hero { margin: 24rpx 0 28rpx; padding: 32rpx; border-radius: 32rpx; background: linear-gradient(120deg, #096546, #179e64); display: flex; align-items: center; gap: 12rpx; overflow: hidden; color: #fff; }
 .hero-copy { flex: 1; min-width: 0; position: relative; z-index: 1; }
 .hero-kicker { font-size: 17rpx; letter-spacing: 3rpx; color: #bddec8; }

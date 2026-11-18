@@ -1,0 +1,13 @@
+.member-panel .member-open-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 88rpx;
+  padding: 16rpx 12rpx;
+  font-size: 26rpx;
+  line-height: 1.4;
+  white-space: nowrap;
+}

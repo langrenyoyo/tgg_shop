@@ -1,6 +1,7 @@
 import { pendingApprovalIntents } from "./api.js";
 import { renderDashboard } from "./dashboard.js";
 import { productEditor } from "./product-editor.js";
+import { filterFinance, financeToolbar, financeActions } from "./finance-filters.js";
 import { adminAccountsView } from "./admin-accounts.js";
 import { stationAccountsView } from "./station-accounts.js";
 import { printingView } from "./printing.js";
@@ -272,15 +273,18 @@ function products(state) {
     ${state.productMessage ? `<p class="note" role="status">${escapeHtml(state.productMessage)}</p>` : ""}
     ${gatedAction("product:write", '<button class="action" type="button" data-product-new-gift>新增买商品送会员专区商品</button>')}
     <form class="admin-form product-filter" data-product-filter-form><label>搜索商品<input name="search" value="${escapeAttr(state.productSearch || "")}" placeholder="名称、分类或商品编号"></label><label>状态<select name="status"><option value="">全部</option><option value="on" ${state.productStatus === "on" ? "selected" : ""}>已上架</option><option value="off" ${state.productStatus === "off" ? "selected" : ""}>草稿 / 已下架</option></select></label><button class="action" type="submit">查询</button><button class="action" type="button" data-product-edit-cancel>新增商品</button></form>
-    <section class="table-panel">${simpleTable("商品上架与销售设置", ["商品", "分类", "价格", "库存", "状态", "操作"], rows.map((item) => [
+    <p class="muted-text">拖动商品行可放到其他商品之前或之后；“调整位置”可直接填写全部商品中的序号。顺序同步到商城。</p>
+    <section class="table-panel product-sort-table">${simpleTable("商品上架与销售设置", ["排序", "商品", "分类", "价格", "库存", "状态", "操作"], rows.map((item) => [
+      trustedHtml(`<span class="product-drag-handle" title="拖动调整顺序">⠿ ${state.products.findIndex(row => row.id === item.id) + 1}</span>`),
       trustedHtml(`${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${escapeHtml(item.id)}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`),
       item.membershipGiftDays > 0 ? `${item.category} · 每件赠 ${item.membershipGiftDays} 天` : item.category || "-",
       item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
       item.stock ?? 0,
       badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)
-    ]))}</section>
-    <datalist id="product-categories">${[...new Set(["买商品送会员", "水果", "蔬菜", "肉禽", "乳品", "零食", "日用", "纯积分", ...(state.products || []).map(item => item.category)])].filter(Boolean).map(category => `<option value="${escapeAttr(category)}"></option>`).join("")}</datalist>
+    ]), rows.map(item => `data-product-row="${escapeAttr(item.id)}" draggable="${can("product:write") && (!item.purePointsOnly || can("points_product:write"))}"`))}</section>
+    <section class="panel category-management"><h2>商品分类</h2><p class="muted-text">分类有商品时，请先调整商品分类；买商品送会员为固定业务专区。</p>${state.productCategoriesError ? `<p role="alert">${escapeHtml(state.productCategoriesError)}</p>` : `<div class="category-management-list">${(state.productCategories || []).map(category => `<div class="category-management-item"><span>${escapeHtml(category.name)} <small>(${category.productCount} 件)</small></span><button type="button" class="action danger-action" data-category-delete="${escapeAttr(category.name)}" ${!can("product:write") || category.protected ? "disabled" : ""}>删除</button></div>`).join("")}</div>`}</section>
+    <datalist id="product-categories">${(state.productCategories || []).map(category => `<option value="${escapeAttr(category.name)}"></option>`).join("")}</datalist>
     ${productEditor(editing, { escapeHtml, can })}
     ${can("stock:write") ? `<section class="table-panel">${simpleTable("库存变动记录", ["时间", "商品", "变动数量", "变动前", "变动后", "原因"], (state.inventoryLedger || []).slice(0, 30).map(item => [formatDateTime(item.createdAt), item.productName || item.productId, item.quantityDelta, item.stockBefore, item.stockAfter, item.reason]))}</section>` : ""}
     <section class="table-panel">${simpleTable("退款商品验收", ["退款单", "订单", "商品", "状态", "处理"], (state.refundReturns || []).map(item => [
@@ -407,13 +411,14 @@ function taskReview(state) {
 }
 
 function financeRefund(state) {
+  const filtered = filterFinance(state);
+  const tabs = [["refunds", "退款审批", filtered.refunds.length], ["withdrawals", "提现审批", filtered.withdrawals.length], ["approvals", "二级审批", filtered.approvalRequests.length]];
+  const tab = tabs.some(([key]) => key === state.financeTab) ? state.financeTab : "refunds";
   return `
     ${statCards([["退款申请", (state.refunds || []).length], ["提现申请", (state.withdrawals || []).length], ["待复核", (state.approvalRequests || []).filter((item) => item.status === "pending").length], ["支付流水", (state.ledger?.paymentLedger || []).length]])}
-    <section class="grid-2">
-      <article class="table-panel">${refundApprovalRows(state)}</article>
-      <article class="table-panel">${withdrawalApprovalRows(state)}</article>
-    </section>
-    <section class="table-panel">${approvalRequestsRows(state)}</section>
+    <section class="panel">${financeToolbar(state, escapeAttr, zh)}</section>
+    <nav class="finance-tabs" aria-label="审批类型">${tabs.map(([key, label, count]) => `<button class="chip ${key === tab ? "active blue" : ""}" data-finance-tab="${key}" aria-pressed="${key === tab}">${label} (${count})</button>`).join("")}</nav>
+    <section class="table-panel finance-results">${tab === "refunds" ? refundApprovalRows(filtered) : tab === "withdrawals" ? withdrawalApprovalRows(filtered) : approvalRequestsRows(filtered)}</section>
   `;
 }
 
@@ -638,7 +643,7 @@ function withdrawalApprovalRows(state) {
 function approvalRequestsRows(state) {
   return simpleTable("二级审批队列", ["审批单", "动作", "目标", "状态", "原因", "操作"], (state.approvalRequests || []).map((item) => [
     item.id,
-    zh(item.action, "action"),
+    financeActions[item.action] || zh(item.action, "action"),
     trustedHtml(`${escapeHtml(item.targetType || "-")}<br><span class="muted-text">${escapeHtml(item.targetId || "-")}</span>`),
     badge(item.status === "pending" ? "复核中" : item.status, item.status === "pending" ? "orange" : ""),
     item.requestReason || item.reason || "-",
@@ -655,8 +660,8 @@ function paymentRows(payments) {
   return simpleTable("支付单流水", ["支付单", "用户", "场景", "渠道", "现金", "积分", "状态", "三方单号", "幂等键"], payments.map((item) => [item.payNo || item.id, item.userId || "-", zh(item.payScene, "payScene"), zh(item.channel, "channel"), `¥${Number(item.amount || 0).toFixed(1)}`, item.pointAmount || 0, badge(item.status, item.status === "paid" ? "" : "orange"), item.thirdTradeNo || "-", item.idempotencyKey || "-"]));
 }
 
-function simpleTable(title, heads, rows) {
-  return `${title ? tableHead(title) : ""}<div class="table-wrap"><table><thead><tr>${heads.map((head) => `<th>${escapeHtml(head)}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((cell) => `<td>${cell && cell.__trustedHtml ? cell.value : escapeHtml(cell)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${heads.length}">暂无数据</td></tr>`}</tbody></table></div>`;
+function simpleTable(title, heads, rows, rowAttributes = []) {
+  return `${title ? tableHead(title) : ""}<div class="table-wrap"><table><thead><tr>${heads.map((head) => `<th>${escapeHtml(head)}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map((row, index) => `<tr ${rowAttributes[index] || ""}>${row.map((cell) => `<td>${cell && cell.__trustedHtml ? cell.value : escapeHtml(cell)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${heads.length}">暂无数据</td></tr>`}</tbody></table></div>`;
 }
 
 function trustedHtml(value) {
@@ -703,6 +708,8 @@ function productActionButtons(item) {
     <button class="action" data-product-edit="${escapeAttr(item.id)}" ${writable ? "" : "disabled"} title="打开商品资料；已上架商品需先下架后保存修改">编辑</button>
     <button class="action" data-product-action="${escapeAttr(item.id)}" data-status="${nextStatus}" ${writable ? "" : "disabled"}>${item.status === "on" ? "下架" : "上架"}</button>
     ${gatedAction("stock:write", `<button class="action" data-product-stock="${escapeAttr(item.id)}">调整库存</button>`, "无库存权限")}
+    <button class="action danger-action" data-product-delete="${escapeAttr(item.id)}" ${writable ? "" : "disabled"}>删除商品</button>
+    <button class="action muted-action" data-product-position="${escapeAttr(item.id)}" ${writable ? "" : "disabled"}>调整位置</button>
   </div>`);
 }
 

@@ -929,9 +929,29 @@ paths:
           name: category
           schema:
             type: string
+        - in: query
+          name: page
+          description: Opt into paginated results; omit to keep the legacy array response.
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - in: query
+          name: search
+          description: Product name keyword, applied before pagination when page is supplied.
+          schema:
+            type: string
       responses:
         "200":
-          description: Product list
+          description: Legacy product array, or an object with items, total, page, pageSize, hasMore and categories when page is supplied.
+        "400":
+          description: Invalid pagination parameters
 
   /api/products/{productId}:
     get:
@@ -2226,6 +2246,84 @@ paths:
         "403":
           description: Missing fulfillment permission
 
+  /api/admin/product-categories:
+    get:
+      tags: [Admin]
+      summary: List available product categories with product counts and protected flags
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Category array with name, productCount and protected
+        "403":
+          description: Missing product read permission
+    delete:
+      tags: [Admin]
+      summary: Delete an unused category
+      description: Requires product:write. Categories containing undeleted products cannot be deleted. The membership gift category is protected. Deleted categories are removed from suggestions and home shortcuts and rejected on product writes.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Updated category list
+        "400":
+          description: Protected category
+        "403":
+          description: Missing product write permission
+        "404":
+          description: Category missing or already deleted
+        "409":
+          description: Category still contains products
+
+  /api/admin/products/{productId}/position:
+    patch:
+      tags: [Admin]
+      summary: Move a product to any position in the complete visible catalog
+      description: Requires product:write and points_product:write for a pure-points target. A 1-based position and the current complete ordered product ID list prevent stale moves. The saved order applies to admin, home recommendations, catalog and pure-points lists.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [position, expectedOrder, expectedRevision]
+              properties:
+                position:
+                  type: integer
+                  minimum: 1
+                expectedOrder:
+                  type: array
+                  items:
+                    type: string
+                expectedRevision:
+                  type: integer
+                  minimum: 0
+      responses:
+        "200":
+          description: Updated ordered products
+        "400":
+          description: Invalid position
+        "403":
+          description: Missing product permission
+        "404":
+          description: Product missing or deleted
+        "409":
+          description: Catalog order or product revision changed
+
   /api/admin/products:
     get:
       tags: [Admin]
@@ -2299,6 +2397,34 @@ paths:
           description: Missing product write permission
 
   /api/admin/products/{productId}:
+    delete:
+      tags: [Admin]
+      summary: Remove a product from sale and management lists while retaining historical references
+      description: Requires product:write and points_product:write for pure-points goods. Marks deletedAt and status off, increments revision and records an audit entry. Stock and historical orders are retained.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision]
+              properties:
+                expectedRevision:
+                  type: integer
+                  minimum: 0
+      responses:
+        "200":
+          description: Product removed
+        "403":
+          description: Missing product permission
+        "404":
+          description: Product missing or already removed
+        "409":
+          description: Stale or missing revision
     patch:
       tags: [Admin]
       summary: Update product status, stock, prices, and display fields

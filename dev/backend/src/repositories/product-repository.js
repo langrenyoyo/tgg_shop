@@ -1,13 +1,17 @@
+function listVisible(state) {
+  return state.products.filter(item => !item.deletedAt).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
 function listActive(state, category) {
-  return state.products.filter((item) => item.status === "on" && (!category || item.category === category));
+  return listVisible(state).filter((item) => item.status === "on" && (!category || item.category === category));
 }
 
 function listRecommended(state) {
-  return state.products.filter((product) => product.status === "on" && !product.purePointsOnly).slice(0, 4);
+  return listActive(state).filter((product) => !product.purePointsOnly).slice(0, 4);
 }
 
 function listPurePoints(state) {
-  return state.products.filter((item) => item.purePointsOnly && item.status === "on");
+  return listActive(state).filter((item) => item.purePointsOnly);
 }
 
 function findById(state, productId) {
@@ -16,7 +20,7 @@ function findById(state, productId) {
 
 function findActiveById(state, productId) {
   const product = findById(state, productId);
-  return product && product.status === "on" ? product : null;
+  return product && !product.deletedAt && product.status === "on" ? product : null;
 }
 
 function decrementStock(product, quantity) {
@@ -28,6 +32,7 @@ function incrementStock(product, quantity) {
 }
 
 module.exports = {
+  listVisible,
   listActive,
   listRecommended,
   listPurePoints,

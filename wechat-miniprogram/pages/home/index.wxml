@@ -1,8 +1,8 @@
 <view class="page home-page">
   <view class="greet">
     <view class="location-mark"><view></view></view>
-    <view class="location-copy"><view class="location-label">美好生活 · 从新鲜开始</view><view class="location-name">{{home.pickupSite.name || 'TGG Shop'}}</view><view wx:if="{{home.pickupSite.address}}" class="location-address">{{home.pickupSite.address}}</view></view>
-    <view class="brand-mark">TGG<text>SHOP</text></view>
+    <view class="location-copy"><view class="location-label">美好生活 · 从新鲜开始</view><view class="location-name">{{home.pickupSite.name || '小鹿超级省'}}</view><view wx:if="{{home.pickupSite.address}}" class="location-address">{{home.pickupSite.address}}</view></view>
+    <view class="brand-mark">小鹿<text>超级省</text></view>
   </view>
   <view class="search-box"><view class="search-icon"></view><input placeholder="搜一搜，发现今天的新鲜好物" placeholder-style="color:#91a08f" bindconfirm="search" confirm-type="search"/></view>
   <view class="hero"><swiper class="home-carousel" indicator-dots="{{true}}" autoplay="{{true}}" interval="4500" circular="{{true}}"><swiper-item wx:for="{{home.banners}}" wx:key="index"><image class="home-carousel-image" src="{{item.image || home.bannerImage || '/assets/fresh-strawberry.jpg'}}" mode="aspectFill"/></swiper-item></swiper></view>

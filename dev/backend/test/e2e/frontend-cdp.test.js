@@ -224,14 +224,18 @@ test("user and admin frontends support core click flows", async (t) => {
     })()`);
     await adminPage.click('button[data-view="financeRefund"]');
     await adminPage.waitForText("提现审批");
+    await adminPage.click('[data-finance-tab="withdrawals"]');
     const pendingWithdrawal = await adminPage.evaluate(`Boolean(document.querySelector('[data-withdraw-action][data-action-type="approve"]'))`);
     if (pendingWithdrawal) {
       await adminPage.click('[data-withdraw-action][data-action-type="approve"]');
+      await adminPage.waitForExpression(`!document.querySelector('[data-withdraw-action][data-action-type="approve"]').disabled`);
+      await adminPage.click('[data-finance-tab="approvals"]');
       await adminPage.waitForText("复核中");
     } else {
       const withdrawals = await userPage.evaluate(`fetch('/api/withdrawals', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') } }).then((res) => res.json())`);
       assert.ok(withdrawals.some((item) => item.status === "success"), "test bypass should settle the browser withdrawal");
     }
+    await adminPage.click('[data-finance-tab="approvals"]');
     await adminPage.waitForText("二级审批队列");
     assert.deepEqual(adminPage.runtimeErrors(), [], "admin page should not emit runtime errors");
 
@@ -758,6 +762,7 @@ async function runUserFlowPatrol(userPage) {
   await userPage.click('button[data-tab="profile"]');
   await userPage.click('[data-page="withdraw"]');
   await userPage.waitForText("可提现余额");
+  await userPage.evaluate(`document.querySelector('#withdrawAmount').value = '1'`);
   await userPage.click('[data-action="withdraw"]');
   await userPage.waitForText("提现申请已提交");
   await userPage.click('button[data-tab="profile"]');

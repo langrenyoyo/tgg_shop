@@ -10,11 +10,10 @@ function page(name, responses) {
 }
 
 test("shop ignores stale product response and clears old products during reload", async () => {
-  const h = page("shop"); h.definition.data.allProducts = [{ id: "old" }];
+  const h = page("shop"); h.definition.data.products = [{ id: "old" }];
   const first = h.definition.load(); const second = h.definition.load();
-  h.pending[1].resolve([{ id: "new", name: "新商品", category: "fruit" }]); await second;
-  h.pending[0].resolve([{ id: "stale" }]); await first;
-  assert.equal(h.definition.data.allProducts[0].id, "new");
+  h.pending[1].resolve({ items: [{ id: "new", name: "新商品", category: "fruit" }], total: 1, hasMore: false, categories: ["fruit"] }); await second;
+  h.pending[0].resolve({ items: [{ id: "stale" }], total: 1, hasMore: false, categories: [] }); await first;
   assert.equal(h.definition.data.products[0].id, "new");
   const failed = h.definition.load(); assert.equal(h.definition.data.products.length, 0); h.pending[2].reject(new Error("offline")); await failed;
   assert.equal(h.definition.data.error, "offline"); assert.equal(h.definition.data.loading, false);
@@ -27,11 +26,11 @@ test("task page clears old task records before a new first page response", async
   assert.equal(h.definition.data.tasks[0].id, "new");
 });
 
-test("shop tolerates a malformed product row without crashing the page", () => {
+test("shop tolerates a malformed product row without crashing the page", async () => {
   const h = page("shop");
-  h.definition.data.allProducts = [{ id: "bad", category: "fruit" }, { id: "ok", name: "苹果", category: "fruit" }];
-  h.definition.data.category = "全部";
-  assert.doesNotThrow(() => h.definition.filter());
+  const load = h.definition.load();
+  h.pending[0].resolve({ items: [null, { id: "bad", category: "fruit" }, { id: "ok", name: "苹果", category: "fruit" }], total: 1, hasMore: false, categories: ["fruit"] });
+  await load;
   assert.deepEqual(h.definition.data.products.map(item => item.id), ["ok"]);
 });
 

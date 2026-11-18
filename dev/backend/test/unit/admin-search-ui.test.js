@@ -151,6 +151,7 @@ test("the header form submit event reaches the search API and the clear button r
     FormData: class { get() { return "test & query"; } },
     api: async url => { calls.push(url); return response("order_1"); }
   });
+  vm.runInContext(fs.readFileSync(path.join(adminDir, "catalog-controls.js"), "utf8").replace(/export /g, ""), ctx);
   const source = fs.readFileSync(path.join(adminDir, "app.js"), "utf8").replace(/^import .*;\r?\n/gm, "");
   vm.runInContext(source, ctx);
   vm.runInContext('state.identity = { adminId: "admin_1", permissions: ["*"] }; state.loading = false;', ctx);

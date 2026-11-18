@@ -7,12 +7,12 @@ button::after { border: 0; }
 .tab { flex: 1; padding: 0 12rpx; line-height: 64rpx; border-radius: 999rpx; color: #85937e; background: transparent; font-size: 25rpx; }
 .tab.active { color: #008d56; background: #fff; font-weight: 700; box-shadow: 0 4rpx 12rpx rgba(35,72,38,.04); }
 .search { height: 84rpx; padding: 0 28rpx; border-radius: 999rpx; background: #fff; font-size: 26rpx; border: 2rpx solid #e5ede1; }
-.choice-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 24rpx; }
-.choice { padding: 12rpx 22rpx; border-radius: 999rpx; background: #fff; text-align: center; color: #7b8d74; font-size: 24rpx; line-height: 1.4; }
+.choice-row { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx; padding: 12rpx 0; background: #f5f8f5; }
+.choice { display: flex; align-items: center; justify-content: center; flex: 0 0 calc((100% - 24rpx) / 3); width: calc((100% - 24rpx) / 3); min-width: 0; min-height: 64rpx; box-sizing: border-box; padding: 8rpx 4rpx; border-radius: 999rpx; background: #fff; text-align: center; color: #7b8d74; font-size: 24rpx; line-height: 1.4; white-space: nowrap; }
 .choice.selected { background: #00a865; color: #fff; }
 .task-card { display: flex; align-items: center; gap: 18rpx; padding: 26rpx 22rpx; border-radius: 26rpx; background: #fff; box-shadow: 0 6rpx 24rpx rgba(32,59,48,.025); }
 .invite-card { margin-top: 24rpx; background: #e6f0db; border: 2rpx solid #dce8ce; }.invite-card .description { color: #80946f; }.invite-card .dot { background: #d4e6c0; }.invite-card .state { background: #fff; color: #57753b; }
-.signin-card { margin-top: 24rpx; border: 2rpx solid #b8e4c8; }.signin-button { margin: 0; border: 0; padding: 12rpx 18rpx; }
+.signin-card { margin-top: 24rpx; margin-bottom: 10px; border: 2rpx solid #b8e4c8; }.signin-button { margin: 0; border: 0; padding: 12rpx 18rpx; }
 .task-list { margin-top: 24rpx; }.task-list .task-card { margin-bottom: 18rpx; }
 .icon-column { flex: 0 0 72rpx; }.dot { width: 72rpx; height: 72rpx; line-height: 72rpx; border-radius: 22rpx; color: #009359; background: #e7f4e6; text-align: center; font-size: 28rpx; font-weight: 700; }
 .task-main { flex: 1; min-width: 0; }

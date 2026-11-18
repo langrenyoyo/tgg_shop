@@ -24,7 +24,7 @@ for (const name of ["home", "shop", "product"]) test(`${name} gift cash button c
   vm.runInNewContext(fs.readFileSync(path.join(root, `pages/${name}/index.js`), "utf8"), {
     Page: value => { page = value; }, wx: h.wx,
     require: file => file.endsWith("product-cart") ? h.controls : file.endsWith("cart") ? h.cart : {
-      request: async () => name === "home" ? { recommendProducts: [gift] } : name === "shop" ? [gift] : gift
+      request: async () => name === "home" ? { recommendProducts: [gift] } : name === "shop" ? { items: [gift], total: 1, hasMore: false, categories: [gift.category] } : gift
     }
   });
   page.setData = (value, callback) => { Object.assign(page.data, value); callback?.(); };
@@ -92,7 +92,7 @@ for (const name of ["home", "shop", "product"]) test(`${name} page stepper persi
   const h=setup();let page;
   vm.runInNewContext(fs.readFileSync(path.join(root,`pages/${name}/index.js`),"utf8"), {
     Page: value=>{page=value;}, wx:h.wx,
-    require: file=>file.endsWith("product-cart")?h.controls:file.endsWith("cart")?h.cart:{ request:async()=>name==="home"?{recommendProducts:[product]}:name==="shop"?[{...product,name:"Product"}]:product }
+    require: file=>file.endsWith("product-cart")?h.controls:file.endsWith("cart")?h.cart:{ request:async()=>name==="home"?{recommendProducts:[product]}:name==="shop"?{items:[product],total:1,hasMore:false,categories:[]}:product }
   });
   page.setData=(value,callback)=>{Object.assign(page.data,value);callback?.();};
   if(name==="product")page.onLoad({id:"p"});

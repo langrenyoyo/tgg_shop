@@ -4,6 +4,7 @@ import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
 import { printingClick, printingSubmit } from "./printing.js";
 import { createAdminSearch } from "./global-search.js";
+import { createCatalogControls } from "./catalog-controls.js";
 
 const state = {
   loading: true,
@@ -66,6 +67,8 @@ const state = {
 };
 let dashboardLoadSequence = 0;
 const adminSearch = createAdminSearch(state, { api, render: renderAdminPage, reload: loadDashboard });
+const catalogControls = createCatalogControls(state, { api, render: renderAdminPage, reload: loadDashboard });
+for (const event of ["dragstart", "dragover", "dragend", "drop"]) document.body.addEventListener(event, catalogControls[event]);
 
 async function loadDashboard() {
   const loadSequence = ++dashboardLoadSequence;
@@ -135,6 +138,9 @@ async function loadDashboard() {
   state.summaryError = summary.ok ? "" : summary.error?.message || "统计数据加载失败，请刷新重试";
   state.orders = orders.ok ? orders.data : [];
   state.products = products.ok ? products.data : [];
+  const categories = await safeApi("/api/admin/product-categories", []);
+  state.productCategories = categories.ok ? categories.data : [];
+  state.productCategoriesError = categories.ok ? "" : categories.error?.message || "商品分类加载失败";
   state.inventoryLedger = inventoryLedger.ok ? inventoryLedger.data : [];
   const refundReturns = await safeApi("/api/admin/refund-returns", []);
   state.refundReturns = refundReturns.ok ? refundReturns.data : [];
@@ -396,6 +402,14 @@ document.querySelector("#refresh").addEventListener("click", () => {
 });
 
 document.body.addEventListener("click", (event) => {
+  if (event.target.closest("[data-product-delete], [data-product-position], [data-category-delete]")) { catalogControls.click(event); return; }
+  const financeTab = event.target.closest("[data-finance-tab]");
+  if (financeTab) {
+    state.financeTab = financeTab.dataset.financeTab;
+    renderAdminPage(state);
+    return;
+  }
+  if (event.target.closest("[data-finance-reset]")) { state.financeFilters = {}; renderAdminPage(state); return; }
   if (printingClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (stationAccountClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (event.target.closest("button:disabled")) return;
@@ -977,6 +991,13 @@ document.body.addEventListener("change", (event) => {
 });
 
 document.body.addEventListener("submit", (event) => {
+  const financeForm = event.target.closest("[data-finance-filter-form]");
+  if (financeForm) {
+    event.preventDefault();
+    state.financeFilters = Object.fromEntries([...new FormData(financeForm)].map(([key, value]) => [key, String(value).trim()]));
+    renderAdminPage(state);
+    return;
+  }
   const searchForm = event.target.closest("[data-admin-search]");
   if (searchForm) {
     event.preventDefault();

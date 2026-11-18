@@ -19,6 +19,14 @@ async function handleCatalogRoutes(ctx) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/products") {
+    if (url.searchParams.has("page")) {
+      const page = Number(url.searchParams.get("page"));
+      const pageSize = Number(url.searchParams.get("pageSize") || 10);
+      if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100 || !Number.isSafeInteger(page * pageSize)) {
+        return send(ctx.res, 400, { error: "分页参数无效" });
+      }
+      return send(ctx.res, 200, catalogService.listProductPage(state, { page, pageSize, category: url.searchParams.get("category") || "", search: url.searchParams.get("search") || "" }));
+    }
     return send(ctx.res, 200, catalogService.listProducts(state, url.searchParams.get("category")));
   }
 

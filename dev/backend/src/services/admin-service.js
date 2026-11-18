@@ -47,7 +47,7 @@ function buildAnalyticsSummary(state, filters = {}) {
   const paymentLedger = state.paymentLedger || [];
   const pointLedger = state.pointLedger || [];
   const users = state.users || [];
-  const products = state.products || [];
+  const products = (state.products || []).filter(item => !item.deletedAt);
   const helpers = createDateWindowHelpers();
   const normalizedFilters = normalizeDashboardFilters(filters);
   const alertThresholds = normalizeDashboardAlertThresholds(state.config?.dashboardAlertThresholds);

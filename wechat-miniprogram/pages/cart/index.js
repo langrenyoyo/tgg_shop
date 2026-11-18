@@ -26,7 +26,7 @@ Page({
   select(e) {
     if (!this.canEdit()) return;
     const items = cart.read(); const item = items.find(row => row.productId === e.currentTarget.dataset.id);
-    if (item) item.selected = !item.selected; cart.write(items); this.load();
+    if (item) item.selected = !item.selected; this.updateItems(items);
   },
   quantity(e) {
     if (!this.canEdit()) return;
@@ -38,9 +38,15 @@ Page({
     const product = this.data.items.find(row => row.productId === item.productId)?.product;
     if (!Number.isSafeInteger(quantity) || (delta > 0 && (!product || !Number.isSafeInteger(product.stock) || quantity > product.stock))) return wx.showToast({ title: "库存不足或商品已下架", icon: "none" });
     item.quantity = quantity;
-    cart.write(items); this.load();
+    this.updateItems(items);
   },
-  remove(e) { if (!this.canEdit()) return; cart.write(cart.read().filter(row => row.productId !== e.currentTarget.dataset.id)); this.load(); },
+  remove(e) { if (!this.canEdit()) return; this.updateItems(cart.read().filter(row => row.productId !== e.currentTarget.dataset.id)); },
+  updateItems(rows) {
+    const products = new Map(this.data.items.map(item => [item.productId, item.product]));
+    cart.write(rows);
+    const items = rows.map(item => ({ ...item, product: products.get(item.productId) || null }));
+    this.setData({ items, ...cartTotals(items) });
+  },
   checkout() {
     if (!wx.getStorageSync("tgg_token")) return wx.navigateTo({ url: "/pages/login/index" });
     if (!this.canEdit()) return;

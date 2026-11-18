@@ -21,6 +21,35 @@ function setup() {
 }
 const products = [{ id: "apple", stock: 3 }, { id: "banana", stock: 5 }];
 
+test("cart quantity, selection and removal update totals immediately without refetching products", async () => {
+  const { page, pending, carts } = setup();
+  carts.alice.push({ productId: "banana", quantity: 2, selected: true });
+  const load = page.load();
+  pending[0].resolve([{ ...products[0], cashPrice: 1.27 }, { ...products[1], purePointsOnly: true, pointsPrice: 5 }]);
+  await load;
+  const tap = (id, delta) => ({ currentTarget: { dataset: { id, delta } } });
+  const product = page.data.items[0].product;
+  page.quantity(tap("apple", 1));
+  page.quantity(tap("apple", 1));
+  assert.equal(page.data.totalCash, 3.81);
+  assert.equal(page.data.totalPoints, 10);
+  assert.equal(page.data.selectedCount, 5);
+  assert.equal(page.data.items[0].product, product);
+  page.quantity(tap("apple", -1));
+  assert.equal(page.data.totalCash, 2.54);
+  page.select(tap("apple"));
+  assert.equal(page.data.totalCash, 0);
+  assert.equal(carts.alice[0].selected, false);
+  page.remove(tap("banana"));
+  assert.equal(page.data.totalPoints, 0);
+  assert.equal(page.data.items.length, 1);
+  page.remove(tap("apple"));
+  assert.equal(page.data.items.length, 0);
+  assert.equal(page.data.selectedCount, 0);
+  assert.equal(page.data.loading, false);
+  assert.equal(pending.length, 1);
+});
+
 test("old cart events cannot edit or create checkout drafts for a new account", async () => {
   const { page, storage, pending, drafts, carts } = setup();
   const first = page.load(); pending[0].resolve(products); await first;

@@ -19,7 +19,7 @@ function categoryShortcuts(config) {
     icon: String(item.icon || "").trim(),
     enabled: item.enabled !== false,
     sort: Number.isFinite(Number(item.sort)) ? Number(item.sort) : index
-  })).filter(item => item.enabled && item.name && item.category).sort((a, b) => a.sort - b.sort).slice(0, 8);
+  })).filter(item => item.enabled && item.name && item.category && !(config.deletedProductCategories || []).includes(item.category)).sort((a, b) => a.sort - b.sort).slice(0, 8);
 }
 
 function getHome(state, user) {
@@ -57,6 +57,15 @@ function listProducts(state, category) {
   return productRepository.listActive(state, category);
 }
 
+function listProductPage(state, { category = "", search = "", page = 1, pageSize = 10 } = {}) {
+  const products = productRepository.listActive(state).filter(item => item && String(item.name || "").trim());
+  const categories = [...new Set(["买商品送会员", "纯积分兑换", ...products.map(item => item.category).filter(Boolean)])];
+  const keyword = String(search).trim();
+  const rows = products.filter(item => (!category || category === "全部" || (category === "纯积分兑换" ? item.purePointsOnly : item.category === category)) && String(item.name).includes(keyword));
+  const offset = (page - 1) * pageSize;
+  return { items: rows.slice(offset, offset + pageSize), total: rows.length, page, pageSize, hasMore: offset + pageSize < rows.length, categories };
+}
+
 function getProduct(state, productId) {
   return productRepository.findActiveById(state, productId);
 }
@@ -68,6 +77,7 @@ function listPointsExchangeProducts(state) {
 module.exports = {
   getHome,
   listProducts,
+  listProductPage,
   getProduct,
   listPointsExchangeProducts
 };

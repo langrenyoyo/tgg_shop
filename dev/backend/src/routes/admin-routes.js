@@ -146,7 +146,25 @@ async function handleAdminRoutes(ctx) {
     return send(ctx.res, 200, result);
   }
 
-  if (req.method === "GET" && url.pathname === "/api/admin/products") return send(ctx.res, 200, state.products);
+  if (req.method === "GET" && url.pathname === "/api/admin/products") return send(ctx.res, 200, require("../repositories/product-repository").listVisible(state));
+  if (url.pathname === "/api/admin/product-categories" && ["GET", "DELETE"].includes(req.method)) {
+    const check = adminService.requirePermission(req, state, req.method === "GET" ? "product:read" : "product:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const service = require("../services/product-catalog-admin");
+    if (req.method === "GET") return send(ctx.res, 200, service.listCategories(state));
+    const body = await ctx.readBody(req);
+    const result = service.deleteCategory(state, body.name, check, adminService.logOperation);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result.categories : { error: result.error });
+  }
+  const catalogMutationMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)(\/position)?$/);
+  if (catalogMutationMatch && ((req.method === "DELETE" && !catalogMutationMatch[2]) || (req.method === "PATCH" && catalogMutationMatch[2]))) {
+    const check = adminService.requirePermission(req, state, "product:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error });
+    const service = require("../services/product-catalog-admin");
+    const method = req.method === "DELETE" ? "deleteProduct" : "moveProduct";
+    const result = service[method](state, decodeURIComponent(catalogMutationMatch[1]), await ctx.readBody(req), check, adminService.logOperation);
+    return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
+  }
   if (req.method === "GET" && url.pathname === "/api/admin/inventory-ledger") return send(ctx.res, 200, adminService.listInventoryLedger(state));
   if (req.method === "POST" && url.pathname === "/api/admin/products") {
     const check = adminService.requirePermission(req, state, "product:write");

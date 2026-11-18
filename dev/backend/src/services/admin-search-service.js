@@ -24,7 +24,7 @@ function searchAdmin(state, query, permissions = []) {
   const keyword = q.toLocaleLowerCase();
   const limit = 20;
   const groups = allowed.map(group => {
-    const matches = (state[group.type] || []).filter(item => group.fields(item).some(value => value != null && String(value).toLocaleLowerCase().includes(keyword)));
+    const matches = (state[group.type] || []).filter(item => !(group.type === "products" && item.deletedAt) && group.fields(item).some(value => value != null && String(value).toLocaleLowerCase().includes(keyword)));
     // Exact identifiers come first, even when a broad query has more than 20 matches.
     matches.sort((a, b) => Number(String(b.id).toLocaleLowerCase() === keyword) - Number(String(a.id).toLocaleLowerCase() === keyword));
     return { type: group.type, label: group.label, total: matches.length, items: matches.slice(0, limit).map(group.project) };

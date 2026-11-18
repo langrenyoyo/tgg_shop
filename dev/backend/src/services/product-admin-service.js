@@ -79,6 +79,7 @@ function prepareProduct(input, previous = {}) {
 
 function createProduct(state, input, actor, logOperation) {
   if (!allowed(actor, "product:write")) return fail(403, "缺少商品管理权限");
+  if ((state.config?.deletedProductCategories || []).includes(String(input.category || "").trim())) return fail(400, "该分类已删除，请选择其他分类");
   const result = prepareProduct(input);
   if (!result.ok) return result;
   const product = result.product;
@@ -86,6 +87,8 @@ function createProduct(state, input, actor, logOperation) {
   if (product.stock > 0 && !allowed(actor, "stock:write")) return fail(403, "缺少库存管理权限");
   if (!String(input.reason || "").trim()) return fail(400, "请填写操作原因");
   Object.assign(product, { id: nextId("p"), revision: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  const visible = require("../repositories/product-repository").listVisible(state);
+  product.sortOrder = visible.length ? (visible[0].sortOrder ?? 0) - 1 : 0;
   if (product.status === "on") product.publishedAt = product.updatedAt;
   state.products.unshift(product);
   inventory.addEntry(state, { product, changeType: "initial_stock", quantityDelta: product.stock, stockBefore: 0, stockAfter: product.stock, batchNo: input.batchNo, reason: input.reason, actor });
@@ -96,7 +99,8 @@ function createProduct(state, input, actor, logOperation) {
 
 function updateProduct(state, productId, input, actor, logOperation) {
   const product = state.products.find(item => item.id === productId);
-  if (!product) return fail(404, "商品不存在");
+  if (!product || product.deletedAt) return fail(404, "商品不存在或已删除");
+  if (own(input, "category") && (state.config?.deletedProductCategories || []).includes(String(input.category || "").trim())) return fail(400, "该分类已删除，请选择其他分类");
   const changes = [...editable, "status", "purePointsOnly"].filter(key => own(input, key));
   const stockChange = own(input, "stock");
   if (!changes.length && !stockChange) return fail(400, "没有可保存的商品变更");
