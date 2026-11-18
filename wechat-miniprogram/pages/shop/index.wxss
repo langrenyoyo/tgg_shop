@@ -32,7 +32,7 @@
 .shop-content .product-name { height: 72rpx; font-size: 24rpx; line-height: 36rpx; }
 .shop-content .product-meta { font-size: 20rpx; min-height: 30rpx; margin: 6rpx 0 10rpx; }
 .shop-content .gift-note { white-space: normal; line-height: 30rpx; overflow-wrap: break-word; }
-.shop-content .regular-price { font-size: 21rpx; line-height: 30rpx; margin: 6rpx 0 10rpx; font-weight: 400; }
+.shop-content .regular-price { font-size: 21rpx; line-height: 30rpx; margin: 6rpx 0 10rpx; }
 .shop-content .product-bottom { align-items: flex-start; }
 .shop-content .product-price { max-width: 100%; font-size: 25rpx; overflow-wrap: anywhere; }
 .shop-content .member-highlight { width: 100%; min-height: 58rpx; padding: 10rpx 8rpx; font-size: 27rpx; border-radius: 8rpx; box-shadow: none; }
