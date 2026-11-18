@@ -25,9 +25,25 @@ Page({
   currentOwner() {
     return !this.disposed && this.ownerId && this.ownerId === wx.getStorageSync("tgg_user")?.id && Boolean(wx.getStorageSync("tgg_token"));
   },
+  actionError(message) {
+    this.setData({ codeError: message });
+    wx.showToast({ title: message, icon: "none" });
+  },
+  checkActionOwner() {
+    if (this.currentOwner()) return true;
+    wx.showToast({ title: "登录状态已变化，请重新打开邀请页或登录", icon: "none" });
+    this.load();
+    return false;
+  },
   async generateCode() {
-    if (!this.currentOwner()) { this.load(); return; }
-    if (this.data.generating || !this.data.info?.inviteCode) return;
+    if (!this.checkActionOwner()) return;
+    if (this.data.generating) return;
+    if (!this.data.info?.inviteCode) {
+      const owner = this.ownerId;
+      await this.load();
+      if (!this.currentOwner() || owner !== this.ownerId) return;
+      if (!this.data.info?.inviteCode) return this.actionError(this.data.error || "邀请码暂不可用，请刷新重试或联系客服");
+    }
     const owner = this.ownerId, code = this.data.info.inviteCode;
     const version = this.codeVersion = (this.codeVersion || 0) + 1;
     const current = () => this.currentOwner() && this.ownerId === owner && version === this.codeVersion;
@@ -44,8 +60,8 @@ Page({
       this.setData({ codePath: filePath });
     } catch (error) {
       this.removeCodeFile(filePath);
-      if (current()) this.setData({ codeError: error.message || "小程序码图片保存失败，请重试" });
-    } finally { if (current()) this.setData({ generating: false }); }
+      if (!this.disposed && version === this.codeVersion) this.actionError(error.message || "小程序码图片保存失败，请重试");
+    } finally { if (!this.disposed && version === this.codeVersion) this.setData({ generating: false }); }
   },
   async saveCode() {
     if (!this.currentOwner()) { this.resetCode(); this.load(); return; }
@@ -92,12 +108,22 @@ Page({
   more() { if (this.data.hasMore && !this.data.loading) this.load(true); },
   goLogin() { wx.navigateTo({ url: "/pages/login/index" }); },
 
-  copyCode() {
-    if (!this.ownerId || this.ownerId !== wx.getStorageSync("tgg_user")?.id || !wx.getStorageSync("tgg_token")) { this.load(); return; }
-    if (!this.data.info?.inviteCode) return;
-    wx.setClipboardData({
-      data: this.data.info.inviteCode
-    });
+  async copyCode() {
+    if (!this.checkActionOwner()) return;
+    if (!this.data.info?.inviteCode) {
+      const owner = this.ownerId;
+      await this.load();
+      if (!this.currentOwner() || owner !== this.ownerId) return;
+      if (!this.data.info?.inviteCode) return this.actionError(this.data.error || "邀请码暂不可用，请刷新重试或联系客服");
+    }
+    const owner = this.ownerId;
+    this.setData({ codeError: "" });
+    try {
+      await new Promise((resolve, reject) => wx.setClipboardData({ data: this.data.info.inviteCode, success: resolve, fail: reject }));
+      if (this.currentOwner() && this.ownerId === owner) wx.showToast({ title: "邀请码已复制", icon: "success" });
+    } catch (error) {
+      if (this.currentOwner() && this.ownerId === owner) this.actionError("复制失败，请重试或长按邀请码复制");
+    }
   },
   onShareAppMessage() {
     const code = this.ownerId && this.ownerId === wx.getStorageSync("tgg_user")?.id && wx.getStorageSync("tgg_token") ? this.data.info?.inviteCode : "";

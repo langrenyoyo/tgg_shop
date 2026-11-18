@@ -6,7 +6,7 @@
 
   <view class="card" wx:if="{{info}}">
     <view class="muted">我的邀请码</view>
-    <view class="title" style="margin-top:10rpx;">{{info.inviteCode}}</view>
+    <view class="title" style="margin-top:10rpx;"><text selectable="{{true}}">{{info.inviteCode || '邀请码暂不可用，请刷新重试'}}</text></view>
     <view class="muted" style="margin-top:10rpx;">邀请奖励 {{info.rewardInvite}} 积分</view>
     <view class="muted">邀请提成 {{info.rewardRatio}}%</view>
     <view class="invite-actions">

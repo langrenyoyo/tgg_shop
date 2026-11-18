@@ -185,3 +185,19 @@ test("scene parsing accepts encoded invitations, rejects malformed input, and ma
   assert.equal(storage.get("tgg_pending_invite"), "MANUAL-CODE");
   page.setData({ loading: true }); page.clearInvite(); assert.equal(storage.get("tgg_pending_invite"), "MANUAL-CODE");
 });
+
+test("legacy logged-in accounts obtain a stable invitation code from info or code endpoints without registering again", async t => {
+  providers(t);
+  const state = resetState(), user = state.users[0]; delete user.inviteCode;
+  const session = auth.login(state, { userId: user.id, password: "123456" });
+  const before = JSON.stringify({ points: state.users.map(u => u.points), relations: state.inviteRelations, ledger: state.pointLedger });
+  const image = await api("/api/invite/code", {}, session.token);
+  assert.match(image.inviteCode, /^[A-F0-9]{12}$/);
+  const info = await api("/api/invite/info", {}, session.token);
+  assert.equal(image.inviteCode, info.inviteCode);
+  assert.equal(info.inviteCode, user.inviteCode);
+  delete user.inviteCode;
+  const [a, b] = await Promise.all([api("/api/invite/info", {}, session.token), api("/api/invite/info", { method: "POST" }, session.token)]);
+  assert.match(a.inviteCode, /^[A-F0-9]{12}$/); assert.equal(a.inviteCode, b.inviteCode);
+  assert.equal(JSON.stringify({ points: state.users.map(u => u.points), relations: state.inviteRelations, ledger: state.pointLedger }), before);
+});

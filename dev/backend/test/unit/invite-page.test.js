@@ -35,7 +35,7 @@ test("invite page paginates, retries failures, and never shares or copies a prev
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/invite/index.js"), "utf8"), {
     Page: value => { page = value; },
     require: () => ({ request: url => new Promise((resolve, reject) => pending.push({ url, resolve, reject })) }),
-    wx: { getStorageSync: key => storage[key], setClipboardData: value => copied.push(value.data) }
+    wx: { getStorageSync: key => storage[key], showToast() {}, setClipboardData: value => { copied.push(value.data); value.success(); } }
   });
   page.setData = value => Object.assign(page.data, value);
   const first = page.load();

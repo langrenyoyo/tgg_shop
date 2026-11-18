@@ -126,3 +126,33 @@ test("mini page cleans files if unloaded while writing, and reports filesystem e
   work = n.page.generateCode(); n.pending[0].resolve(n.result); await work;
   assert.match(n.page.data.codeError, /保存失败/); assert.equal(n.page.data.generating, false);
 });
+
+test("legacy page with no invitation code refreshes and completes both button actions", async () => {
+  for (const action of ["copyCode", "generateCode"]) {
+    const m = mini(), copied = []; m.page.data.info = {};
+    m.wx.setClipboardData = options => { copied.push(options.data); options.success(); };
+    const work = m.page[action](); assert.equal(m.pending.length, 2);
+    m.pending[0].resolve({ inviteCode: m.result.inviteCode });
+    m.pending[1].resolve({ rows: [], total: 0, count: 20 });
+    await new Promise(setImmediate);
+    if (action === "generateCode") m.pending[2].resolve(m.result);
+    await work;
+    if (action === "copyCode") assert.deepEqual(copied, [m.result.inviteCode]);
+    else assert.ok(m.page.data.codePath);
+  }
+});
+
+test("missing code, clipboard denial and expired login show actionable errors instead of silent returns", async () => {
+  const m = mini(), toasts = []; m.wx.showToast = options => toasts.push(options.title);
+  m.wx.setClipboardData = options => options.fail({ errMsg: "permission denied" });
+  await m.page.copyCode(); assert.match(m.page.data.codeError, /复制失败/); assert.match(toasts.at(-1), /复制失败/);
+  m.page.data.info = {};
+  const missing = m.page.generateCode();
+  m.pending[0].resolve({}); m.pending[1].resolve({ rows: [], total: 0, count: 20 }); await missing;
+  assert.match(m.page.data.codeError, /邀请码暂不可用/);
+  m.page.data.info = { inviteCode: m.result.inviteCode };
+  const expired = m.page.generateCode(); delete m.storage.tgg_token;
+  m.pending[2].reject(new Error("登录已失效，请重新登录")); await expired;
+  assert.equal(m.page.data.generating, false); assert.match(m.page.data.codeError, /登录已失效/);
+  await m.page.copyCode(); assert.match(toasts.at(-1), /登录状态已变化/);
+});

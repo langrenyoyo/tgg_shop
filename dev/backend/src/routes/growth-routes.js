@@ -1,15 +1,18 @@
 const growthService = require("../services/growth-service");
 const coinSignin = require("../services/coin-signin-service");
+const { ensureInviteIdentity } = require("../services/invite-identity-service");
 
 async function handleGrowthRoutes(ctx) {
   const { req, url, state, user, send } = ctx;
 
   if (req.method === "GET" && url.pathname === "/api/invite/code") {
+    await ensureInviteIdentity(state, user);
     const result = await require("../services/invite-code-service").getInviteCode(user);
     return send(ctx.res, result.status, result.body, { "Cache-Control": "no-store" });
   }
 
   if ((req.method === "GET" || req.method === "POST") && url.pathname === "/api/invite/info") {
+    await ensureInviteIdentity(state, user);
     return send(ctx.res, 200, growthService.getInviteInfo(state, user));
   }
 

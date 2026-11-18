@@ -1622,12 +1622,14 @@ paths:
     get:
       tags: [Growth]
       summary: Get invite reward configuration
+      description: Assigns and persists a unique invitation code for an active legacy account that has no code. Existing codes, invitation bindings and rewards are unchanged.
       responses:
         "200":
           description: Invite info
     post:
       tags: [Growth]
       summary: Get invite reward configuration
+      description: Same legacy-account invitation-code initialization as GET.
       responses:
         "200":
           description: Invite info
