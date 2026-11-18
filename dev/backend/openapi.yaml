@@ -2372,8 +2372,16 @@ paths:
                       maximum: 100000000
                       multipleOf: 0.01
                   description: 零售价展示文字，支持中文、英文及符号；兼容原数字金额。现金商品上架须填写非空文字或大于零的金额，不参与结算。
+                pointsPriceText:
+                  type: string
+                  maxLength: 120
+                  example: "100积分/500g"
+                  description: 积分价展示文字，支持中文、英文及符号；留空时显示实际积分价，不参与结算。
                 pointsPrice:
                   type: integer
+                  minimum: 0
+                  maximum: 100000000
+                  description: 每件实际扣减积分；支持积分兑换的商品上架时须大于零。
                 stock:
                   type: integer
                 tag:
@@ -2496,8 +2504,16 @@ paths:
                       maximum: 100000000
                       multipleOf: 0.01
                   description: 零售价展示文字，支持中文、英文及符号；兼容原数字金额。现金商品上架须填写非空文字或大于零的金额，不参与结算。
+                pointsPriceText:
+                  type: string
+                  maxLength: 120
+                  example: "100积分/500g"
+                  description: 积分价展示文字，支持中文、英文及符号；留空时显示实际积分价，不参与结算。
                 pointsPrice:
                   type: integer
+                  minimum: 0
+                  maximum: 100000000
+                  description: 每件实际扣减积分；支持积分兑换的商品上架时须大于零。
                 supportsPoints:
                   type: boolean
       responses:

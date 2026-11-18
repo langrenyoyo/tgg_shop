@@ -5,7 +5,7 @@
 <view wx:if="{{product}}" class="card">
 <image wx:if="{{product.image}}" src="{{product.image}}" mode="widthFix" style="width:100%"/>
 <view class="title">{{product.name}}</view><view>{{product.tag}}</view>
-<view wx:if="{{product.supportsPoints}}">{{product.pointsPrice}} 积分</view>
+<view wx:if="{{product.supportsPoints}}">{{retail.points(product)}}</view>
 <view wx:if="{{product.supportsCash && !product.purePointsOnly}}" class="price-detail">
   <view wx:if="{{retail.display(product.regularPrice)}}" class="regular-price">零售价 {{retail.display(product.regularPrice)}}</view>
   <view class="member-highlight">{{product.membershipGiftDays > 0 ? '活动价' : '会员价'}} ¥{{product.cashPrice}}</view>

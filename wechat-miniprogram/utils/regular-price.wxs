@@ -2,4 +2,8 @@ function display(value) {
   if (typeof value === 'string') return value;
   return typeof value === 'number' && value > 0 ? '¥' + value : '';
 }
-module.exports = { display: display };
+function points(product) {
+  if (!product) return '';
+  return product.pointsPriceText || (product.pointsPrice || 0) + ' 积分';
+}
+module.exports = { display: display, points: points };

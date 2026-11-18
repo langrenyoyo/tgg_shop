@@ -1214,6 +1214,7 @@ function readProductForm(form) {
     storageType: String(fields.get("storageType") || "ambient"), pickSequence: Number(fields.get("pickSequence") || 0),
     cashPrice: purePointsOnly ? null : Number(fields.get("cashPrice") || 0), pointsPrice: Number(fields.get("pointsPrice") || 0),
     regularPrice: purePointsOnly ? null : String(fields.get("regularPrice") || "").trim(),
+    pointsPriceText: String(fields.get("pointsPriceText") || "").trim(),
     stock: existing ? existing.stock : Number(fields.get("stock") || 0), purePointsOnly, supportsCash: !purePointsOnly,
     supportsPoints: String(fields.get("category") || "").trim() === "买商品送会员" ? false : purePointsOnly || fields.get("supportsPoints") === "on", reason: String(fields.get("reason") || "")
   };

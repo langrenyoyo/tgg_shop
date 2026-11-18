@@ -300,6 +300,7 @@ function productView(product, state = {}) {
         <div class="service-tags">${productServiceTags(product, isPure).map((tag) => `<span>${homeEscape(tag)}</span>`).join("")}</div>
         <div class="price ${isPure ? "" : "member-highlight"}" style="margin-top:8px">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</div>
         ${regularPriceHtml(product, isPure)}
+        ${!isPure && product.supportsPoints ? `<p class="points-price">积分价 ${productPriceText(product, true)}</p>` : ""}
       </div>
     </article>
     <section class="notice detail-rule"><strong>${isPure ? "纯积分兑换" : "会员现金购"}</strong><p>${isPure ? "无需会员，使用积分直接兑换；不支持现金补差，积分不足时直接提示。" : "普通用户需先开通月会员，会员可使用现金购物和积分不足现金补差。"}</p></section>
@@ -322,7 +323,7 @@ function cartView(state) {
   const memberLocked = !isMemberUser(state.user) && items.some((item) => !item.purePointsOnly) && !items.every(item => item.category === "买商品送会员" && item.membershipGiftDays > 0);
   return `
     <div class="stack cart-list">
-      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${homeEscape(item.image)}" alt="${homeEscape(item.name)}" loading="lazy" decoding="async" /><span><strong>${homeEscape(item.name)}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 无需会员" : "会员现金商品 · 自建配送"}</p>${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}<div class="qty"><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${homeEscape(item.id)}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
+      ${items.length ? items.map((item) => `<article class="cart-row"><img src="${homeEscape(item.image)}" alt="${homeEscape(item.name)}" loading="lazy" decoding="async" /><span><strong>${homeEscape(item.name)}</strong><p class="muted">${item.purePointsOnly ? "纯积分兑换 · 无需会员" : "会员现金商品 · 自建配送"}</p>${regularPriceHtml(item)}${item.supportsPoints ? `<span class="points-price">积分价 ${productPriceText(item, true)}</span>` : ""}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}<div class="qty"><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="-1">-</button><strong>${item.quantity || 1}</strong><button type="button" data-cart-qty="${homeEscape(item.id)}" data-delta="1">+</button><button type="button" class="link" data-cart-remove="${homeEscape(item.id)}">移除</button></div></span><strong>${lineTotalText(item)}</strong></article>`).join("") : `<div class="empty">购物车为空，请先选择商品</div>`}
     </div>
     ${mixed ? `<section class="notice" style="margin-top:10px"><strong>请分开结算</strong><p>纯积分兑换不提供现金补差入口，现金商品需会员购买。</p></section>` : ""}
     ${memberLocked ? `<section class="member-lock"><strong>现金购物需要会员</strong><span>可购买专区商品获赠会员，或使用积分开通。</span><button type="button" data-page="membership">查看会员获取方式</button></section>` : ""}
@@ -363,7 +364,7 @@ function checkoutView(state, type) {
     <section class="field-card"><h3>配送时间</h3><p>${delivery ? `每天 ${cutoffHour}:00（${deliveryTimeZone}）截单，截单前当天配送，之后次日配送` : "到站后凭核销码取货"}</p>${delivery ? `<label class="delivery-slot-picker">配送时段<select data-delivery-slot>${slots.map((slot) => `<option value="${homeEscape(slot)}" ${slot === selectedSlot ? "selected" : ""}>${homeEscape(slot)}</option>`).join("")}</select></label>` : `<div class="slot-row">${slots.map((slot) => `<span class="state">${homeEscape(slot)}</span>`).join("")}</div>`}</section>
     <section class="field-card">
       <h3>商品清单</h3>
-      <div class="checkout-items">${items.map((item) => `<p><span>${homeEscape(item.name)} x${item.quantity || 1}${regularPriceHtml(item)}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}</span><strong>${lineTotalText(item)}</strong></p>`).join("") || `<p class="muted">暂无商品</p>`}</div>
+      <div class="checkout-items">${items.map((item) => `<p><span>${homeEscape(item.name)} x${item.quantity || 1}${regularPriceHtml(item)}${item.supportsPoints ? `<span class="points-price">积分价 ${productPriceText(item, true)}</span>` : ""}${!item.purePointsOnly ? `<span class="member-unit-price">会员价 ${money(item.cashPrice)} / 件</span>` : ""}</span><strong>${lineTotalText(item)}</strong></p>`).join("") || `<p class="muted">暂无商品</p>`}</div>
       <div class="fee-lines" style="margin-top:10px"><p><span>配送费</span><strong>${deliveryFee ? money(deliveryFee) : "¥0.0"}</strong></p></div>
     </section>
     ${memberLocked ? `<section class="member-lock"><strong>下单需月会员</strong><span>开通后可现金购买和使用积分不足现金补差。</span><button type="button" data-page="membership">开通月会员</button></section>` : ""}
@@ -567,6 +568,7 @@ function homeSignature(state) {
     item.cashPrice,
     item.regularPrice,
     item.pointsPrice,
+    item.pointsPriceText,
     item.stock,
     item.purePointsOnly,
     item.tag
@@ -577,6 +579,7 @@ function homeSignature(state) {
     item.cashPrice,
     item.regularPrice,
     item.pointsPrice,
+    item.pointsPriceText,
     item.purePointsOnly
   ]);
   return JSON.stringify({
@@ -588,7 +591,7 @@ function homeSignature(state) {
     bannerProduct: home.bannerProduct || null,
     promotions: home.promotionEntries || [],
     products,
-    recommendations: (home.recommendProducts || []).map(item => [item.id, item.name, item.image, item.cashPrice, item.regularPrice, item.pointsPrice, item.stock]),
+    recommendations: (home.recommendProducts || []).map(item => [item.id, item.name, item.image, item.cashPrice, item.regularPrice, item.pointsPrice, item.pointsPriceText, item.stock]),
     cart
   });
 }
@@ -669,7 +672,7 @@ function regularPriceHtml(product, isPure = product.purePointsOnly) {
 }
 
 function productPriceText(product, isPure = product.purePointsOnly) {
-  return isPure ? `${product.pointsPrice}积分` : money(product.cashPrice);
+  return isPure ? homeEscape(product.pointsPriceText || `${product.pointsPrice || 0}积分`) : money(product.cashPrice);
 }
 
 function isMemberUser(user = {}) {

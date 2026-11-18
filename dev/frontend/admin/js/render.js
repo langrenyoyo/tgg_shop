@@ -278,7 +278,7 @@ function products(state) {
       trustedHtml(`<span class="product-drag-handle" title="拖动调整顺序">⠿ ${state.products.findIndex(row => row.id === item.id) + 1}</span>`),
       trustedHtml(`${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${escapeHtml(item.id)}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`),
       item.membershipGiftDays > 0 ? `${item.category} · 每件赠 ${item.membershipGiftDays} 天` : item.category || "-",
-      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${typeof item.regularPrice === "string" ? item.regularPrice || "待设置" : item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
+      item.purePointsOnly ? `${item.pointsPriceText || `${item.pointsPrice || 0} 积分`}（实际扣减 ${item.pointsPrice || 0} 积分/件）` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${typeof item.regularPrice === "string" ? item.regularPrice || "待设置" : item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPriceText || `${item.pointsPrice || 0} 积分`}（实际扣减 ${item.pointsPrice || 0} 积分/件）` : ""}`,
       item.stock ?? 0,
       badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)
@@ -297,7 +297,7 @@ function products(state) {
 
 function pointsExchange(state) {
   const products = (state.products || []).filter((item) => item.purePointsOnly);
-  return `<section class="table-panel"><div class="panel-head"><p>纯积分兑换无需会员，不支持现金补差。</p>${gatedAction("points_product:write", '<button class="action" data-product-new-pure>新增纯积分商品</button>')}</div>${simpleTable("纯积分兑换设置", ["商品", "积分价", "库存", "状态", "操作"], products.map((item) => [item.name || item.id, item.pointsPrice || 0, item.stock ?? 0, badge(item.status), productActionButtons(item)]))}</section>`;
+  return `<section class="table-panel"><div class="panel-head"><p>纯积分兑换无需会员，不支持现金补差。</p>${gatedAction("points_product:write", '<button class="action" data-product-new-pure>新增纯积分商品</button>')}</div>${simpleTable("纯积分兑换设置", ["商品", "积分价展示", "实际扣减积分/件", "库存", "状态", "操作"], products.map((item) => [item.name || item.id, item.pointsPriceText || `${item.pointsPrice || 0} 积分`, item.pointsPrice || 0, item.stock ?? 0, badge(item.status), productActionButtons(item)]))}</section>`;
 }
 
 function homeOps(state) {

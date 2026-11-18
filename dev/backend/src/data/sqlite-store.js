@@ -734,7 +734,7 @@ function insertState(database, state) {
       product.purePointsOnly ? 1 : 0,
       product.status || "on"
     );
-    insertProductContent.run(product.id, JSON.stringify({ sortOrder: product.sortOrder ?? null, deletedAt: product.deletedAt || "", membershipGiftDays: product.membershipGiftDays || 0, regularPrice: product.regularPrice ?? null, description: product.description || "", unit: product.unit || "", barcode: product.barcode || "", locationCode: product.locationCode || "", backupLocation: product.backupLocation || "", storageType: product.storageType || "ambient", pickSequence: Number(product.pickSequence || 0), revision: product.revision || 0, createdAt: product.createdAt || "", updatedAt: product.updatedAt || "", publishedAt: product.publishedAt || "" }));
+    insertProductContent.run(product.id, JSON.stringify({ sortOrder: product.sortOrder ?? null, deletedAt: product.deletedAt || "", membershipGiftDays: product.membershipGiftDays || 0, regularPrice: product.regularPrice ?? null, pointsPriceText: product.pointsPriceText || "", description: product.description || "", unit: product.unit || "", barcode: product.barcode || "", locationCode: product.locationCode || "", backupLocation: product.backupLocation || "", storageType: product.storageType || "ambient", pickSequence: Number(product.pickSequence || 0), revision: product.revision || 0, createdAt: product.createdAt || "", updatedAt: product.updatedAt || "", publishedAt: product.publishedAt || "" }));
   }
 
   const insertInventory = database.prepare(
