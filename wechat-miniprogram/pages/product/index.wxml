@@ -1,3 +1,4 @@
+<wxs src="../../utils/regular-price.wxs" module="retail"/>
 <view class="page">
 <view wx:if="{{loading}}">正在加载商品</view>
 <view wx:if="{{error}}" class="card">{{error}}<button bindtap="load">重试</button></view>
@@ -6,7 +7,7 @@
 <view class="title">{{product.name}}</view><view>{{product.tag}}</view>
 <view wx:if="{{product.supportsPoints}}">{{product.pointsPrice}} 积分</view>
 <view wx:if="{{product.supportsCash && !product.purePointsOnly}}" class="price-detail">
-  <view wx:if="{{product.regularPrice > 0}}" class="regular-price">零售价 ¥{{product.regularPrice}}</view>
+  <view wx:if="{{retail.display(product.regularPrice)}}" class="regular-price">零售价 {{retail.display(product.regularPrice)}}</view>
   <view class="member-highlight">{{product.membershipGiftDays > 0 ? '活动价' : '会员价'}} ¥{{product.cashPrice}}</view>
 </view>
 <view class="muted">库存 {{product.stock}} · {{product.category}}</view>

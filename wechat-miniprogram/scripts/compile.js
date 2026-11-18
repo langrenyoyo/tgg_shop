@@ -18,6 +18,7 @@ function files(directory, extension) {
   }).sort();
 }
 const templates = files(root, ".wxml");
+const scripts = files(root, ".wxs");
 const styles = files(root, ".wxss");
 for (const page of manifest.pages) {
   if (!templates.includes(page + ".wxml")) throw new Error(`Missing page template: ${page}`);
@@ -33,8 +34,8 @@ function compile(name, args, output) {
 }
 const report = {
   generatedAt: new Date().toISOString(), root, pages: manifest.pages.length,
-  templates, styles,
-  wxml: compile("wcc", templates, path.join(outputDir, "wxml.js")),
+  templates, styles, scripts,
+  wxml: compile("wcc", [...templates, ...scripts], path.join(outputDir, "wxml.js")),
   wxss: compile("wcsc", ["-pc", String(styles.length), "-js", ...styles], path.join(outputDir, "wxss.js")),
   scope: "Template and stylesheet compiler checks only; does not verify simulator rendering, native SDK behavior or real-device payment."
 };

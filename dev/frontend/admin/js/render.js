@@ -278,7 +278,7 @@ function products(state) {
       trustedHtml(`<span class="product-drag-handle" title="拖动调整顺序">⠿ ${state.products.findIndex(row => row.id === item.id) + 1}</span>`),
       trustedHtml(`${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${escapeHtml(item.id)}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`),
       item.membershipGiftDays > 0 ? `${item.category} · 每件赠 ${item.membershipGiftDays} 天` : item.category || "-",
-      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
+      item.purePointsOnly ? `${item.pointsPrice || 0} 积分` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${typeof item.regularPrice === "string" ? item.regularPrice || "待设置" : item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPrice || 0} 积分` : ""}`,
       item.stock ?? 0,
       badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)

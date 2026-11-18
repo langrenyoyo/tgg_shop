@@ -299,7 +299,7 @@ function productView(product, state = {}) {
         <p class="muted">${productMetaLine(product, isPure)}</p>
         <div class="service-tags">${productServiceTags(product, isPure).map((tag) => `<span>${homeEscape(tag)}</span>`).join("")}</div>
         <div class="price ${isPure ? "" : "member-highlight"}" style="margin-top:8px">${isPure ? "" : "会员价 "}${productPriceText(product, isPure)}</div>
-        ${!isPure && product.regularPrice > 0 ? `<p class="regular-price">零售价 ${money(product.regularPrice)}</p>` : ""}
+        ${regularPriceHtml(product, isPure)}
       </div>
     </article>
     <section class="notice detail-rule"><strong>${isPure ? "纯积分兑换" : "会员现金购"}</strong><p>${isPure ? "无需会员，使用积分直接兑换；不支持现金补差，积分不足时直接提示。" : "普通用户需先开通月会员，会员可使用现金购物和积分不足现金补差。"}</p></section>
@@ -664,7 +664,8 @@ function renderTaskContent(task = {}) {
 }
 
 function regularPriceHtml(product, isPure = product.purePointsOnly) {
-  return !isPure && product.regularPrice > 0 ? `<span class="regular-price">零售价 ${money(product.regularPrice)}</span>` : "";
+  const text = typeof product.regularPrice === "string" ? product.regularPrice : product.regularPrice > 0 ? money(product.regularPrice) : "";
+  return !isPure && text ? `<span class="regular-price">零售价 ${homeEscape(text)}</span>` : "";
 }
 
 function productPriceText(product, isPure = product.purePointsOnly) {

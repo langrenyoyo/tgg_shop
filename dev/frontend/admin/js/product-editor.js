@@ -13,7 +13,7 @@ export function productEditor(product, { escapeHtml: e, can }) {
         ${field("每件赠送会员天数（专区默认 30 天）", "membershipGiftDays", product.membershipGiftDays || 0, "number", 'min="0" max="365" step="1"')}
         ${field("规格 / 单位", "unit", product.unit, "text", 'placeholder="例如：500g / 盒" maxlength="40"')}
         ${field("会员价 / 专区活动价（元，实际结算价）", "cashPrice", product.cashPrice ?? 0, "number", `min="0" max="100000000" step="0.01" ${pure ? "disabled" : ""}`)}
-        ${field("零售价（元，仅展示）", "regularPrice", product.regularPrice ?? "", "number", `min="0" max="100000000" step="0.01" ${pure ? "disabled" : ""}`)}
+        ${field("零售价（仅展示，支持文字）", "regularPrice", typeof product.regularPrice === "number" ? `¥${product.regularPrice}` : product.regularPrice ?? "", "text", `maxlength="120" placeholder="例如：11.7元/500g" ${pure ? "disabled" : ""}`)}
         <label class="check"><input name="supportsPoints" type="checkbox" ${product.supportsPoints !== false ? "checked" : ""} ${pure ? "disabled" : ""}>支持积分兑换 / 积分补差（纯积分商品禁止补差）</label>
         ${field("积分价", "pointsPrice", product.pointsPrice || 0, "number", 'min="0" max="100000000" step="1"')}
         ${existing ? `<label>可售库存<strong>${product.stock ?? 0}</strong><span>请使用列表中的“调整库存”</span></label>` : field("初始可售库存", "stock", product.stock || 0, "number", `min="0" max="100000000" step="1" ${can("stock:write") ? "" : "disabled"}`)}
@@ -40,7 +40,7 @@ export function productPreview(product, e) {
     ${product.image ? `<img src="${e(product.image)}" alt="${e(product.name || "商品主图")}">` : '<p class="muted-text">尚未设置主图</p>'}
     <h2>${e(product.name || "未填写商品名称")}</h2><p>${e(product.category || "未填写分类")} · ${e(product.unit || "未填写规格")}</p><p>${e(product.tag || "")}</p>
     <strong>${product.purePointsOnly ? `${product.pointsPrice || 0} 积分` : `${product.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(product.cashPrice || 0).toFixed(2)}`}</strong>
-    ${!product.purePointsOnly ? `<p>零售价 ¥${Number(product.regularPrice || 0).toFixed(2)}（仅展示）</p>` : ""}
+    ${!product.purePointsOnly ? `<p>零售价 ${e(typeof product.regularPrice === "string" ? product.regularPrice : product.regularPrice > 0 ? `¥${product.regularPrice}` : "待设置")}（仅展示）</p>` : ""}
     <p>${product.membershipGiftDays > 0 ? `非会员可购买 · 每件赠送 ${product.membershipGiftDays} 天会员` : product.purePointsOnly ? "无需会员 · 不支持现金补差" : "下单需要月会员"} · 库存 ${product.stock || 0}</p>
     <p class="product-description">${e(product.description || "暂无商品介绍")}</p><p class="muted-text">预览不会保存或上架商品。</p></dialog>`;
 }

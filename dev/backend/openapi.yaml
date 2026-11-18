@@ -2362,9 +2362,16 @@ paths:
                   nullable: true
                   description: 会员价或专区活动价，现金订单实际结算单价
                 regularPrice:
-                  type: number
-                  nullable: true
-                  description: 零售价，仅展示；现金商品上架必须大于零
+                  oneOf:
+                    - type: string
+                      maxLength: 120
+                      example: "11.7元/500g"
+                    - type: number
+                      nullable: true
+                      minimum: 0
+                      maximum: 100000000
+                      multipleOf: 0.01
+                  description: 零售价展示文字，支持中文、英文及符号；兼容原数字金额。现金商品上架须填写非空文字或大于零的金额，不参与结算。
                 pointsPrice:
                   type: integer
                 stock:
@@ -2479,9 +2486,16 @@ paths:
                   nullable: true
                   description: 会员价或专区活动价，现金订单实际结算单价
                 regularPrice:
-                  type: number
-                  nullable: true
-                  description: 零售价，仅展示；现金商品上架必须大于零
+                  oneOf:
+                    - type: string
+                      maxLength: 120
+                      example: "11.7元/500g"
+                    - type: number
+                      nullable: true
+                      minimum: 0
+                      maximum: 100000000
+                      multipleOf: 0.01
+                  description: 零售价展示文字，支持中文、英文及符号；兼容原数字金额。现金商品上架须填写非空文字或大于零的金额，不参与结算。
                 pointsPrice:
                   type: integer
                 supportsPoints:

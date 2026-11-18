@@ -44,14 +44,23 @@ function prepareProduct(input, previous = {}) {
     if (!["on", "off"].includes(input.status)) return fail(400, "上下架状态无效");
     product.status = input.status;
   }
-  for (const key of ["stock", "pointsPrice", "cashPrice", "regularPrice"]) {
+  if (own(input, "regularPrice") && !product.purePointsOnly) {
+    const value = input.regularPrice;
+    if (typeof value === "string") {
+      if (value.trim().length > 120) return fail(400, "零售价展示文字最多 120 个字符");
+      product.regularPrice = value.trim();
+    } else if (value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100000000 && Math.abs(value * 100 - Math.round(value * 100)) <= 0.000001)) {
+      product.regularPrice = value;
+    } else return fail(400, "零售价须为展示文字或有效金额");
+  }
+  for (const key of ["stock", "pointsPrice", "cashPrice"]) {
     if (!own(input, key)) continue;
-    const money = ["cashPrice", "regularPrice"].includes(key);
+    const money = key === "cashPrice";
     if (money && product.purePointsOnly) continue;
     const value = input[key];
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100000000
       || (!money && !Number.isSafeInteger(value)) || (money && Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)) {
-      return fail(400, money ? "会员价和零售价须为非负金额，最多两位小数" : "库存和积分价须为非负整数");
+      return fail(400, money ? "会员价须为非负金额，最多两位小数" : "库存和积分价须为非负整数");
     }
     product[key] = value;
   }
@@ -70,7 +79,7 @@ function prepareProduct(input, previous = {}) {
     if (!product.image) missing.push("商品主图");
     if (product.stock <= 0) missing.push("可售库存（大于 0）");
     if (!product.purePointsOnly && (!product.supportsCash || !(product.cashPrice > 0))) missing.push("会员价（大于 0）");
-    if (!product.purePointsOnly && !(product.regularPrice > 0)) missing.push("零售价（大于 0）");
+    if (!product.purePointsOnly && !(typeof product.regularPrice === "string" ? product.regularPrice.trim() : product.regularPrice > 0)) missing.push("零售价展示文字");
     if (product.supportsPoints && !(product.pointsPrice > 0)) missing.push("积分价（大于 0）");
     if (missing.length) return fail(400, `暂不能上架，请完善：${missing.join("、")}`);
   }
