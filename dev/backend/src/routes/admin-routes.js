@@ -57,6 +57,7 @@ async function handleAdminRoutes(ctx) {
     "/api/admin/dashboard-views": "order:read",
     "/api/admin/orders": "order:read",
     "/api/admin/products": "product:read",
+    "/api/admin/products/export.xls": "product:read",
     "/api/admin/inventory-ledger": "stock:write",
     "/api/admin/ledger": "ledger:read",
     "/api/admin/permissions": "role:read",
@@ -146,7 +147,16 @@ async function handleAdminRoutes(ctx) {
     return send(ctx.res, 200, result);
   }
 
-  if (req.method === "GET" && url.pathname === "/api/admin/products") return send(ctx.res, 200, require("../repositories/product-repository").listVisible(state));
+  if (req.method === "GET" && url.pathname === "/api/admin/products/export.xls") {
+    return send(ctx.res, 200, require("../services/product-export-service").exportProducts(state), {
+      "Content-Type": "application/vnd.ms-excel",
+      "Content-Disposition": "attachment; filename=products.xls; filename*=UTF-8''" + encodeURIComponent("商品数据.xls"),
+      "Cache-Control": "no-store"
+    });
+  }
+  if (req.method === "GET" && url.pathname === "/api/admin/products") return send(ctx.res, 200,
+    require("../repositories/product-repository").listVisible(state).map(product => ({ ...product,
+      importDetails: state.config.productImports?.metadata?.[product.id] || null })));
   if (url.pathname === "/api/admin/product-categories" && ["GET", "DELETE"].includes(req.method)) {
     const check = adminService.requirePermission(req, state, req.method === "GET" ? "product:read" : "product:write");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error });

@@ -8,6 +8,7 @@ const huifu = require("./withdrawal-provider/huifu-bafang");
 const taskPlatform = require("./task-platform-client");
 const { handleTaskCallback } = require("../domain/task-callback-rules");
 const { nextId, saveState } = require("../data/store");
+const { enqueueMembershipSync } = require("../domain/pospal-membership");
 const {
   buildMonthlyPointRewardOverview,
   normalizeMonthlyPointRewardRules,
@@ -764,6 +765,9 @@ function updateUser(state, userId, input = {}, actor = {}) {
     user.memberUntil = null;
   }
   user.status ||= "active";
+  if (before.memberUntil !== user.memberUntil) {
+    enqueueMembershipSync(state, user, "admin_membership_adjustment");
+  }
 
   logOperation(state, actor, "user.update", "user", user.id, { before, after: { ...user }, reason: cleanReason(input.reason), idempotencyKey: input.idempotencyKey, memberMonths: input.memberMonths, clearMember: input.clearMember });
   saveState();

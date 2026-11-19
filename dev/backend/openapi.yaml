@@ -351,7 +351,8 @@ paths:
     get:
       tags: [POSPAL]
       summary: Get POSPAL integration status
-      description: Requires integration:read. Returns configuration presence, cursors, mapping counts and the latest synchronization result without exposing credentials.
+      description: Requires integration:read. Returns configuration presence, cursors, mapping counts, the latest pull result and membershipSync (counts by status and the latest 50 per-user expiry push jobs). Job status synced means the remote expiry was queried and confirmed; pending, sending, retry and waiting_phone are not successful synchronization. Does not expose credentials.
+      security: [{ AdminBearerAuth: [] }]
       responses:
         "200": { description: POSPAL integration status }
         "401": { description: Admin login required }
@@ -382,6 +383,23 @@ paths:
         "401": { description: Admin login required }
         "403": { description: Missing integration write permission }
         "503": { description: POSPAL configuration is incomplete }
+
+  /api/admin/integrations/pospal/members/{userId}/sync:
+    post:
+      tags: [POSPAL]
+      summary: Queue or retry synchronization of one member's latest local expiry
+      description: Requires integration:write. Persists a task for the background worker; 202 is not a remote success acknowledgement. Reuses a verified phone and the same POSPAL identity, creates only when absent, sets expiryDate to the absolute local memberUntil in Beijing time and confirms by querying. Revoked membership sends a finite expired date, never clears expiryDate. Does not change local membership or POS balances, points or discounts. Existing users are not bulk migrated automatically.
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        "202": { description: Latest expiry queued; inspect membershipSync in the integration status endpoint }
+        "401": { description: Admin login required }
+        "403": { description: Missing integration write permission }
+        "404": { description: User not found }
 
   /api/pospal/callback:
     post:
@@ -2354,6 +2372,86 @@ paths:
           description: Product missing or deleted
         "409":
           description: Catalog order or product revision changed
+
+  /api/admin/products/export.xls:
+    get:
+      tags: [Admin]
+      summary: Export all undeleted products using the 17-column XLS import layout
+      description: Requires product:read. Exports all undeleted products including offline drafts in catalog order, independent of page filters. Only the import template's 17 headers and product rows are included; no instruction row or internal fields. Missing values remain blank; zero values are retained. Current names, category, barcode, unit, stock and prices take precedence over import snapshots. Purchasing fields use saved import metadata; no prices or discounts are inferred. BIFF8 row overflow continues on another worksheet with the same headers.
+      security: [{ AdminBearerAuth: [] }]
+      responses:
+        "200":
+          description: Excel 97–2003 XLS workbook named 商品数据.xls
+          content:
+            application/vnd.ms-excel:
+              schema: { type: string, format: binary }
+        "401": { description: Admin login required }
+        "403": { description: Product read permission required }
+
+  /api/admin/product-import/template:
+    get:
+      tags: [Admin]
+      summary: Download the 17-column product import XLS template
+      description: Requires product:write. The second row is a member price instruction, not product data.
+      security: [{ AdminBearerAuth: [] }]
+      responses:
+        "200":
+          description: Excel 97–2003 XLS workbook
+          content:
+            application/vnd.ms-excel:
+              schema: { type: string, format: binary }
+        "401": { description: Admin login required }
+        "403": { description: Product write permission required }
+
+  /api/admin/product-import/preview:
+    post:
+      tags: [Admin]
+      summary: Validate a product XLS workbook without writing products
+      description: Requires product:write and stock:write for positive initial stock. Accepts actual BIFF8 XLS only, up to 2 MiB and 1000 products on a single worksheet. Returns valid, total, validRows, errors and warnings with original Excel row and field names, and the first-class row preview. A valid report includes an actor-bound previewId expiring after 30 minutes. All errors must be fixed before import; warnings require acknowledgement at commit. Existing or repeated barcodes are rejected; formulas and Excel error values are rejected.
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - in: query
+          name: filename
+          required: true
+          schema: { type: string, maxLength: 200, example: products.xls }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200": { description: Validation report, including reports with valid=false; no products have been saved }
+        "400": { description: Unsupported, corrupt or encrypted workbook }
+        "401": { description: Admin login required }
+        "403": { description: Missing product write permission }
+        "413": { description: File larger than 2 MiB }
+        "429": { description: Too many pending previews or requests }
+
+  /api/admin/product-import/commit:
+    post:
+      tags: [Admin]
+      summary: Confirm and persist a validated product import as offline drafts
+      description: Revalidates the original server-held workbook and current permissions, barcodes and categories. All-or-nothing batch, with one initial inventory entry per product and a batch audit log. Same previewId and actor/reason replay idempotently after success, including after restart. Preview without a saved receipt is lost on restart and must be regenerated. Sale price maps to regularPrice (display only); member price maps to cashPrice, defaults to zero when absent; never derives discounts. Private purchasing and original import fields are stored separately from public products. Requires product:write and stock:write for positive stock. No POSPAL writes.
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [previewId, reason]
+              properties:
+                previewId: { type: string, format: uuid }
+                reason: { type: string, minLength: 1, maxLength: 200 }
+                acknowledgeWarnings: { type: boolean, description: Must be true if the report contains warnings }
+      responses:
+        "200": { description: Persisted batch receipt with count and productIds, optionally idempotent=true }
+        "400": { description: Missing preview, reason or warning acknowledgement }
+        "401": { description: Admin login required }
+        "403": { description: Missing product write permission }
+        "409": { description: Preview expired, belongs to another actor, or another import is in progress }
+        "422": { description: Revalidation failed; returns report and no products were imported }
+        "503": { description: Persistence failed; success was not acknowledged, retry the same preview or reconcile the product list }
 
   /api/admin/products:
     get:

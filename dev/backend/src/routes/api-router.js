@@ -14,6 +14,7 @@ const { handleStationRoutes } = require("./station-routes");
 const { handlePospalRoutes } = require("./pospal-routes");
 const { handleTestRoutes } = require("./test-routes");
 const { handlePrintRoutes } = require("./print-routes");
+const { handleProductImportRoutes } = require("./product-import-routes");
 const rateLimit = require("../http/rate-limit");
 const checkRateLimit = rateLimit.checkRateLimit || (() => ({ ok: true }));
 
@@ -29,6 +30,7 @@ const routeHandlers = [
   handleTestRoutes,
   handlePrintRoutes,
   handleAdminRoutes,
+  handleProductImportRoutes,
   handleStationRoutes
 ];
 

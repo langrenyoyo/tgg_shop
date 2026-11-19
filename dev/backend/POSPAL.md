@@ -1,5 +1,34 @@
 # 银豹收银系统接入与联调
 
+## 2026-11-19 会员开通、续费及期限同步
+
+积分开通/续费、买商品送会员支付成功时，随本地权益保存生成 `config.pospalIntegration.membershipSyncJobs[userId]` 任务。后台调整会员期限、退款回收尚未使用的赠送时长也生成任务。每个用户仅保留最新目标，重复支付通知不重复延长；不自动批量迁移已有会员，也不在注册赠送体验期时单独建档。已移除的会员码页面不是自动同步前置条件。
+
+后端启动后及每 10 秒扫描一次，单批最多处理 10 个到期任务。首次使用微信授权验证的手机号查询银豹：唯一有效会员直接关联；不存在时按持久化固定卡号建档，并传姓名/昵称、手机号、到期时间。已存在的门店会员保留门店姓名、手机号和卡号，更新 `customerExt.nickName` 及期限。历史用户缺少可信手机号时显示 `waiting_phone`，授权绑定后自动恢复。手机号重复、停用/挂失、查询不完整、身份冲突或门店切换均阻止外部写入，需先核对资料。
+
+接口均为 JSON POST，基础域名由 `POSPAL_BASE_URL` 指定，默认 `https://platform.pospal.cn`：
+
+- `/openapi/v3/customer/increment-page`：按卡号或手机号查询/确认。
+- `/openapi/v3/customer/add`：会员不存在时新增；`number`、`tel` 必填，`validateTelUnique: true`，`expiryDate` 为本地到期时间。
+- `/openapi/v3/customer/update`：按原卡号定位，`updateMask: ["expiryDate", "customerExt.nickName"]`（没有昵称时只传期限），同步最新绝对期限。
+
+`expiryDate` 使用北京时间 `yyyy-MM-dd HH:mm:ss`，以本地 `memberUntil` 为唯一期限来源，与执行服务器时区无关。未到期的续费延续本地原期限，已到期的续费从当前时间起算，沿用本地现有 30 天/月及商品快照天数规则。清除会员时传已到期的有限时间，不能清空字段，否则银豹可能变成无期限会员。不会更改银豹积分、余额、折扣等级，不会将银豹期限反向覆盖本地。
+
+发送前保存任务意图，查询校验身份后更新，再查询确认 `expiryDate` 相同才标记 `synced`。超时或失败保存为 `retry`，30 秒起指数退避至最长一小时；未确认任务重启后继续处理。更新使用绝对期限，超时重试不会再增加一段时长；固定卡号避免建档响应丢失后重复创建。更新期间发生续费时保留新任务，继续推送最新期限。存储保存失败暂停 worker，修复存储并重启后恢复。外部失败不影响已确认的本地支付权益。
+
+管理接口：
+
+- `GET /api/admin/integrations/pospal/status`（`integration:read`）：返回 `membershipSync.counts` 与最近 50 个用户任务，含状态、目标期限、重试时间、最近错误及最近成功时间。
+- `POST /api/admin/integrations/pospal/members/{userId}/sync`（`integration:write`）：将该用户最新本地期限重新排队，返回 202 表示任务已保存，不代表银豹已成功。可用于修复配置后重试或核对后补同步存量会员。
+
+本流程不依赖银豹异步回调；原 `/api/pospal/callback` 的 Token 鉴权与官方签名适配问题仍需另行处理。
+
+2026-11-19 已在线读取官方会员文档核对 `expiryDate`、`updateMask` 和日期格式。自动建档、续费、超时、重启及并发恢复使用模拟银豹客户端验证，尚未写入真实银豹会员数据；部署前需确认运行环境凭据、银豹额度可用，并完成真实会员的开通、续费及门店到期验收。此前 2026-11-16 的只读查询返回 4021，不能据此判断今天的额度状态。
+
+验证：`node --test test/unit/pospal-membership-sync.test.js test/unit/member-provision.test.js test/unit/member-payment-recovery.test.js test/unit/product-membership-gift.test.js test/unit/membership-adjustment.test.js test/unit/phone-binding.test.js`。
+
+## 历史会员码接入说明
+
 2026-11-18 更新：按要求移除小程序「我的」会员码入口、展示页面及条码绘制代码。后端会员码 GET / POST 接口、银豹会员关联和建档逻辑及已有数据继续保留。下文的小程序出示流程为历史接入说明，新版小程序不再提供该入口，也不再从该页面触发建档。界面变更需上传并发布小程序新版本后生效。
 
 ## 小程序门店会员码
@@ -12,7 +41,7 @@
 
 建档前将手机号授权结果、门店账号、固定卡号和归属标记持久化到 `config.pospalIntegration.memberProvisions`，不保存微信 code/access_token。每次重试先查回原卡号与手机号，不换卡号；超时后即使银豹已建档也能恢复。查询不完整、重复会员、停用会员、卡号冲突、其他用户已关联、门店账号变化均阻止自动绑定。服务端同账号请求合并；PG 状态 CAS 写入成功后才调用新增接口。失败后等待 30 秒再重试，未完成状态跨重启保留。
 
-上线要求：后端配置 `WECHAT_APPID/WECHAT_APPSECRET` 和 `POSPAL_APP_ID/APP_KEY/ACCOUNT`；微信小程序已具备手机号快速验证能力，并在隐私保护指引中说明用于门店会员建档/关联和向银豹提供手机号。微信和银豹调用额度需可用。首次授权必须在微信真机完成，不用虚构号码在生产建档。银豹默认会员等级为 0，本功能只补齐身份识别；本地会员到期、折扣等级与门店权益同步不在此流程内。
+上线要求：后端配置 `WECHAT_APPID/WECHAT_APPSECRET` 和 `POSPAL_APP_ID/APP_KEY/ACCOUNT`；微信小程序已具备手机号快速验证能力，并在隐私保护指引中说明用于门店会员建档/关联和向银豹提供手机号。微信和银豹调用额度需可用。首次授权必须在微信真机完成，不用虚构号码在生产建档。银豹默认会员等级为 0；当前会员到期同步以本文 2026-11-19 流程为准，折扣等级不在此流程内。
 
 2026-11-16 线上只读验证：使用部署环境凭据按固定测试卡号查询，银豹返回 `4021`（Token 额度不足）。未创建任何测试会员；需充值银豹额度并由真实用户在更新后的小程序中授权手机号，再完成门店验收。
 
@@ -27,6 +56,12 @@
 官方文档：https://platform.pospal.cn/openapi-doc/index.html
 
 复用现有 `src/integrations/pospal/pospal-client.js` V3 适配器：JSON POST、秒级时间戳、唯一 UUID 请求号，签名为 `MD5(appId|requestId|timestamp|appKey)` 的大写值。总部凭据可通过请求体 `account` 指定门店。
+
+## 2026-11-19 真实只读复测
+
+使用本机 `dev/backend/.env` 中的配置请求 `https://platform.pospal.cn`，复用 `scripts/check-pospal.js`，商品、门店、库存、会员、销售单、网单、支付方式 7 类查询均成功。单次查询返回条数依次为 1、1、2、1、1、0、7（仅代表当前测试请求的返回量，不是总量）；商品、会员响应标记仍有后续数据。本次未出现此前的 4021 额度不足错误。
+
+仅输出状态与条数，没有展示会员或交易明细，未向银豹写入会员、商品、订单、库存、积分或余额。本次验证本机配置下的真实查询能力，不能替代部署环境检查、会员新增、续费期限更新及自动同步链路的真实写入验收；本地 `.env.production` 中核心银豹凭据仍未填写，不能由此推断线上运行环境配置。
 
 ## 复测
 

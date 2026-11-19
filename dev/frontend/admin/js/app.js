@@ -5,6 +5,7 @@ import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js
 import { printingClick, printingSubmit } from "./printing.js";
 import { createAdminSearch } from "./global-search.js";
 import { createCatalogControls } from "./catalog-controls.js";
+import { createProductImport } from "./product-import.js";
 
 const state = {
   loading: true,
@@ -68,6 +69,8 @@ const state = {
 let dashboardLoadSequence = 0;
 const adminSearch = createAdminSearch(state, { api, render: renderAdminPage, reload: loadDashboard });
 const catalogControls = createCatalogControls(state, { api, render: renderAdminPage, reload: loadDashboard });
+const productImport = createProductImport(state, { api, render: renderAdminPage, reload: loadDashboard });
+document.body.addEventListener("input", event => productImport.input(event));
 for (const event of ["dragstart", "dragover", "dragend", "drop"]) document.body.addEventListener(event, catalogControls[event]);
 
 async function loadDashboard() {
@@ -402,6 +405,7 @@ document.querySelector("#refresh").addEventListener("click", () => {
 });
 
 document.body.addEventListener("click", (event) => {
+  if (productImport.click(event)) return;
   if (event.target.closest("[data-product-delete], [data-product-position], [data-category-delete]")) { catalogControls.click(event); return; }
   const financeTab = event.target.closest("[data-finance-tab]");
   if (financeTab) {
@@ -1004,6 +1008,7 @@ document.body.addEventListener("submit", (event) => {
     adminSearch.submit(new FormData(searchForm).get("q"));
     return;
   }
+  if (productImport.submit(event)) return;
   if (printingSubmit(event, state, { api, reload: loadDashboard })) return;
   if (stationAccountSubmit(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   const loginForm = event.target.closest("[data-admin-login]");
@@ -1474,6 +1479,7 @@ function exportDashboardCsv() {
 
 renderAdminPage(state);
 window.addEventListener("tgg-admin-auth-expired", () => {
+  productImport.invalidate();
   dashboardLoadSequence += 1;
   adminSearch.invalidate();
   document.querySelector("#adminSearchInput").value = "";

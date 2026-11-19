@@ -5,6 +5,7 @@ const { getMemberCode } = require("./member-code-service");
 const { exchangePhoneCode } = require("./wechat-phone-service");
 const { verifiedPhone } = require("./phone-binding-service");
 const { createPospalClient, isConfigured } = require("../integrations/pospal/pospal-client");
+const { expiryDate } = require("../domain/pospal-membership");
 
 // Serializes callers within one state instance. PostgreSQL's state CAS persists
 // intent before external writes; stale workers cannot create a second identity.
@@ -75,8 +76,8 @@ async function run(state, user, input, dependencies) {
       // The fixed card number is unique in POSPAL. Never rotate it after timeout.
       attempt.status = "creating";
       await save();
-      await client.addCustomer({ number: attempt.number, tel: attempt.phone, name: "TGG会员",
-        remarks: attempt.marker, validateTelUnique: true, enable: 1 });
+      await client.addCustomer({ number: attempt.number, tel: attempt.phone, name: String(user.nickname || "TGG会员").slice(0, 64),
+        expiryDate: expiryDate(user.memberUntil), remarks: attempt.marker, validateTelUnique: true, enable: 1 });
       // Do not trust an acknowledgement alone; confirm the stored identity.
       customer = await query({ number: attempt.number });
       if (!customer || customer.remarks !== attempt.marker || customer.tel !== attempt.phone) throw new Error("unconfirmed creation");

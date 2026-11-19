@@ -1,5 +1,6 @@
 const GIFT_CATEGORY = "买商品送会员";
 const DAY = 86400000;
+const { enqueueMembershipSync } = require("./pospal-membership");
 
 function isGiftProduct(product) {
   return Boolean(product && product.category === GIFT_CATEGORY && !product.purePointsOnly
@@ -22,6 +23,7 @@ function grantMembership(state, order, now = Date.now()) {
   };
   user.memberUntil = new Date(end).toISOString();
   user.role = "member";
+  enqueueMembershipSync(state, user, `order:${order.id}:membership-gift`, now);
 }
 
 // Remove only the unused interval. Later gifts/paid renewals keep their duration.
@@ -48,6 +50,7 @@ function revokeMembership(state, order, now = Date.now()) {
   gift.revokedAt = new Date(now).toISOString();
   gift.revokedMilliseconds = removed;
   gift.memberUntilAfterRevoke = user.memberUntil;
+  if (removed > 0) enqueueMembershipSync(state, user, `order:${order.id}:membership-revoke`, now);
 }
 
 module.exports = { GIFT_CATEGORY, isGiftProduct, grantMembership, revokeMembership };

@@ -1,6 +1,7 @@
 const { exchangePhoneCode } = require("./wechat-phone-service");
 const { saveState } = require("../data/store");
 const { publicUser } = require("../http/http-utils");
+const { enqueueMembershipSync } = require("../domain/pospal-membership");
 
 function verifiedPhone(state, user) {
   const record = state.config?.userPhoneVerifications?.[user?.id];
@@ -20,6 +21,9 @@ function recordPhone(state, user, phone) {
   state.config ||= {};
   state.config.userPhoneVerifications ||= {};
   state.config.userPhoneVerifications[user.id] = { phone, source: "wechat", verifiedAt: new Date().toISOString() };
+  if (state.config.pospalIntegration?.membershipSyncJobs?.[user.id]?.status === "waiting_phone") {
+    enqueueMembershipSync(state, user, "phone_verified");
+  }
 }
 async function bindPhone(state, user, input) {
   if (!user || user.status !== "active") return { status: 401, body: { error: "请先登录" } };

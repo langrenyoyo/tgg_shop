@@ -20,6 +20,8 @@ const { createTaskSweep } = require("./src/services/task-sweep-service");
 const { autoConfirmDeliveryOrders } = require("./src/domain/fulfillment-rules");
 const paymentService = require("./src/services/payment-service");
 const printWorker = require("./src/services/print-service").createWorker();
+const membershipWorker = require("./src/services/pospal-membership-service").createMembershipWorker();
+let membershipTimer = null;
 let printTimer = null;
 let paymentTimeoutTimer = null;
 
@@ -98,9 +100,11 @@ async function start() {
     console.log(`Admin app: http://localhost:${PORT}/admin`);
     console.log(`Station app: http://localhost:${PORT}/station`);
     runTaskSweep();
+    runMembershipSync();
   });
   taskSweepTimer = setInterval(runTaskSweep, 15 * 60 * 1000);
   printTimer = setInterval(() => printWorker.run().catch(() => console.error("Print worker failed; check persistence and printer tasks")), 10000);
+  membershipTimer = setInterval(runMembershipSync, 10000);
 }
 
 start().catch((error) => {
@@ -117,6 +121,8 @@ async function shutdown() {
   if (deliveryConfirmTimer) clearInterval(deliveryConfirmTimer);
   if (paymentTimeoutTimer) clearInterval(paymentTimeoutTimer);
   if (printTimer) clearInterval(printTimer);
+  if (membershipTimer) clearInterval(membershipTimer);
+  await membershipWorker.stop().catch(() => {});
   await printWorker.stop().catch(() => {});
   await taskSweep.stop().catch(() => {});
   await shutdownStore().catch(() => {});
@@ -142,6 +148,10 @@ function runTaskSweep() {
   taskSweep.run().then(result => {
     if (result.checked) console.log(`Task sweep: checked=${result.checked}, reconciled=${result.reconciled}, deferred=${result.deferred}`);
   }).catch(() => console.error("Task sweep failed; remaining submissions will be retried on the next interval"));
+}
+
+function runMembershipSync() {
+  membershipWorker.run().catch(() => console.error("POSPAL membership worker paused after a persistence failure; repair storage and restart to resume"));
 }
 
 async function sweepMonthlyRewards(source) {

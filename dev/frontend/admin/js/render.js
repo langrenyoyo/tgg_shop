@@ -1,6 +1,7 @@
 import { pendingApprovalIntents } from "./api.js";
 import { renderDashboard } from "./dashboard.js";
 import { productEditor } from "./product-editor.js";
+import { productImportView } from "./product-import.js";
 import { filterFinance, financeToolbar, financeActions } from "./finance-filters.js";
 import { adminAccountsView } from "./admin-accounts.js";
 import { stationAccountsView } from "./station-accounts.js";
@@ -271,6 +272,8 @@ function products(state) {
   return `
     ${statCards([["商品数", (state.products || []).length], ["上架", (state.products || []).filter((item) => item.status === "on").length], ["低库存", (state.products || []).filter((item) => Number(item.stock || 0) <= 20).length], ["纯积分", (state.products || []).filter((item) => item.purePointsOnly).length]])}
     ${state.productMessage ? `<p class="note" role="status">${escapeHtml(state.productMessage)}</p>` : ""}
+    ${can("product:read") ? `<button class="action" type="button" data-product-export ${state.productExport?.busy ? "disabled" : ""}>${state.productExport?.busy ? "正在导出…" : "导出全部商品 XLS"}</button>` : ""}
+    ${state.productExport?.error ? `<p class="product-form-error" role="alert">${escapeHtml(state.productExport.error)}</p>` : ""}
     ${gatedAction("product:write", '<button class="action" type="button" data-product-new-gift>新增买商品送会员专区商品</button>')}
     <form class="admin-form product-filter" data-product-filter-form><label>搜索商品<input name="search" value="${escapeAttr(state.productSearch || "")}" placeholder="名称、分类或商品编号"></label><label>状态<select name="status"><option value="">全部</option><option value="on" ${state.productStatus === "on" ? "selected" : ""}>已上架</option><option value="off" ${state.productStatus === "off" ? "selected" : ""}>草稿 / 已下架</option></select></label><button class="action" type="submit">查询</button><button class="action" type="button" data-product-edit-cancel>新增商品</button></form>
     <p class="muted-text">拖动商品行可放到其他商品之前或之后；“调整位置”可直接填写全部商品中的序号。顺序同步到商城。</p>
@@ -285,6 +288,7 @@ function products(state) {
     ]), rows.map(item => `data-product-row="${escapeAttr(item.id)}" draggable="${can("product:write") && (!item.purePointsOnly || can("points_product:write"))}"`))}</section>
     <section class="panel category-management"><h2>商品分类</h2><p class="muted-text">分类有商品时，请先调整商品分类；买商品送会员为固定业务专区。</p>${state.productCategoriesError ? `<p role="alert">${escapeHtml(state.productCategoriesError)}</p>` : `<div class="category-management-list">${(state.productCategories || []).map(category => `<div class="category-management-item"><span>${escapeHtml(category.name)} <small>(${category.productCount} 件)</small></span><button type="button" class="action danger-action" data-category-delete="${escapeAttr(category.name)}" ${!can("product:write") || category.protected ? "disabled" : ""}>删除</button></div>`).join("")}</div>`}</section>
     <datalist id="product-categories">${(state.productCategories || []).map(category => `<option value="${escapeAttr(category.name)}"></option>`).join("")}</datalist>
+    ${productImportView(state)}
     ${productEditor(editing, { escapeHtml, can })}
     ${can("stock:write") ? `<section class="table-panel">${simpleTable("库存变动记录", ["时间", "商品", "变动数量", "变动前", "变动后", "原因"], (state.inventoryLedger || []).slice(0, 30).map(item => [formatDateTime(item.createdAt), item.productName || item.productId, item.quantityDelta, item.stockBefore, item.stockAfter, item.reason]))}</section>` : ""}
     <section class="table-panel">${simpleTable("退款商品验收", ["退款单", "订单", "商品", "状态", "处理"], (state.refundReturns || []).map(item => [

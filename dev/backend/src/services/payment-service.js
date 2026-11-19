@@ -13,6 +13,7 @@ const { exclusive, isBusy } = require("./operation-lock");
 const { releaseOrderPoints } = require("../domain/point-reservations");
 const { isolatedNonProduction, cashPaymentsEnabled } = require("../config/runtime-safety");
 const { grantMembership } = require("../domain/product-membership");
+const { enqueueMembershipSync } = require("../domain/pospal-membership");
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
@@ -416,6 +417,7 @@ function applyPaidPayment(state, payment) {
     until.setDate(until.getDate() + months * 30);
     user.role = "member";
     user.memberUntil = until.toISOString();
+    enqueueMembershipSync(state, user, `payment:${payment.id}`);
     return { ok: true, user: publicUser(user) };
   }
 

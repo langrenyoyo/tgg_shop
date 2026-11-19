@@ -803,6 +803,89 @@ async function runUserFlowPatrol(userPage) {
   await userPage.waitForText("招聘岗位");
 }
 
+test("product document import reports bad fields, imports drafts and exports the template XLS", async (t) => {
+  const chromePath = findChrome();
+  if (!chromePath) return t.skip("Chrome executable not found; skipping browser E2E");
+  const XLSX = require("xlsx");
+  const headers = ["名称（必填）", "分类（必填）", "条码", "规格", "主单位", "库存量", "进货价（必填）", "销售价（必填）", "批发价", "会员价", "会员折扣", "库存上限", "库存下限", "品牌", "供货商", "生产日期", "保质期"];
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-product-import-"));
+  const writeFile = (name, row) => {
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([headers, Array(9).fill("").concat("如需会员价，会员折扣填“否”"), row]), "商品");
+    const filename = path.join(testDir, name);
+    XLSX.writeFile(book, filename, { bookType: "biff8" });
+    return filename;
+  };
+  const good = ["浏览器导入测试苹果", "水果", "0000098765432", "500g", "盒", "", 3.5, 10, 6, 8, "否", 100, 5, "果园", "浏览器供货商", "2026-11-19", "30天"];
+  const bad = good.slice(); bad[0] = ""; bad[7] = "价格错误";
+  const invalidFile = writeFile("错误商品.xls", bad), validFile = writeFile("商品.xls", good);
+  const server = startServer();
+  const chrome = spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+    "--disable-background-networking", "--disable-extensions", "--remote-allow-origins=*",
+    `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${path.join(testDir, "profile")}`, "about:blank"], { stdio: "ignore", windowsHide: true });
+  let page;
+  try {
+    await waitForJson(`${BASE}/api/health`);
+    await waitForJson(`http://127.0.0.1:${CDP_PORT}/json/version`);
+    page = await CDPPage.create(`${BASE}/admin`);
+    await page.waitForExpression(`Boolean(document.querySelector('[data-admin-login]'))`);
+    await page.fillFormAndSubmit('[data-admin-login]', { username: "super_admin", password: "123456" });
+    await page.waitForExpression(`Boolean(document.querySelector('.dashboard-metrics'))`);
+    await page.click('button[data-view="products"]');
+    await page.waitForText("Excel 批量导入商品");
+    const products = () => page.evaluate(`fetch('/api/admin/products', {headers:{Authorization:'Bearer '+localStorage.getItem('tggAdminToken')}}).then(r=>r.json())`);
+    const before = await products();
+    const upload = async filename => {
+      const { root } = await page.send("DOM.getDocument");
+      const { nodeId } = await page.send("DOM.querySelector", { nodeId: root.nodeId, selector: '[data-product-import-preview] input[type="file"]' });
+      await page.send("DOM.setFileInputFiles", { nodeId, files: [filename] });
+      await page.evaluate(`document.querySelector('[data-product-import-preview]').requestSubmit()`);
+      await page.waitForExpression(`!document.querySelector('[data-product-import-preview] button').disabled`);
+    };
+    await upload(invalidFile);
+    await page.waitForText("本批次未导入任何商品");
+    const errors = await page.evaluate(`document.querySelector('.product-import-result').innerText`);
+    assert.match(errors, /第 3 行/); assert.match(errors, /名称（必填）/); assert.match(errors, /必填项不能为空/);
+    assert.match(errors, /销售价（必填）/); assert.match(errors, /非负金额/);
+    assert.equal(await page.evaluate(`Boolean(document.querySelector('[data-product-import-commit]'))`), false);
+    assert.deepEqual(await products(), before, "invalid workbook must not mutate products");
+    await upload(validFile);
+    await page.waitForText("确认导入 1 个下架草稿");
+    await page.waitForText("未填写库存");
+    assert.equal(await page.evaluate(`document.querySelector('[data-product-import-commit] [name="acknowledgeWarnings"]').required`), true);
+    await page.fillFormAndSubmit('[data-product-import-commit]', { reason: "浏览器导入验收", acknowledgeWarnings: true });
+    await page.waitForText("成功导入 1 个商品");
+    const after = await products();
+    assert.equal(after.length, before.length + 1);
+    const imported = after.find(p => p.name === good[0]);
+    assert.equal(imported.status, "off"); assert.equal(imported.barcode, good[2]);
+    assert.equal(imported.cashPrice, 8); assert.equal(imported.stock, 0); assert.equal(imported.importDetails.costPrice, 3.5);
+    await page.click(`[data-product-edit="${imported.id}"]`);
+    await page.waitForText("查看原始导入资料");
+    await page.evaluate(`document.querySelector('#product-editor details').open = true`);
+    await page.waitForText("浏览器供货商");
+    await page.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: testDir });
+    await page.click('[data-product-export]');
+    const downloaded = path.join(testDir, "商品数据.xls"), deadline = Date.now() + 8000;
+    while (!fs.existsSync(downloaded) && Date.now() < deadline) await sleep(100);
+    assert.ok(fs.existsSync(downloaded), "export button must download the XLS attachment");
+    const exportedBook = XLSX.readFile(downloaded), sheet = exportedBook.Sheets[exportedBook.SheetNames[0]];
+    const exportedRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    assert.deepEqual(exportedRows[0], headers); assert.equal(exportedRows.length, after.length + 1);
+    assert.ok(exportedRows.every(row => row.length === 17));
+    const exported = exportedRows.find(row => row[0] === good[0]);
+    assert.equal(exported[2], good[2]); assert.equal(exported[5], 0); assert.equal(exported[6], 3.5);
+    assert.equal(exported[14], "浏览器供货商");
+    const original = exportedRows.find(row => row[0] === "丹东草莓 500g");
+    assert.equal(original[6], ""); assert.equal(original[14], "");
+    assert.deepEqual(page.runtimeErrors(), []);
+  } finally {
+    page?.close();
+    await stopProcess(chrome); await stopProcess(server);
+    removeDirBestEffort(testDir);
+  }
+});
+
 class CDPPage {
   constructor(ws) {
     this.ws = ws;

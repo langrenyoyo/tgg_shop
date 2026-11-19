@@ -46,6 +46,7 @@ export async function api(path, options = {}) {
       ...(options.headers || {})
     }
   });
+  if (res.ok && options.responseType === "blob") return res.blob();
   const data = await res.json();
   if (res.status === 401 && !["/api/admin/auth/login", "/api/admin/auth/refresh"].includes(path)) {
     const current = localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -54,7 +55,7 @@ export async function api(path, options = {}) {
   }
   const intent = options.__approvalIntent;
   if (intent && (res.ok || [400, 409].includes(res.status)) && localStorage.getItem(intent.key) === intent.value) localStorage.removeItem(intent.key);
-  if (!res.ok) throw Object.assign(new Error(data.error || "请求失败"), { statusCode: res.status });
+  if (!res.ok) throw Object.assign(new Error(data.error || "请求失败"), { statusCode: res.status, details: data });
   return data;
 }
 

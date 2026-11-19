@@ -24,3 +24,13 @@
 .catalog-confirm-dialog input { padding: 10px; border: 1px solid #ccd9d0; border-radius: 8px; }
 .catalog-confirm-dialog .table-actions { display: flex; justify-content: flex-end; flex-direction: row; gap: 12px; margin-top: 24px; }
 @media (max-width: 1000px) { .finance-filter { grid-template-columns: repeat(2, minmax(120px, 1fr)); } }
+.product-import { margin: 20px 0; }
+.product-import p { line-height: 1.7; }
+.product-import details { margin: 14px 0; }
+.product-import summary { cursor: pointer; font-weight: 600; }
+.product-import-scroll { overflow: auto; max-height: 360px; margin: 10px 0; }
+.product-import-scroll table { width: 100%; min-width: 620px; border-collapse: collapse; }
+.product-import-scroll th, .product-import-scroll td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb; vertical-align: top; overflow-wrap: anywhere; }
+.product-import-scroll th { position: sticky; top: 0; background: #f6f8fa; }
+.product-editor details dl { display: grid; grid-template-columns: minmax(100px, 170px) 1fr; gap: 8px 16px; }
+.product-editor details dd { margin: 0; overflow-wrap: anywhere; }

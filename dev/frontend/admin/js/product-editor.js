@@ -33,6 +33,13 @@ export function productEditor(product, { escapeHtml: e, can }) {
       <div class="table-actions product-editor-actions"><button class="action muted-action" type="button" data-product-preview-form>预览商品</button><button class="action" type="submit" name="intent" value="off">${existing ? "保存修改（不上架）" : "保存草稿"}</button><button class="action" type="submit" name="intent" value="on">保存并上架</button></div>
       <p class="product-form-error" data-product-form-error role="alert"></p>
     </fieldset></form>
+    ${product.importDetails ? `<details><summary>查看原始导入资料（采购及批次信息）</summary><dl>${Object.entries({
+      "规格": product.importDetails.specification, "主单位": product.importDetails.mainUnit, "进货价": product.importDetails.costPrice,
+      "导入时销售价": product.importDetails.salePrice, "批发价": product.importDetails.wholesalePrice, "导入时会员价": product.importDetails.memberPrice,
+      "会员折扣": product.importDetails.memberDiscount, "库存上限": product.importDetails.stockMax, "库存下限": product.importDetails.stockMin,
+      "品牌": product.importDetails.brand, "供货商": product.importDetails.supplier, "生产日期": product.importDetails.productionDate,
+      "保质期": product.importDetails.shelfLife, "Excel 来源行": product.importDetails.sourceRow
+    }).map(([label, value]) => `<dt>${label}</dt><dd>${e(value === "" || value == null ? "未填写" : value)}</dd>`).join("")}</dl><p>此处保留导入时的资料；实际售价和库存以当前商品及库存流水为准。</p></details>` : ""}
     ${editable ? "" : '<p class="muted-text">当前商品不可编辑，请检查上下架状态及商品管理权限。</p>'}</section>`;
 }
 

@@ -141,4 +141,4 @@ function updateProduct(state, productId, input, actor, logOperation) {
   return { ok: true, product };
 }
 
-module.exports = { createProduct, updateProduct, imageUrlValid };
+module.exports = { createProduct, updateProduct, imageUrlValid, prepareProduct };

@@ -3,6 +3,9 @@ const adminService = require("../services/admin-service");
 const { syncResources, pushOrderToPospal, getStatus, integrationState } = require("../services/pospal-sync-service");
 const { createPospalClient } = require("../integrations/pospal/pospal-client");
 const { productionLike } = require("../config/runtime-safety");
+const { saveState } = require("../data/store");
+const { enqueueMembershipSync } = require("../domain/pospal-membership");
+const { membershipSyncStatus } = require("../services/pospal-membership-service");
 
 function safeEqual(left, right) {
   const a = Buffer.from(String(left || ""));
@@ -16,7 +19,7 @@ async function handlePospalRoutes(ctx) {
   if (req.method === "GET" && url.pathname === "/api/admin/integrations/pospal/status") {
     const check = adminService.requirePermission(req, state, "integration:read");
     if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
-    return send(ctx.res, 200, getStatus(state));
+    return send(ctx.res, 200, { ...getStatus(state), membershipSync: membershipSyncStatus(state) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/admin/integrations/pospal/sync") {
@@ -33,6 +36,17 @@ async function handlePospalRoutes(ctx) {
       apply: body.apply !== false
     });
     return send(ctx.res, result.ok ? 200 : (result.status || 503), result);
+  }
+
+  const memberSyncMatch = url.pathname.match(/^\/api\/admin\/integrations\/pospal\/members\/([^/]+)\/sync$/);
+  if (req.method === "POST" && memberSyncMatch) {
+    const check = adminService.requirePermission(req, state, "integration:write");
+    if (!check.ok) return send(ctx.res, check.status, { error: check.error, role: check.role });
+    const user = state.users.find(item => item.id === memberSyncMatch[1]);
+    if (!user) return send(ctx.res, 404, { error: "会员用户不存在" });
+    const job = enqueueMembershipSync(state, user, "admin_retry");
+    await saveState();
+    return send(ctx.res, 202, { ok: true, job });
   }
 
   const pushMatch = url.pathname.match(/^\/api\/admin\/integrations\/pospal\/orders\/([^/]+)\/push$/);

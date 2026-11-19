@@ -9,6 +9,8 @@ function context(extra = {}) {
   const ctx = vm.createContext(extra);
   const source = fs.readFileSync(path.join(adminDir, "global-search.js"), "utf8").replace(/export /g, "");
   vm.runInContext(`(function () { ${source}\n Object.assign(globalThis, { createAdminSearch, renderGlobalSearch, renderSearchTarget, searchRecords }); })()`, ctx);
+  const importer = fs.readFileSync(path.join(adminDir, "product-import.js"), "utf8").replace(/export /g, "");
+  vm.runInContext(`(function () { ${importer}\n Object.assign(globalThis, { createProductImport, productImportView }); })()`, ctx);
   return ctx;
 }
 const identity = () => ({ adminId: "admin_1", permissions: ["*"] });
