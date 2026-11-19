@@ -878,6 +878,13 @@ test("product document import reports bad fields, imports drafts and exports the
     assert.equal(exported[14], "浏览器供货商");
     const original = exportedRows.find(row => row[0] === "丹东草莓 500g");
     assert.equal(original[6], ""); assert.equal(original[14], "");
+    await page.evaluate(`fetch('/api/admin/users/u_1001', {method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('tggAdminToken')},body:JSON.stringify({memberMonths:1,reason:'浏览器验证银豹同步显示',idempotencyKey:crypto.randomUUID()})}).then(r=>{if(!r.ok)throw new Error('membership setup failed')})`);
+    await page.click('#refresh');
+    await page.click('button[data-view="users"]');
+    await page.waitForText("银豹同步");
+    await page.waitForText("待同步");
+    await page.waitForText("未入队");
+    await page.waitForText("写入后已回查确认");
     assert.deepEqual(page.runtimeErrors(), []);
   } finally {
     page?.close();

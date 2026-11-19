@@ -369,7 +369,21 @@ export function promotionEditor(item = {}) {
 }
 
 function users(state) {
-  return `<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "状态", "操作"], searchRecords(state, "users", state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberUntil ? trustedHtml(`月会员<br>${escapeHtml(formatDateTime(item.memberUntil))}`) : "-", badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">月会员支持后台续期、扣减与权益状态巡检。</section>`;
+  return `${state.userSyncMessage ? `<p class="note" role="status">${escapeHtml(state.userSyncMessage)}</p>` : ""}<section class="table-panel">${simpleTable("用户列表", ["用户", "昵称", "积分", "会员", "银豹同步", "状态", "操作"], searchRecords(state, "users", state.users || []).map((item) => [item.id, item.nickname || "-", item.points || 0, item.memberUntil ? trustedHtml(`月会员<br>${escapeHtml(formatDateTime(item.memberUntil))}`) : "-", pospalMembershipSyncCell(item), badge(item.status || "active"), userActionButtons(item)]))}</section><section class="note">“已同步”表示最近一次写入后已回查确认，时间均为北京时间；等待或重试不代表银豹已成功。点击顶部刷新可更新状态。</section>`;
+}
+
+function pospalMembershipSyncCell(item) {
+  const sync = item.pospalMembershipSync;
+  if (!sync) return "未入队";
+  const labels = { synced: "已同步", pending: "待同步", sending: "同步中", retry: "待重试", waiting_phone: "等待手机号", skipped: "已跳过" };
+  const date = value => value ? escapeHtml(new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })) : "-";
+  const detail = sync.status === "synced"
+    ? `确认到期 ${escapeHtml(sync.expiryDate || "-")}<br>成功 ${date(sync.lastSyncedAt)}`
+    : sync.status === "retry"
+      ? `${escapeHtml(sync.lastError?.message || "同步失败")}<br>下次 ${date(sync.nextAttemptAt)}`
+      : sync.status === "waiting_phone" ? "需用户授权微信手机号" : `目标 ${escapeHtml(sync.expiryDate || "-")}`;
+  const quota = sync.quotaRetryAt && !["synced", "waiting_phone", "skipped"].includes(sync.status) ? `<br>额度不足，暂停至 ${date(sync.quotaRetryAt)}` : "";
+  return trustedHtml(`<span class="pospal-sync-cell">${badge(labels[sync.status] || sync.status, sync.status === "synced" ? "" : "orange")}<small>${detail}${quota}</small>${can("integration:write") && ["retry", "skipped"].includes(sync.status) ? `<button class="action muted-action" data-pospal-member-sync="${escapeAttr(item.id)}">重新同步</button>` : ""}</span>`);
 }
 
 function addressBook(state) {

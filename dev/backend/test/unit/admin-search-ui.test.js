@@ -140,6 +140,27 @@ test("record links locate an exact order/user/product on its management page and
   }
 });
 
+test("member list shows every POSPAL state, confirmed expiry, quota and escaped errors with permission-bound retry", () => {
+  const { ctx, html } = renderContext();
+  const state = { identity: identity(), view: "users", users: [
+    { id: "success", nickname: "成功会员", pospalMembershipSync: { status: "synced", expiryDate: "2027-01-15 11:51:52", lastSyncedAt: "2026-11-19T15:16:45.000Z" } },
+    { id: "failure", pospalMembershipSync: { status: "retry", lastError: { message: '<img src=x onerror="alert(1)">' }, nextAttemptAt: "2026-11-20T06:00:00.000Z" } },
+    { id: "pending", pospalMembershipSync: { status: "pending", quotaRetryAt: "2099-01-01T00:00:00.000Z" } },
+    { id: "sending", pospalMembershipSync: { status: "sending" } },
+    { id: "phone", pospalMembershipSync: { status: "waiting_phone" } },
+    { id: "skipped", pospalMembershipSync: { status: "skipped" } },
+    { id: "missing" }
+  ] };
+  ctx.render(state);
+  for (const label of ["银豹同步", "已同步", "待重试", "待同步", "同步中", "等待手机号", "已跳过", "未入队", "确认到期 2027-01-15 11:51:52", "额度不足，暂停至", "北京时间"]) assert.ok(html().includes(label), label);
+  assert.match(html(), /&lt;img/); assert.doesNotMatch(html(), /<img/);
+  assert.match(html(), /data-pospal-member-sync="failure"/);
+  assert.doesNotMatch(html(), /data-pospal-member-sync="success"/);
+  state.identity.permissions = ["customer:read"];
+  ctx.render(state);
+  assert.match(html(), /银豹同步/); assert.doesNotMatch(html(), /data-pospal-member-sync=/);
+});
+
 test("the header form submit event reaches the search API and the clear button restores the dashboard", async () => {
   const bodyEvents = {}, elementEvents = {}, calls = [];
   const ctx = context({
@@ -167,4 +188,32 @@ test("the header form submit event reaches the search API and the clear button r
   for (const handler of bodyEvents.click) handler({ target: { closest: selector => selector === "[data-admin-search-clear]" ? {} : null } });
   assert.equal(vm.runInContext("state.view", ctx), "dashboard");
   assert.equal(vm.runInContext("state.globalSearch", ctx), null);
+});
+
+test("member retry reaches the permission-protected endpoint once and shows failures inline", async () => {
+  const bodyEvents = {}, calls = [];
+  let reject;
+  const ctx = context({
+    document: {
+      body: { addEventListener: (name, handler) => { (bodyEvents[name] ||= []).push(handler); } },
+      querySelector: () => ({ value: "", addEventListener() {} })
+    },
+    window: { location: { replace() {} }, addEventListener() {}, setInterval() {} },
+    getAdminRole: () => "super_admin", hasAdminSession: () => false, isAdminLoginPage: () => false,
+    ADMIN_LOGIN_PATH: "/admin/login", renderAdminPage() {}, printingClick: () => false, stationAccountClick: () => false,
+    api: (url, options) => { calls.push({ url, options }); return new Promise((_, fail) => { reject = fail; }); }
+  });
+  vm.runInContext(fs.readFileSync(path.join(adminDir, "catalog-controls.js"), "utf8").replace(/export /g, ""), ctx);
+  vm.runInContext(fs.readFileSync(path.join(adminDir, "app.js"), "utf8").replace(/^import .*;\r?\n/gm, ""), ctx);
+  vm.runInContext('state.identity = { permissions: ["customer:read"] };', ctx);
+  const button = { dataset: { pospalMemberSync: "member/1" }, disabled: false };
+  const click = () => bodyEvents.click.forEach(handler => handler({ target: { closest: selector => selector === "[data-pospal-member-sync]" ? button : null } }));
+  click(); assert.equal(calls.length, 0);
+  vm.runInContext('state.identity.permissions.push("integration:write");', ctx);
+  click(); click(); assert.equal(calls.length, 1); assert.equal(button.disabled, true);
+  assert.equal(calls[0].url, "/api/admin/integrations/pospal/members/member%2F1/sync");
+  assert.equal(calls[0].options.method, "POST");
+  reject(new Error("同步队列保存失败")); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(button.disabled, false);
+  assert.equal(vm.runInContext("state.userSyncMessage", ctx), "同步队列保存失败");
 });

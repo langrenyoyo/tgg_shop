@@ -3072,8 +3072,8 @@ paths:
   /api/admin/users:
     get:
       tags: [Admin]
+      description: Requires customer:read. Each user includes a pospalMembershipSync summary (or null) with status, expiryDate, lastSyncedAt, nextAttemptAt, quotaRetryAt and sanitized lastError. Covers all users, including registration gifts. A stale successful job for a different local expiry is presented as pending. Excludes POSPAL UID, card number, account and credentials. Reading this list does not query or write the provider.
       summary: List users and membership status
-      description: Requires customer:read permission.
       security:
         - AdminBearerAuth: []
       responses:

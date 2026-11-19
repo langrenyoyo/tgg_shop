@@ -41,3 +41,25 @@ test("admin address and withdrawal lists omit internal provider fields", () => {
   assert.equal(withdrawal.idempotencyKey, undefined);
   assert.equal(withdrawal.transferPackage, undefined);
 });
+
+test("admin user list exposes safe POSPAL membership sync status without provider identity", () => {
+  const state = createSeed();
+  state.config.pospalIntegration = { membershipSyncJobs: {
+    [state.users[0].id]: { status: "retry", expiryDate: "2026-12-01 12:00:00", lastSyncedAt: null,
+      nextAttemptAt: "2026-11-20T06:00:00.000Z", lastError: { code: "provider_error", message: "银豹 Token 额度不足，请充值后重试", at: "2026-11-20T05:00:00.000Z", secret: "must-not-leak" } }
+  } };
+  const [user] = listUsers(state);
+  assert.deepEqual(user.pospalMembershipSync, {
+    status: "retry", expiryDate: "2026-12-01 12:00:00", lastSyncedAt: null,
+    nextAttemptAt: "2026-11-20T06:00:00.000Z", quotaRetryAt: null,
+    lastError: { code: "provider_error", message: "银豹 Token 额度不足，请充值后重试", at: "2026-11-20T05:00:00.000Z" }
+  });
+  assert.equal(user.pospalUid, undefined); assert.equal(user.pospalNumber, undefined);
+  const job = state.config.pospalIntegration.membershipSyncJobs[state.users[0].id];
+  job.status = "synced"; job.memberUntil = state.users[0].memberUntil;
+  assert.equal(listUsers(state)[0].pospalMembershipSync.status, "synced");
+  state.users[0].memberUntil = new Date(Date.parse(state.users[0].memberUntil) + 86400000).toISOString();
+  assert.equal(listUsers(state)[0].pospalMembershipSync.status, "pending", "a stale success cannot confirm the current entitlement");
+  assert.equal(listUsers(state)[1].pospalMembershipSync, null);
+  assert.equal(JSON.stringify(listUsers(state)).includes("must-not-leak"), false);
+});

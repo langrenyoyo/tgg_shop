@@ -656,6 +656,7 @@ function listWithdrawals(state) {
 }
 
 function listUsers(state) {
+  const membershipJobs = state.config?.pospalIntegration?.membershipSyncJobs || {};
   return state.users.map((user) => ({
     id: user.id,
     nickname: user.nickname,
@@ -670,7 +671,19 @@ function listUsers(state) {
     avatarUrl: user.avatarUrl,
     ...(user.createdAt ? { createdAt: user.createdAt } : {}),
     isMember: Boolean(user.memberUntil && new Date(user.memberUntil).getTime() > Date.now()),
-    memberDaysLeft: user.memberUntil ? Math.max(0, Math.ceil((new Date(user.memberUntil).getTime() - Date.now()) / 86400000)) : 0
+    memberDaysLeft: user.memberUntil ? Math.max(0, Math.ceil((new Date(user.memberUntil).getTime() - Date.now()) / 86400000)) : 0,
+    pospalMembershipSync: (() => {
+      const job = membershipJobs[user.id];
+      if (!job) return null;
+      return {
+        status: job.status === "synced" && job.memberUntil !== (user.memberUntil || null) ? "pending" : job.status,
+        expiryDate: job.expiryDate || null,
+        lastSyncedAt: job.lastSyncedAt || null, nextAttemptAt: job.nextAttemptAt || null,
+        quotaRetryAt: Date.parse(state.config.pospalIntegration.membershipSyncQuotaUntil) > Date.now()
+          ? state.config.pospalIntegration.membershipSyncQuotaUntil : null,
+        lastError: job.lastError ? { code: job.lastError.code, message: job.lastError.message, at: job.lastError.at } : null
+      };
+    })()
   }));
 }
 

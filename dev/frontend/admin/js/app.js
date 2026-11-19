@@ -885,6 +885,17 @@ document.body.addEventListener("click", (event) => {
     return;
   }
 
+  const pospalMemberSync = event.target.closest("[data-pospal-member-sync]");
+  if (pospalMemberSync) {
+    if (pospalMemberSync.disabled) return;
+    if (!state.identity?.permissions?.some(permission => permission === "*" || permission === "integration:write")) return;
+    pospalMemberSync.disabled = true;
+    api(`/api/admin/integrations/pospal/members/${encodeURIComponent(pospalMemberSync.dataset.pospalMemberSync)}/sync`, { method: "POST", body: JSON.stringify({}) })
+      .then(() => { state.userSyncMessage = "已加入银豹同步队列，请稍后刷新核对结果；额度不足时仍需等待恢复。"; return loadDashboard(); })
+      .catch(error => { state.userSyncMessage = error.message; renderAdminPage(state); }).finally(() => { pospalMemberSync.disabled = false; });
+    return;
+  }
+
   const ticketAction = event.target.closest("[data-ticket-action]");
   if (ticketAction) {
     const status = ticketAction.dataset.actionType || "processing";

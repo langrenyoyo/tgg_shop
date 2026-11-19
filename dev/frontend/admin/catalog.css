@@ -32,5 +32,8 @@
 .product-import-scroll table { width: 100%; min-width: 620px; border-collapse: collapse; }
 .product-import-scroll th, .product-import-scroll td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb; vertical-align: top; overflow-wrap: anywhere; }
 .product-import-scroll th { position: sticky; top: 0; background: #f6f8fa; }
+.pospal-sync-cell { display: inline-flex; flex-direction: column; gap: 4px; min-width: 145px; }
+.pospal-sync-cell small { color: #6b7280; line-height: 1.35; }
+.pospal-sync-cell .action { align-self: flex-start; padding: 3px 7px; font-size: 12px; }
 .product-editor details dl { display: grid; grid-template-columns: minmax(100px, 170px) 1fr; gap: 8px 16px; }
 .product-editor details dd { margin: 0; overflow-wrap: anywhere; }
