@@ -149,7 +149,7 @@ function assertCanCreateOrder(state, user, payload) {
   }
 
   if (!Number.isSafeInteger(membershipGiftDays) || membershipGiftDays > 36500) return { ok: false, error: "单笔赠送会员时长不能超过 36500 天，请减少数量" };
-  return { ok: true, items, membershipGiftDays, cashAmount: roundMoney(cashAmount), pointAmount, paymentMode, fulfillmentType, deliveryFee, addressId: savedAddress?.id || null };
+  return { ok: true, items, giftPurchase, membershipGiftDays, cashAmount: roundMoney(cashAmount), pointAmount, paymentMode, fulfillmentType, deliveryFee, addressId: savedAddress?.id || null };
 }
 
 function createOrder(state, userId, payload) {
@@ -178,6 +178,7 @@ function createOrder(state, userId, payload) {
     items: check.items,
     membershipGiftDays: check.membershipGiftDays,
     paymentMode: check.paymentMode,
+    membershipRequired: check.paymentMode !== "pure_points" && !check.giftPurchase,
     cashAmount: check.cashAmount,
     pointAmount: check.pointAmount,
     pointsReserved: reservePoints,
@@ -308,6 +309,7 @@ module.exports = {
   calcDeliveryDate,
   deliveryFeeFor,
   createPickupCode,
+  assertCanCreateOrder,
   createOrder,
   payOrder,
   logOrderStatus

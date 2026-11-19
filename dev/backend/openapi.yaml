@@ -1189,7 +1189,7 @@ paths:
     post:
       tags: [Orders]
       summary: Create order
-      description: Pure-points orders are paid immediately and never create cash top-up. Reuse the same idempotency key only with the original items, payment and fulfillment choices. Conflicting content returns 409; identical retries return the original order without another deduction.
+      description: Pure-points orders are paid immediately and never create cash top-up. Regular cash and points-plus-cash orders require a fresh active-membership check and live POSPAL identity, phone and expiry confirmation before any deduction. Pure gift-category cash baskets retain their nonmember exemption, calculated by the server. Reuse the same idempotency key only with the original items, payment and fulfillment choices. Conflicting content returns 409; identical retries recover the original order without another deduction or provider lookup. Continuing payment requires another eligibility check.
       requestBody:
         required: true
         content:
@@ -1202,7 +1202,9 @@ paths:
         "400":
           description: Business rule violation
         "409":
-          description: Idempotency key already used for different order content
+          description: Idempotency conflict or POSPAL phone, identity or expiry not confirmed
+        "503":
+          description: POSPAL verification unavailable, unconfigured or quota exhausted
 
   /api/orders/{orderId}/pay:
     post:
@@ -1230,7 +1232,7 @@ paths:
     post:
       tags: [Payments]
       summary: Create a pending payment order for a cash order
-      description: Creates a pending payment_order without completing payment. goods_cash is used for cash orders, cash_diff is used for points_plus_cash orders. Idempotent by idempotencyKey or default payment:goods:{orderId}.
+      description: Creates a pending payment_order without completing payment. Pending regular-goods orders require fresh membership and live POSPAL phone, identity and expiry confirmation, including when reusing a pending payment. goods_cash is used for cash orders, cash_diff is used for points_plus_cash orders. Idempotent by idempotencyKey or default payment:goods:{orderId}.
       parameters:
         - $ref: "#/components/parameters/OrderId"
       requestBody:
@@ -1288,7 +1290,7 @@ paths:
     post:
       tags: [Payments]
       summary: Initiate an LFWin payment for a pending payment order
-      description: Uses server-side LFWIN_* configuration only. Returns a QR code or payment URL and does not mark the order as paid.
+      description: Uses server-side LFWIN_* configuration only. Rechecks active membership and live POSPAL phone, identity and expiry for regular-goods orders before contacting the payment provider. Returns a QR code or payment URL and does not mark the order as paid.
       parameters:
         - name: payNo
           in: path

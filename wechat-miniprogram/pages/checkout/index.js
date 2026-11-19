@@ -1,7 +1,7 @@
 const { request } = require("../../utils/api");
 const cart = require("../../utils/cart");
 Page({
-  data: { items: [], modes: [], modeIndex: 0, siteIndex: 0, deliverySlotIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, needsMembership: false, busy: false, loading: true, fulfillmentError: "", error: "", needLogin: false },
+  data: { items: [], modes: [], modeIndex: 0, siteIndex: 0, deliverySlotIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, needsMembership: false, busy: false, loading: true, fulfillmentError: "", error: "", purchaseError: "", needLogin: false },
   onLoad() { this.idempotencyKey = cart.checkoutIdempotencyKey(); this.ownerId = wx.getStorageSync("tgg_user")?.id; this.setData({ pending: cart.readCheckoutAttempt() }); this.load(); },
   onShow() { if (this.shown) this.load(); this.shown = true; },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
@@ -76,7 +76,7 @@ Page({
     if (this.disposed || this.data.busy || this.data.loading || (this.data.error && !this.data.pending)) return;
     if (!this.ownerId || wx.getStorageSync("tgg_user")?.id !== this.ownerId) return wx.showToast({ title: "账号已变更，请重新结算", icon: "none" });
     if (cart.checkoutIdempotencyKey() !== this.idempotencyKey) return wx.showToast({ title: "结算商品已变更，请重新打开结算页", icon: "none" });
-    this.setData({ busy: true });
+    this.setData({ busy: true, purchaseError: "" });
     try {
       let payload = this.data.pending;
       if (!payload) {
@@ -104,6 +104,7 @@ Page({
       wx.redirectTo({ url: "/pages/order-detail/index?id=" + encodeURIComponent(order.id) });
     } catch (error) {
       if (this.disposed || wx.getStorageSync("tgg_user")?.id !== this.ownerId) return;
+      this.setData({ purchaseError: error.message });
       if (error.statusCode === 400 && wx.getStorageSync("tgg_user")?.id === this.ownerId && cart.checkoutIdempotencyKey() === this.idempotencyKey) {
         cart.writeCheckoutAttempt(this.idempotencyKey, null);
         this.setData({ pending: null });

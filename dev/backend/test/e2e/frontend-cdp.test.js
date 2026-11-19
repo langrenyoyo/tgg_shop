@@ -18,7 +18,7 @@ test("user and admin frontends support core click flows", async (t) => {
     return;
   }
 
-  const server = startServer();
+  const server = startServer(true);
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-cdp-"));
   const chrome = spawn(chromePath, [
     "--headless=new",
@@ -164,6 +164,11 @@ test("user and admin frontends support core click flows", async (t) => {
       "opening and renewing membership should create two paid membership ledgers"
     );
 
+    // The fixture store is separate from local membership: wait for the real
+    // worker to send the renewal before exercising successful cash checkout.
+    await userPage.waitForExpression(`fetch('/api/admin/users', { headers: { Authorization: 'Bearer ' + ${JSON.stringify(setupLogin.token)} } })
+      .then(res => res.json()).then(users => users.find(user => user.id === 'u_1002')?.pospalMembershipSync?.status === 'synced')`, 20000);
+
     await userPage.click('button[data-tab="home"]');
     await userPage.waitForText("热门推荐");
     await userPage.click('[data-buy="p_strawberry"]');
@@ -250,6 +255,38 @@ test("user and admin frontends support core click flows", async (t) => {
     await stopProcess(server);
     await stopProcess(chrome);
     removeDirBestEffort(userDataDir);
+  }
+});
+
+test("cash purchase shows the missing synchronized phone and leaves orders and points unchanged", async t => {
+  const chromePath = findChrome();
+  if (!chromePath) return t.skip("Chrome executable not found");
+  const server = startServer();
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-purchase-gate-"));
+  const chrome = spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--remote-allow-origins=*", `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${userDataDir}`, "about:blank"], { stdio: "ignore", windowsHide: true });
+  let page;
+  try {
+    await waitForJson(`${BASE}/api/health`);
+    await waitForJson(`http://127.0.0.1:${CDP_PORT}/json/version`);
+    page = await CDPPage.create(`${BASE}/user?skipSplash=1`);
+    await page.evaluate(`fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'u_1001', password: '123456' }) }).then(res => res.json()).then(data => {
+      localStorage.setItem('tggUserId', 'u_1001'); localStorage.setItem('tggUserToken', data.token); localStorage.setItem('tggUserRefreshToken', data.refreshToken);
+    })`);
+    await page.goto(`${BASE}/user?skipSplash=1`);
+    await page.waitForText("热门推荐");
+    const snapshot = `Promise.all(['/api/orders', '/api/me', '/api/products'].map(url => fetch(url, { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggUserToken') } }).then(res => res.json())))`;
+    const before = await page.evaluate(snapshot);
+    assert.equal(before[1].isMember, true);
+    await page.click('[data-buy="p_strawberry"]');
+    await page.waitForText("请先授权绑定微信手机号");
+    const after = await page.evaluate(snapshot);
+    assert.deepEqual(after[0], before[0]);
+    assert.equal(after[1].points, before[1].points);
+    assert.deepEqual(after[2], before[2]);
+    assert.deepEqual(page.runtimeErrors(), []);
+  } finally {
+    if (page) await page.close();
+    await stopProcess(server); await stopProcess(chrome); removeDirBestEffort(userDataDir);
   }
 });
 
@@ -654,6 +691,8 @@ async function runAdminConsistencyPatrol(adminPage) {
   await adminPage.waitForText("续 1 月");
   await adminPage.click('[data-user-action][data-action-type="extend"]');
   await adminPage.waitForText("月会员");
+  await adminPage.waitForExpression(`fetch('/api/admin/users', { headers: { Authorization: 'Bearer ' + localStorage.getItem('tggAdminToken') } })
+    .then(res => res.json()).then(users => users.filter(user => user.isMember).every(user => user.pospalMembershipSync?.status === 'synced'))`, 20000);
   await adminPage.click('button[data-view="agentsPickup"]');
   await adminPage.fillFormAndSubmit("[data-pickup-create-form]", {
     name: "巡检自提站",
@@ -1046,8 +1085,8 @@ class CDPPage {
   }
 }
 
-function startServer() {
-  return spawn(process.execPath, ["server.js"], {
+function startServer(withPospalFixture = false) {
+  return spawn(process.execPath, [...(withPospalFixture ? ["--require", "./test/helpers/pospal-purchase-fixture.js"] : []), "server.js"], {
     cwd: path.resolve(__dirname, "..", ".."),
     env: {
       ...process.env,

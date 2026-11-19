@@ -79,3 +79,20 @@ test("checkout keeps the expired-session error visible with a login action", asy
   assert.equal(page.data.error, "登录已失效，请重新登录");
   assert.equal(page.data.needLogin, true);
 });
+
+test("checkout keeps a store verification rejection visible and retains the original attempt for retry", async () => {
+  let page;
+  const payload = { paymentMode: "cash", items: [{ productId: "apple", quantity: 1 }], idempotencyKey: "key" };
+  const routes = [];
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/checkout/index.js"), "utf8"), {
+    Page: value => { page = value; },
+    require: name => name.endsWith("cart") ? { checkoutIdempotencyKey: () => "key" } : { request: async () => { throw Object.assign(new Error("会员手机号尚未同步到银豹，请等待同步完成后重试"), { statusCode: 409 }); } },
+    wx: { getStorageSync: () => ({ id: "alice" }), showToast() {}, redirectTo: value => routes.push(value) }
+  });
+  page.setData = value => Object.assign(page.data, value);
+  page.ownerId = "alice"; page.idempotencyKey = "key";
+  Object.assign(page.data, { loading: false, pending: payload });
+  await page.submit();
+  assert.match(page.data.purchaseError, /手机号尚未同步到银豹/);
+  assert.equal(page.data.pending, payload); assert.equal(page.data.busy, false); assert.equal(routes.length, 0);
+});

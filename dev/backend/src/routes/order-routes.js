@@ -61,7 +61,7 @@ async function handleOrderRoutes(ctx) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
-    const result = orderService.submitOrder(state, user.id, await readBody(req));
+    const result = await orderService.submitOrder(state, user.id, await readBody(req));
     if (result.ok) await saveState();
     return send(ctx.res, result.ok ? 201 : result.status || 400, result.ok ? result.order : { error: result.error });
   }
@@ -69,14 +69,14 @@ async function handleOrderRoutes(ctx) {
   const payMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/pay$/);
   if (req.method === "POST" && payMatch) {
     if (!isolatedNonProduction()) return send(ctx.res, 503, { error: "当前环境未启用模拟支付，请使用已配置的真实支付渠道" });
-    const result = orderService.submitPayment(state, payMatch[1], await readBody(req));
+    const result = await orderService.submitPayment(state, payMatch[1], await readBody(req));
     if (result.ok) await saveState();
-    return send(ctx.res, result.ok ? 200 : 400, result.ok ? result.order : { error: result.error });
+    return send(ctx.res, result.ok ? 200 : result.status || 400, result.ok ? result.order : { error: result.error });
   }
 
   const paymentMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/payments$/);
   if (req.method === "POST" && paymentMatch) {
-    const result = orderService.createOrderPayment(state, paymentMatch[1], await readBody(req));
+    const result = await orderService.createOrderPayment(state, paymentMatch[1], await readBody(req));
     if (result.ok) await saveState();
     return send(ctx.res, result.ok ? 201 : result.status || 400, result.ok ? result.payment : { error: result.error });
   }

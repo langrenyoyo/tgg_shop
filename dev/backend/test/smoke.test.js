@@ -106,7 +106,7 @@ async function run() {
   }
 
   const pgConnectionString = PG_URL || pgMemConnectionString;
-  const child = spawn(process.execPath, ["server.js"], {
+  const child = spawn(process.execPath, ["--require", "./test/helpers/pospal-purchase-fixture.js", "server.js"], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -472,7 +472,7 @@ async function run() {
         items: [{ productId: "p_apple", quantity: 1 }]
       })
     });
-    assert(cashOrder.res.status === 201 && cashOrder.body.status === "pending_payment", "cash order should be pending payment");
+    assert(cashOrder.res.status === 201 && cashOrder.body.status === "pending_payment", `cash order should be pending payment: ${cashOrder.body.error || cashOrder.res.status}`);
 
     const pendingPayment = await request(`/api/orders/${cashOrder.body.id}/payments`, { method: "POST", body: JSON.stringify({ channel: "mock_pay" }) });
     assert(pendingPayment.res.status === 201 && pendingPayment.body.status === "pending", "cash payment order create failed");

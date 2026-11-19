@@ -168,7 +168,8 @@ function getDeliveryAddressId() {
 async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
   if (!items.length) return toast("请先选择商品");
   if (!paymentMode) return toast("纯积分商品请单独结算，避免出现现金补差入口");
-  if (!ensureMemberForCash(items)) return;
+  state.user = await api("/api/me");
+  if (paymentMode !== "pure_points" && !ensureMemberForCash(items)) return;
   const payload = {
     paymentMode,
     fulfillmentType,
@@ -201,7 +202,6 @@ async function submitOrder(items, paymentMode, fulfillmentType = "pickup") {
 async function createOrder(productId, paymentMode, fulfillmentType = "pickup") {
   const product = findProduct(productId);
   if (!product) return toast("商品不存在");
-  if (!ensureMemberForCash([product], "开通月会员后可使用现金购买该商品")) return;
   return submitOrder([{ ...product, quantity: 1 }], paymentMode, fulfillmentType);
 }
 
