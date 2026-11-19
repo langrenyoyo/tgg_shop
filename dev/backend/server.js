@@ -21,6 +21,7 @@ const { autoConfirmDeliveryOrders } = require("./src/domain/fulfillment-rules");
 const paymentService = require("./src/services/payment-service");
 const printWorker = require("./src/services/print-service").createWorker();
 const membershipWorker = require("./src/services/pospal-membership-service").createMembershipWorker();
+const { backfillActiveMemberships } = require("./src/services/pospal-membership-service");
 let membershipTimer = null;
 let printTimer = null;
 let paymentTimeoutTimer = null;
@@ -78,7 +79,8 @@ async function start() {
   await whenReady();
   await withPersistence(() => {
     const pruned = pruneAuthSessions(getState());
-    return pruned > 0 ? saveState() : null;
+    const membershipBackfill = backfillActiveMemberships(getState());
+    return pruned > 0 || membershipBackfill.queued > 0 ? saveState() : null;
   });
   await sweepMonthlyRewards("startup");
   await sweepTimedOutPayments("startup");

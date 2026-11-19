@@ -351,7 +351,7 @@ paths:
     get:
       tags: [POSPAL]
       summary: Get POSPAL integration status
-      description: Requires integration:read. Returns configuration presence, cursors, mapping counts, the latest pull result and membershipSync (counts by status and the latest 50 per-user expiry push jobs). Job status synced means the remote expiry was queried and confirmed; pending, sending, retry and waiting_phone are not successful synchronization. Does not expose credentials.
+      description: Requires integration:read. Returns configuration presence, cursors, mapping counts, the latest pull result and membershipSync (counts by status, quotaRetryAt and the latest 50 per-user expiry push jobs). Includes registration gifts and other valid memberships regardless of role label; startup backfills missing targets. Job status synced means the remote expiry was queried and confirmed; pending, sending, retry and waiting_phone are not successful synchronization. An account-wide 4021 quota pause survives restart. Does not expose credentials.
       security: [{ AdminBearerAuth: [] }]
       responses:
         "200": { description: POSPAL integration status }
@@ -388,7 +388,7 @@ paths:
     post:
       tags: [POSPAL]
       summary: Queue or retry synchronization of one member's latest local expiry
-      description: Requires integration:write. Persists a task for the background worker; 202 is not a remote success acknowledgement. Reuses a verified phone and the same POSPAL identity, creates only when absent, sets expiryDate to the absolute local memberUntil in Beijing time and confirms by querying. Revoked membership sends a finite expired date, never clears expiryDate. Does not change local membership or POS balances, points or discounts. Existing users are not bulk migrated automatically.
+      description: Requires integration:write. Persists a task for the background worker; 202 is not a remote success acknowledgement. Reuses a verified phone and the same POSPAL identity, creates only when absent, sets expiryDate to the absolute local memberUntil in Beijing time and confirms by querying. Revoked membership sends a finite expired date, never clears expiryDate. Does not change local membership or POS balances, points or discounts. Registration gifts and existing valid memberships are included automatically; requeue does not bypass an account-wide quota pause.
       security: [{ AdminBearerAuth: [] }]
       parameters:
         - in: path

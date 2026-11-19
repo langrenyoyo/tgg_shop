@@ -8,7 +8,7 @@ const admin = require("../../src/services/admin-service");
 const { grantMembership, revokeMembership } = require("../../src/domain/product-membership");
 const { enqueueMembershipSync, expiryDate } = require("../../src/domain/pospal-membership");
 const { recordPhone } = require("../../src/services/phone-binding-service");
-const { createMembershipWorker, membershipSyncStatus } = require("../../src/services/pospal-membership-service");
+const { createMembershipWorker, membershipSyncStatus, backfillActiveMemberships } = require("../../src/services/pospal-membership-service");
 const { handlePospalRoutes } = require("../../src/routes/pospal-routes");
 const { issueToken } = require("../../src/domain/auth");
 const DAY = 86400000;
@@ -77,6 +77,63 @@ test("points activation creates a member automatically; renewal updates the same
   assert.equal(h.calls.filter(call => call.add).length, 1);
   assert.equal(h.calls.filter(call => call.update).length, 2);
   assert.equal(h.job().lastSyncedAt, h.persisted.config.pospalIntegration.membershipSyncJobs[h.user().id].lastSyncedAt);
+});
+
+test("a registration gift on a normal-role user syncs the existing expiry without purchasing membership", async () => {
+  const h = setup();
+  const until = new Date(h.clock + 30 * DAY).toISOString();
+  Object.assign(h.user(), { role: "normal", memberUntil: until });
+  recordPhone(h.state, h.user(), h.user().phone);
+  assert.equal(h.job().status, "pending");
+  const revision = h.job().revision;
+  recordPhone(h.state, h.user(), h.user().phone);
+  assert.equal(h.job().revision, revision);
+  const worker = h.worker(); await worker.run();
+  assert.equal(h.job().status, "synced");
+  assert.equal(h.customers[0].expiryDate, expiryDate(until));
+  assert.equal(h.user().memberUntil, until); assert.equal(h.user().role, "normal");
+  recordPhone(h.state, h.user(), h.user().phone); await worker.run();
+  assert.equal(h.job().revision, revision);
+  assert.equal(h.calls.filter(call => call.add).length, 1);
+  assert.equal(h.calls.filter(call => call.update).length, 1);
+});
+
+test("startup backfill includes gifted members and waits for verified phones; restart preserves receipts and backoff", async () => {
+  const h = setup();
+  h.state.users = [h.user(),
+    { id: "gift-waiting", role: "normal", status: "active", memberUntil: new Date(h.clock + DAY).toISOString(), phone: "13812345678" },
+    { id: "expired", role: "normal", status: "active", memberUntil: new Date(h.clock - DAY).toISOString() },
+    { id: "disabled", role: "normal", status: "disabled", memberUntil: new Date(h.clock + DAY).toISOString() },
+    { id: "no-entitlement", role: "normal", status: "active" }];
+  h.user().memberUntil = new Date(h.clock + 30 * DAY).toISOString();
+  assert.deepEqual(backfillActiveMemberships(h.state, h.clock), { queued: 2, waitingPhone: 1 });
+  const jobs = h.state.config.pospalIntegration.membershipSyncJobs;
+  assert.equal(jobs["gift-waiting"].status, "waiting_phone");
+  assert.equal(jobs.expired, undefined); assert.equal(jobs.disabled, undefined); assert.equal(jobs["no-entitlement"], undefined);
+  await h.worker().run(); assert.equal(h.job().status, "synced");
+  const snapshot = JSON.stringify(jobs);
+  h.state = normalizeState(structuredClone(h.persisted));
+  assert.deepEqual(backfillActiveMemberships(h.state, h.clock), { queued: 0, waitingPhone: 0 });
+  assert.equal(JSON.stringify(h.state.config.pospalIntegration.membershipSyncJobs), snapshot);
+  const waiting = h.state.users.find(u => u.id === "gift-waiting");
+  recordPhone(h.state, waiting, waiting.phone);
+  assert.equal(h.state.config.pospalIntegration.membershipSyncJobs[waiting.id].status, "pending");
+  const job = h.job(); job.status = "retry"; job.nextAttemptAt = new Date(h.clock + 3600000).toISOString();
+  const previous = JSON.stringify(job);
+  backfillActiveMemberships(h.state, h.clock); recordPhone(h.state, h.user(), h.user().phone);
+  assert.equal(JSON.stringify(h.job()), previous);
+});
+
+test("a changed entitlement replaces the backfill target once without extending the membership", () => {
+  const h = setup(); h.open("open");
+  h.state.users = [h.user()];
+  const revision = h.job().revision;
+  h.user().memberUntil = new Date(Date.parse(h.user().memberUntil) + DAY).toISOString();
+  const until = h.user().memberUntil;
+  assert.equal(backfillActiveMemberships(h.state, h.clock).queued, 1);
+  assert.equal(h.job().revision, revision + 1); assert.equal(h.job().memberUntil, until);
+  assert.equal(h.user().memberUntil, until);
+  assert.equal(backfillActiveMemberships(h.state, h.clock).queued, 0);
 });
 
 test("existing unique phone member retains card, name, balance, points and discount while syncing expiry and nickname", async () => {
@@ -267,6 +324,22 @@ test("provider quota failure during first provisioning is actionable and backs o
   assert.match(h.job().lastError.message, /Token/);
   assert.equal(Date.parse(h.job().nextAttemptAt) - h.clock, 3600000);
   assert.ok(!JSON.stringify(h.job()).includes("secret"));
+});
+
+test("quota exhaustion pauses the whole account queue across restart and new authorizations", async () => {
+  const h = setup(); h.open("open");
+  const other = { id: "gift-other", nickname: "赠送会员", role: "normal", status: "active", memberUntil: h.user().memberUntil };
+  h.state.users.push(other); recordPhone(h.state, other, "13812345678");
+  let queries = 0;
+  h.client.queryCustomers = async () => { queries++; throw Object.assign(new Error("quota"), { errorCode: 4021 }); };
+  await h.worker().run();
+  assert.equal(queries, 1);
+  assert.equal(h.state.config.pospalIntegration.membershipSyncJobs[other.id].status, "pending");
+  assert.equal(Date.parse(membershipSyncStatus(h.state).quotaRetryAt), h.clock + 3600000);
+  h.state = normalizeState(structuredClone(h.persisted));
+  backfillActiveMemberships(h.state, h.clock); recordPhone(h.state, h.user(), h.user().phone);
+  await h.worker().run(); assert.equal(queries, 1);
+  h.retry(); await h.worker().run(); assert.equal(queries, 2);
 });
 
 test("failed provisioning intent save prevents member creation and pauses the worker", async () => {

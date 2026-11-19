@@ -26,4 +26,13 @@ function expiryDate(value) {
   return new Date(time + 8 * 3600000).toISOString().slice(0, 19).replace("T", " ");
 }
 
-module.exports = { enqueueMembershipSync, expiryDate };
+// Valid entitlements include registration gifts; the role label is not a gate.
+// Keep successful receipts and retry backoff intact across login and restarts.
+function ensureActiveMembershipSync(state, user, reason, now = Date.now()) {
+  if (user?.status !== "active" || !(Date.parse(user.memberUntil) > now)) return null;
+  const previous = state.config?.pospalIntegration?.membershipSyncJobs?.[user.id];
+  if (previous?.memberUntil === user.memberUntil) return null;
+  return enqueueMembershipSync(state, user, reason, now);
+}
+
+module.exports = { enqueueMembershipSync, ensureActiveMembershipSync, expiryDate };

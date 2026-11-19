@@ -32,11 +32,15 @@ test("WeChat registration binds invite once, grants trial and survives SQLite re
   assert.equal(first.user.phone, "13912345678");
   assert.ok(first.user.inviteCode);
   assert.equal(first.user.isMember, true);
+  const job = state.config.pospalIntegration.membershipSyncJobs[first.user.id];
+  assert.equal(job.status, "pending"); assert.equal(job.memberUntil, first.user.memberUntil);
+  assert.equal(state.users.find(user => user.id === first.user.id).role, "normal");
   assert.equal(inviter.points, initial + state.config.inviteRewardPoints);
   const again = await auth.wechatLogin(state, { code: "another-code", inviteCode: inviter.inviteCode });
   assert.equal(again.user.id, first.user.id);
   assert.equal(inviter.points, initial + state.config.inviteRewardPoints);
   assert.equal(state.inviteRelations.filter(row => row.inviteeUserId === first.user.id).length, 1);
+  assert.equal(state.config.pospalIntegration.membershipSyncJobs[first.user.id].revision, job.revision);
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tgg-wechat-"));
   const dbFile = path.join(directory, "state.sqlite");
   saveSQLiteState(state, dbFile);
@@ -44,6 +48,8 @@ test("WeChat registration binds invite once, grants trial and survives SQLite re
   assert.equal(restored.users.find(row => row.id === first.user.id).wechatOpenid, "test-openid-registration");
   const relogin = await auth.wechatLogin(restored, { code: "after-restart" });
   assert.equal(relogin.user.id, first.user.id);
+  assert.equal(restored.config.pospalIntegration.membershipSyncJobs[first.user.id].memberUntil, first.user.memberUntil);
+  assert.equal(restored.config.pospalIntegration.membershipSyncJobs[first.user.id].revision, job.revision);
 });
 
 test("invite commission shows percentage and attributes ledger by submission", () => {

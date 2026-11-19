@@ -39,6 +39,7 @@ test("concurrent authorized registrations create one account and do not duplicat
   const user = state.users.find(user => user.id === a.user.id);
   assert.equal(verifiedPhone(state, user).phone, "13912345678");
   assert.equal(getMemberCode(state, user).body.needsPhoneAuthorization, false);
+  assert.equal(state.config.pospalIntegration.membershipSyncJobs[user.id].revision, 1);
 });
 test("phone binding rejects raw input, other owners and pending POS mismatch without overwriting accounts", async t => {
   providers(t);
@@ -60,8 +61,17 @@ test("binding a phone keeps the same user, points, membership and avatar; route 
   const result = await bindPhone(state, user, { phoneCode: "phone-code" });
   assert.equal(result.status, 200);
   assert.deepEqual(user, { ...before, phone: "13912345678" });
+  assert.equal(state.config.pospalIntegration.membershipSyncJobs[user.id].memberUntil, before.memberUntil);
   let status;
   await routeApi({ method: "POST", headers: {}, async *[Symbol.asyncIterator]() { throw new Error("must not read body"); } },
     { writeHead(code) { status = code; }, end() {} }, new URL("http://localhost/api/me/phone"));
   assert.equal(status, 401);
+});
+
+test("registration with no gift days does not queue a new POSPAL customer", async t => {
+  providers(t);
+  const state = resetState(); state.config.newUserMemberDays = 0;
+  const result = await auth.wechatLogin(state, { code: "wx", phoneCode: "phone-code" });
+  assert.equal(result.ok, true); assert.equal(result.user.isMember, false);
+  assert.equal(state.config.pospalIntegration?.membershipSyncJobs?.[result.user.id], undefined);
 });

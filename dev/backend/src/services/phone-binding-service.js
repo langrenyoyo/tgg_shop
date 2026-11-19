@@ -1,7 +1,7 @@
 const { exchangePhoneCode } = require("./wechat-phone-service");
 const { saveState } = require("../data/store");
 const { publicUser } = require("../http/http-utils");
-const { enqueueMembershipSync } = require("../domain/pospal-membership");
+const { enqueueMembershipSync, ensureActiveMembershipSync } = require("../domain/pospal-membership");
 
 function verifiedPhone(state, user) {
   const record = state.config?.userPhoneVerifications?.[user?.id];
@@ -23,7 +23,7 @@ function recordPhone(state, user, phone) {
   state.config.userPhoneVerifications[user.id] = { phone, source: "wechat", verifiedAt: new Date().toISOString() };
   if (state.config.pospalIntegration?.membershipSyncJobs?.[user.id]?.status === "waiting_phone") {
     enqueueMembershipSync(state, user, "phone_verified");
-  }
+  } else ensureActiveMembershipSync(state, user, "phone_verified_membership");
 }
 async function bindPhone(state, user, input) {
   if (!user || user.status !== "active") return { status: 401, body: { error: "请先登录" } };
@@ -36,11 +36,17 @@ async function bindPhone(state, user, input) {
   if (user.status !== "active") return { status: 403, body: { error: "账号已停用" } };
   const previousPhone = user.phone;
   const previousRecord = state.config?.userPhoneVerifications?.[user.id];
+  const previousJob = state.config?.pospalIntegration?.membershipSyncJobs?.[user.id];
   recordPhone(state, user, phone);
   try { await saveState(); } catch (error) {
     user.phone = previousPhone;
     if (previousRecord) state.config.userPhoneVerifications[user.id] = previousRecord;
     else delete state.config.userPhoneVerifications[user.id];
+    const jobs = state.config?.pospalIntegration?.membershipSyncJobs;
+    if (jobs) {
+      if (previousJob) jobs[user.id] = previousJob;
+      else delete jobs[user.id];
+    }
     throw error;
   }
   return { status: 200, body: publicUser(user) };

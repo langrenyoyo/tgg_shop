@@ -1,10 +1,27 @@
 const { getState, saveState } = require("../data/store");
 const { createPospalClient, isConfigured } = require("../integrations/pospal/pospal-client");
-const { enqueueMembershipSync } = require("../domain/pospal-membership");
+const { enqueueMembershipSync, ensureActiveMembershipSync } = require("../domain/pospal-membership");
 const { verifiedPhone } = require("./phone-binding-service");
 const { provisionMember } = require("./member-provision-service");
 
 function failure(code, message) { return Object.assign(new Error(message), { code }); }
+
+function backfillActiveMemberships(state, now = Date.now()) {
+  let queued = 0, waitingPhone = 0;
+  for (const user of state.users) {
+    const job = ensureActiveMembershipSync(state, user, "existing_membership_backfill", now);
+    if (!job) continue;
+    queued++;
+    const provision = state.config.pospalIntegration.memberProvisions?.[user.id];
+    if (!verifiedPhone(state, user) && !(provision?.verifiedAt && provision.phone === user.phone && /^1\d{10}$/.test(user.phone))) {
+      job.status = "waiting_phone";
+      job.lastError = { code: "waiting_phone", message: "等待用户授权微信手机号", at: new Date(now).toISOString() };
+      job.nextAttemptAt = new Date(now + 3600000).toISOString();
+      waitingPhone++;
+    }
+  }
+  return { queued, waitingPhone };
+}
 
 async function syncMember(state, user, job, client, save) {
   if (!isConfigured(client.config)) throw failure("not_configured", "银豹接口未配置");
@@ -76,6 +93,7 @@ async function syncMember(state, user, job, client, save) {
 function membershipSyncStatus(state) {
   const jobs = Object.values(state.config?.pospalIntegration?.membershipSyncJobs || {});
   return {
+    quotaRetryAt: state.config?.pospalIntegration?.membershipSyncQuotaUntil || null,
     counts: jobs.reduce((counts, job) => { counts[job.status] = (counts[job.status] || 0) + 1; return counts; }, {}),
     jobs: jobs.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 50)
   };
@@ -85,6 +103,7 @@ function createMembershipWorker({ state = getState, save = saveState, client = c
   let running = null, stopped = false;
   async function sweep() {
     const current = state();
+    if (Date.parse(current.config?.pospalIntegration?.membershipSyncQuotaUntil) > now()) return;
     const jobs = Object.values(current.config?.pospalIntegration?.membershipSyncJobs || {})
       .filter(job => !["synced", "skipped"].includes(job.status) && (!job.nextAttemptAt || Date.parse(job.nextAttemptAt) <= now()))
       .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 10);
@@ -125,6 +144,7 @@ function createMembershipWorker({ state = getState, save = saveState, client = c
         job.lastError = { code, message: Number(error.errorCode) === 4021 ? "银豹 Token 额度不足，请充值后重试" : messages[code] || "银豹同步失败，请核对配置、额度及网络", at: new Date(now()).toISOString() };
         const delay = Number(error.errorCode) === 4021 ? 3600000 : Math.min(3600000, 30000 * 2 ** Math.min(job.attempts - 1, 7));
         job.nextAttemptAt = new Date(now() + delay).toISOString();
+        if (Number(error.errorCode) === 4021) current.config.pospalIntegration.membershipSyncQuotaUntil = job.nextAttemptAt;
       } else {
         job.status = result.superseded ? "pending" : result.skipped ? "skipped" : "synced";
         job.lastError = null; job.nextAttemptAt = null;
@@ -132,6 +152,8 @@ function createMembershipWorker({ state = getState, save = saveState, client = c
       }
       job.updatedAt = new Date(now()).toISOString();
       await save();
+      // Quota is shared by the account; preserve the rest of the queue for retry.
+      if (Number(error?.errorCode) === 4021) break;
     }
   }
   return {
@@ -144,4 +166,4 @@ function createMembershipWorker({ state = getState, save = saveState, client = c
   };
 }
 
-module.exports = { createMembershipWorker, membershipSyncStatus };
+module.exports = { createMembershipWorker, membershipSyncStatus, backfillActiveMemberships };
