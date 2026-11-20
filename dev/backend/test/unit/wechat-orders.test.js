@@ -57,6 +57,7 @@ test('payer snapshot is private, verified LFWin settlement captures only the ups
 test('pickup waits for goods at station; uploads the real transaction with logistics=4 once, including after restart', async () => {
   const f = fixture(), h = harness(f);
   await h.worker.run(); assert.equal(h.uploads, 0);
+  assert.equal(f.state.config.wechatOrders.management.confirmationCompleted, true, 'authorization is checked before the first shipping job');
   ready(f);
   await Promise.all([h.worker.run(), h.worker.run()]);
   assert.equal(h.uploads, 1);

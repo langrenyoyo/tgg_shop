@@ -86,11 +86,13 @@ function createWorker({ state = getState, save = saveState, client = createOrder
       if (!store.jobs?.[order.id] && model.enqueue(current, order, now())) added = true;
     }
     if (added) await save();
+    // Keep the admin authorization panel useful even before the first paid
+    // order; these two calls only inspect the mini-program's current status.
+    if (!store.management?.checkedAt || now() - Date.parse(store.management.checkedAt) > 300000) await checkManagement(current, client, { save, now });
     const jobs = Object.values(store.jobs || {}).filter(job => job.status !== 'skipped'
       && (!job.nextAttemptAt || Date.parse(job.nextAttemptAt) <= now()))
       .sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt))).slice(0, 10);
     if (!jobs.length) return;
-    if (!store.management?.checkedAt || now() - Date.parse(store.management.checkedAt) > 300000) await checkManagement(current, client, { save, now });
     for (const job of jobs) {
       if (stopped) break;
       await exclusive(job, async () => {
