@@ -22,9 +22,11 @@ const paymentService = require("./src/services/payment-service");
 const printWorker = require("./src/services/print-service").createWorker();
 const membershipWorker = require("./src/services/pospal-membership-service").createMembershipWorker();
 const { backfillActiveMemberships } = require("./src/services/pospal-membership-service");
+const wechatOrderWorker = require("./src/services/wechat-order-service").createWorker();
 let membershipTimer = null;
 let printTimer = null;
 let paymentTimeoutTimer = null;
+let wechatOrderTimer = null;
 
 const PORT = Number(process.env.PORT || 5177);
 const HOST = String(process.env.TGG_BIND_HOST || "127.0.0.1").trim() || "127.0.0.1";
@@ -103,10 +105,12 @@ async function start() {
     console.log(`Station app: http://localhost:${PORT}/station`);
     runTaskSweep();
     runMembershipSync();
+    runWechatOrders();
   });
   taskSweepTimer = setInterval(runTaskSweep, 15 * 60 * 1000);
   printTimer = setInterval(() => printWorker.run().catch(() => console.error("Print worker failed; check persistence and printer tasks")), 10000);
   membershipTimer = setInterval(runMembershipSync, 10000);
+  wechatOrderTimer = setInterval(runWechatOrders, 30000);
 }
 
 start().catch((error) => {
@@ -118,6 +122,8 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 async function shutdown() {
+  if (wechatOrderTimer) clearInterval(wechatOrderTimer);
+  await wechatOrderWorker.stop().catch(() => {});
   if (rewardSweepTimer) clearInterval(rewardSweepTimer);
   if (taskSweepTimer) clearInterval(taskSweepTimer);
   if (deliveryConfirmTimer) clearInterval(deliveryConfirmTimer);
@@ -154,6 +160,10 @@ function runTaskSweep() {
 
 function runMembershipSync() {
   membershipWorker.run().catch(() => console.error("POSPAL membership worker paused after a persistence failure; repair storage and restart to resume"));
+}
+
+function runWechatOrders() {
+  wechatOrderWorker.run().catch(() => console.error("WeChat order worker paused after a persistence failure; repair storage and restart to resume"));
 }
 
 async function sweepMonthlyRewards(source) {

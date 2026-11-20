@@ -207,6 +207,7 @@ function receive(state, account, orderId, input = {}) {
   Object.assign(record, { siteId: orderSiteId(order), stationStatus: condition === "normal" ? "ready" : "exception", shelfCode: String(input.shelfCode || ""), receivedItems: quantities.items, receivedAt: new Date().toISOString(), receivedBy: account.id, exceptionType: condition === "normal" ? "" : condition, exceptionRemark: String(input.remark || "") });
   order.stationStatus = record.stationStatus;
   order.stationReceivedAt = record.receivedAt;
+  require("../domain/wechat-orders").enqueue(state, order);
   record.holdUntil ||= new Date(Date.now() + Number(state.config.stationPickupHoldHours || 48) * 3600000).toISOString();
   state.stationOrders ||= [];
   if (!state.stationOrders.includes(record)) state.stationOrders.unshift(record);

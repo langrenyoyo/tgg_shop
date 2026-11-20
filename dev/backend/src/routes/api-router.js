@@ -15,12 +15,14 @@ const { handlePospalRoutes } = require("./pospal-routes");
 const { handleTestRoutes } = require("./test-routes");
 const { handlePrintRoutes } = require("./print-routes");
 const { handleProductImportRoutes } = require("./product-import-routes");
+const { handleWechatOrderRoutes } = require("./wechat-order-routes");
 const rateLimit = require("../http/rate-limit");
 const checkRateLimit = rateLimit.checkRateLimit || (() => ({ ok: true }));
 
 const routeHandlers = [
   handleAuthRoutes,
   handleCatalogRoutes,
+  handleWechatOrderRoutes,
   handleOrderRoutes,
   handleCommonRoutes,
   handleTaskRoutes,

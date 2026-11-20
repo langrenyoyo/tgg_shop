@@ -79,7 +79,7 @@ test("API closes member cash-shortfall and manual points approval flows", async 
         items: [{ productId: "p_apple", quantity: 1 }]
       }
     });
-    assert.equal(shortfallOrder.res.status, 201);
+    assert.equal(shortfallOrder.res.status, 201, shortfallOrder.body.error);
     assert.equal(shortfallOrder.body.status, "pending_payment");
     assert.equal(shortfallOrder.body.paymentMode, "points_plus_cash");
     assert.equal(shortfallOrder.body.pointAmount, 180);
@@ -142,7 +142,7 @@ test("API closes member cash-shortfall and manual points approval flows", async 
 });
 
 function startServer() {
-  return spawn(process.execPath, ["server.js"], {
+  return spawn(process.execPath, ["--require", "./test/helpers/pospal-purchase-fixture.js", "server.js"], {
     cwd: path.resolve(__dirname, "..", ".."),
     env: {
       ...process.env,

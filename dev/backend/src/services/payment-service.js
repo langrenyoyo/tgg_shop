@@ -14,6 +14,7 @@ const { releaseOrderPoints } = require("../domain/point-reservations");
 const { isolatedNonProduction, cashPaymentsEnabled } = require("../config/runtime-safety");
 const { grantMembership } = require("../domain/product-membership");
 const { enqueueMembershipSync } = require("../domain/pospal-membership");
+const wechatOrders = require("../domain/wechat-orders");
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
@@ -128,6 +129,7 @@ async function initiateLfwinLocked(state, payment, input, client) {
   payment.metadata = { ...(payment.metadata || {}), lfwin: {
     ...(payment.metadata?.lfwin || {}), submissionState: "sending", requestedAt: new Date().toISOString()
   } };
+  wechatOrders.captureRequestIdentity(state, payment, input);
   // Persist intent before contacting a provider: a timeout is not proof of failure.
   await saveState();
 
@@ -229,10 +231,19 @@ function applyLfwinPaymentNotification(state, payload, client = createLfwinClien
   const payment = state.paymentLedger.find((item) => (merchantNo && item.payNo === merchantNo) || (providerNo && item.metadata?.lfwin?.providerOrderNo === providerNo));
   if (!payment) return { ok: false, status: 404, error: "Payment not found" };
   if ((payload.mch_orderid && payload.mch_orderid !== payment.payNo) || (payment.metadata?.lfwin?.providerOrderNo && payload.orderid && payload.orderid !== payment.metadata.lfwin.providerOrderNo)) return { ok: false, status: 400, error: "Payment order identity mismatch" };
-  if (payment.status === "paid") return { ok: true, payment, result: getPaymentResult(state, payment), idempotent: true };
+  if (payment.status === "paid") {
+    if (String(payload.paystatus) === "1" && sameAmount(payment.amount, payload.pri_paymoney ?? payload.paymoney)) {
+      if (!wechatOrders.capturePaymentIdentity(state, payment, payload)) return { ok: false, status: 400, error: "WeChat transaction identity mismatch" };
+      const order = state.orders.find(row => row.id === payment.orderId);
+      if (order) wechatOrders.enqueue(state, order);
+      saveState();
+    }
+    return { ok: true, payment, result: getPaymentResult(state, payment), idempotent: true };
+  }
   if (payment.status !== "pending") return { ok: false, status: 400, error: "Payment is not pending" };
   if (String(payload.paystatus) !== "1") return { ok: false, status: 400, error: "Payment notification is not successful" };
   if (!sameAmount(payment.amount, payload.pri_paymoney ?? payload.paymoney)) return { ok: false, status: 400, error: "Payment amount mismatch" };
+  if (!wechatOrders.capturePaymentIdentity(state, payment, payload)) return { ok: false, status: 400, error: "WeChat transaction identity mismatch" };
 
   const result = applyPaidPayment(state, payment);
   if (!result.ok) {
@@ -252,6 +263,7 @@ function applyLfwinPaymentNotification(state, payload, client = createLfwinClien
       paidAt: payload.paytime || null
     }
   };
+  if (result.order) wechatOrders.enqueue(state, result.order);
   saveState();
   return { ok: true, payment, result };
 }

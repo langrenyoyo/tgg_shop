@@ -1,6 +1,8 @@
 const buckets = new Map();
 
 const RULES = [
+  { match: /^\/api\/orders\/[^/]+\/wechat-receipt$/, methods: ["GET", "POST"], limit: 30, windowMs: 60_000 },
+  { match: /^\/api\/admin\/integrations\/wechat-orders\/(?:check|orders\/[^/]+\/retry)$/, methods: ["POST"], limit: 10, windowMs: 60_000 },
   { match: /^\/api\/admin\/product-import\/(?:preview|commit)$/, methods: ["POST"], limit: 10, windowMs: 60_000 },
   { match: /^\/api\/invite\/code$/, methods: ["GET"], limit: 10, windowMs: 60_000 },
   { match: /^\/api\/(?:admin\/auth|station\/auth|auth)\/(?:login|wechat-login|refresh)$/, methods: ["POST"], limit: 12, windowMs: 60_000 },

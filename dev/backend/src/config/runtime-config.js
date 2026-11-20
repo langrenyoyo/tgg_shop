@@ -8,6 +8,8 @@ function isPlaceholder(value) {
 function validateRuntimeConfig(env = process.env, strict) {
   const errors = [];
   const warnings = [];
+  if (env.WECHAT_ORDER_MANAGEMENT_ENABLED && !["0", "1"].includes(env.WECHAT_ORDER_MANAGEMENT_ENABLED)) errors.push("WECHAT_ORDER_MANAGEMENT_ENABLED must be 0 or 1");
+  if (env.WECHAT_ORDER_MANAGEMENT_ENABLED === "1" && (!env.WECHAT_APPID || !env.WECHAT_APPSECRET)) errors.push("WECHAT_APPID and WECHAT_APPSECRET are required for WeChat order management");
   const driver = String(env.TGG_STORE_DRIVER || "json");
   // A PostgreSQL deployment is a shared/persistent environment even when an
   // operator accidentally leaves NODE_ENV at staging. Treat it as production

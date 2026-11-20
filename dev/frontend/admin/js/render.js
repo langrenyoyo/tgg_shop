@@ -6,6 +6,7 @@ import { filterFinance, financeToolbar, financeActions } from "./finance-filters
 import { adminAccountsView } from "./admin-accounts.js";
 import { stationAccountsView } from "./station-accounts.js";
 import { printingView } from "./printing.js";
+import { wechatOrdersPanel, wechatOrderCell } from "./wechat-orders.js";
 import { signinSettings } from "./signin-settings.js";
 import { renderGlobalSearch, renderSearchTarget, searchRecords } from "./global-search.js";
 let currentAdminState = {};
@@ -214,11 +215,11 @@ function dashboard(state) {
 }
 
 function orders(state) {
-  return `<section class="table-panel">${ordersRows(searchRecords(state, "orders", state.orders || []))}</section>`;
+  return `${wechatOrdersPanel(state, { escapeHtml, can })}<section class="table-panel">${ordersRows(searchRecords(state, "orders", state.orders || []))}</section>`;
 }
 
 function ordersRows(orders) {
-  return simpleTable("订单列表", ["订单号", "用户", "商品", "支付", "履约", "状态", "金额/积分", "操作"], orders.map((order) => [
+  return simpleTable("订单列表", ["订单号", "用户", "商品", "支付", "履约", "状态", "金额/积分", "微信订单同步", "操作"], orders.map((order) => [
     order.id,
     order.userId,
     trustedHtml((order.items || []).map((item) => `${escapeHtml(item.title || item.name || item.productId)} x${escapeHtml(item.quantity)}`).join("<br>")),
@@ -226,6 +227,7 @@ function ordersRows(orders) {
     zh(order.fulfillmentType, "fulfillmentType"),
     trustedHtml(`${badge(order.status)} ${badge(order.stationStatus === "ready" || order.stationStatus === "received" ? "ready" : order.fulfillmentStatus, "orange")}`),
     paymentText(order),
+    wechatOrderCell(order, { escapeHtml, can, trustedHtml }),
     orderActionButtons(order)
   ]));
 }

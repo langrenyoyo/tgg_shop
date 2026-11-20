@@ -3,6 +3,7 @@ import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
 import { printingClick, printingSubmit } from "./printing.js";
+import { wechatOrderClick } from "./wechat-orders.js";
 import { createAdminSearch } from "./global-search.js";
 import { createCatalogControls } from "./catalog-controls.js";
 import { createProductImport } from "./product-import.js";
@@ -138,6 +139,10 @@ async function loadDashboard() {
   const printing = await safeApi("/api/admin/printing", null);
   state.printing = printing.ok ? printing.data : null;
   state.printingError = printing.ok ? "" : printing.error?.message || "打印管理加载失败";
+  const wechatOrders = await safeApi("/api/admin/integrations/wechat-orders/status", null);
+  if (loadSequence !== dashboardLoadSequence) return false;
+  state.wechatOrders = wechatOrders.ok ? wechatOrders.data : null;
+  state.wechatOrdersError = wechatOrders.ok ? "" : wechatOrders.error?.message || "微信订单管理加载失败";
   state.summaryError = summary.ok ? "" : summary.error?.message || "统计数据加载失败，请刷新重试";
   state.orders = orders.ok ? orders.data : [];
   state.products = products.ok ? products.data : [];
@@ -415,6 +420,7 @@ document.body.addEventListener("click", (event) => {
   }
   if (event.target.closest("[data-finance-reset]")) { state.financeFilters = {}; renderAdminPage(state); return; }
   if (printingClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
+  if (wechatOrderClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (stationAccountClick(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (event.target.closest("button:disabled")) return;
   if (event.target.closest("[data-admin-search-clear]")) {

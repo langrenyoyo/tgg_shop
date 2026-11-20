@@ -9,7 +9,9 @@ const { releaseOrderPoints } = require("../domain/point-reservations");
 function detail(state, userId, orderId) {
   const order = state.orders.find(item => item.id === orderId && item.userId === userId);
   if (!order) return null;
-  return { ...order, refunds: state.refundOrders.filter(item => item.orderId === orderId && item.userId === userId), history: state.orderStatusLogs.filter(item => item.orderId === orderId) };
+  return { ...order, wechatOrderSync: require("../domain/wechat-orders").summary(state, order),
+    wechatReceiptRequired: require("../domain/wechat-orders").requiresReceipt(state, order),
+    refunds: state.refundOrders.filter(item => item.orderId === orderId && item.userId === userId), history: state.orderStatusLogs.filter(item => item.orderId === orderId) };
 }
 
 function refundDetail(state, userId, refundId) {
@@ -62,6 +64,12 @@ async function cancelOwned(state, userId, order) {
 async function receive(state, userId, orderId) {
   const order = state.orders.find(item => item.id === orderId && item.userId === userId);
   if (!order) return { ok: false, status: 404, error: "订单不存在" };
+  if (require("../domain/wechat-orders").requiresReceipt(state, order)) {
+    const checked = await require("./wechat-order-service").reconcileReceipt(state, userId, orderId);
+    if (!checked.ok) return checked;
+    if (!checked.confirmed) return { ok: false, status: 409, error: "请通过微信确认收货，确认后再刷新订单" };
+    return { ok: true, order };
+  }
   const result = confirmDeliveryOrder(state, order.id, { operatorType: "user", operatorId: userId, reason: "用户确认收货" });
   if (result.ok && !result.idempotent) {
     const log = state.orderStatusLogs.find(item => item.orderId === order.id);

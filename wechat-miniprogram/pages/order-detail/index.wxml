@@ -19,7 +19,7 @@
       <button bindtap="queryPayment" disabled="{{busy || loading}}">已付款，查询结果</button>
       <button data-action="cancel" bindtap="action" disabled="{{busy || loading}}">取消订单</button>
     </view>
-    <button wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'delivered'}}" data-action="receive" bindtap="action" disabled="{{busy || loading}}">确认收货</button>
+    <button wx:if="{{(order.status === 'paid' && order.fulfillmentStatus === 'delivered') || (order.status === 'completed' && order.wechatReceiptRequired && !order.wechatOrderSync.receiptConfirmedAt)}}" data-action="receive" bindtap="action" disabled="{{busy || loading}}">{{order.wechatReceiptRequired ? '微信确认收货' : '确认收货'}}</button>
     <view wx:for="{{order.refunds}}" wx:key="id" class="card">
       <view>退款单 {{item.id}}</view>
       <view>{{item.statusText}}</view>

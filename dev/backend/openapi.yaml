@@ -21,6 +21,72 @@ tags:
   - name: POSPAL
   - name: Testing
 paths:
+  /api/orders/{orderId}/wechat-receipt:
+    parameters:
+      - { name: orderId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Orders]
+      summary: Get the owner's WeChat receipt confirmation component parameters
+      description: Requires actual delivery or pickup and synchronized shipping. Returns only the transaction identifier required by the native component; never returns the payer OpenID. Pure points and other payment channels return required=false.
+      responses:
+        "200": { description: Required flag and native component parameters }
+        "401": { description: Login required }
+        "404": { description: Order not found or owned by another user }
+        "409": { description: Actual delivery or WeChat shipping synchronization incomplete }
+    post:
+      tags: [Orders]
+      summary: Reconcile the owner's receipt using a server-side WeChat order query
+      description: Ignores all client receipt claims. Checks transaction ID, payer and paid amount before accepting WeChat order states 3 or 4. Never changes payment or refund ledgers.
+      responses:
+        "200": { description: Authoritative confirmed flag and local order }
+        "401": { description: Login required }
+        "404": { description: Order not found or owned by another user }
+        "409": { description: Delivery incomplete or operation in progress }
+        "502": { description: WeChat query failed or identity mismatch }
+  /api/admin/integrations/wechat-orders/status:
+    get:
+      tags: [Admin]
+      security: [{ AdminBearerAuth: [] }]
+      summary: View safe WeChat order management status with order read permission
+      responses:
+        "200": { description: Configuration flags, cached authorization status and queue counts }
+        "401": { description: Admin login required }
+        "403": { description: Missing order read permission }
+  /api/admin/integrations/wechat-orders/check:
+    post:
+      tags: [Admin]
+      security: [{ AdminBearerAuth: [] }]
+      summary: Check WeChat order management authorization with integration read permission
+      description: Performs only WeChat status queries. Does not authorize merchants or upload shipping.
+      responses:
+        "200": { description: Refreshed authorization state or safe provider error code }
+        "401": { description: Admin login required }
+        "403": { description: Missing integration read permission }
+  /api/admin/integrations/wechat-orders/orders/{orderId}/retry:
+    parameters:
+      - { name: orderId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [Admin]
+      security: [{ AdminBearerAuth: [] }]
+      summary: Requeue shipping after review with integration write permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 200 }
+                confirmUnshipped: { type: boolean, description: Required for uncertain attempts after checking the WeChat console; server also verifies an unshipped order after at least one minute }
+      responses:
+        "202": { description: Queued for reconciliation, not proof of successful upload }
+        "400": { description: Missing review reason }
+        "401": { description: Admin login required }
+        "403": { description: Missing integration write permission }
+        "404": { description: Order not found }
+        "409": { description: Already shipped, delivery incomplete or uncertain result not reviewed }
+        "502": { description: Unable to verify the WeChat order }
   /api/me/phone:
     post:
       tags: [Auth]

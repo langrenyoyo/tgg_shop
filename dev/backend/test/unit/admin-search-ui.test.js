@@ -11,6 +11,8 @@ function context(extra = {}) {
   vm.runInContext(`(function () { ${source}\n Object.assign(globalThis, { createAdminSearch, renderGlobalSearch, renderSearchTarget, searchRecords }); })()`, ctx);
   const importer = fs.readFileSync(path.join(adminDir, "product-import.js"), "utf8").replace(/export /g, "");
   vm.runInContext(`(function () { ${importer}\n Object.assign(globalThis, { createProductImport, productImportView }); })()`, ctx);
+  const wechatOrders = fs.readFileSync(path.join(adminDir, "wechat-orders.js"), "utf8").replace(/export /g, "");
+  vm.runInContext(`(function () { ${wechatOrders}\n Object.assign(globalThis, { wechatOrdersPanel, wechatOrderCell, wechatOrderClick }); })()`, ctx);
   return ctx;
 }
 const identity = () => ({ adminId: "admin_1", permissions: ["*"] });
@@ -159,6 +161,20 @@ test("member list shows every POSPAL state, confirmed expiry, quota and escaped 
   state.identity.permissions = ["customer:read"];
   ctx.render(state);
   assert.match(html(), /银豹同步/); assert.doesNotMatch(html(), /data-pospal-member-sync=/);
+});
+
+test("WeChat order status explains incomplete authorization, escapes errors and restricts retry to integration operators", () => {
+  const { ctx, html } = renderContext();
+  const state = { identity: identity(), view: "orders", wechatOrders: { enabled: true, configured: true,
+    management: { tradeManaged: true, confirmationCompleted: false } }, orders: [
+    { id: "order1", items: [], wechatOrderSync: { status: "uncertain", lastError: { code: "network", message: '<img src=x onerror="alert(1)">' } } }
+  ] };
+  ctx.render(state);
+  assert.match(html(), /微信交易结算管理确认未完成/); assert.match(html(), /微信订单同步/);
+  assert.match(html(), /结果待核查/); assert.match(html(), /&lt;img/); assert.doesNotMatch(html(), /<img/);
+  assert.match(html(), /data-wechat-order-retry="order1"/);
+  state.identity.permissions = ["order:read"]; ctx.render(state);
+  assert.doesNotMatch(html(), /data-wechat-order-retry=/); assert.doesNotMatch(html(), /data-wechat-order-check/);
 });
 
 test("the header form submit event reaches the search API and the clear button restores the dashboard", async () => {

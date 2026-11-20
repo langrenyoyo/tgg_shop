@@ -2,6 +2,7 @@ const { saveState } = require("../data/store");
 const { createException } = require("./exception-rules");
 const orderRepository = require("../repositories/order-repository");
 const { logOrderStatus } = require("./rules");
+const wechatOrders = require("./wechat-orders");
 
 function verifyPickup(state, orderId, pickupCode, actor = {}) {
   const order = orderRepository.findById(state, orderId);
@@ -36,6 +37,7 @@ function verifyPickup(state, orderId, pickupCode, actor = {}) {
     operatorId: actor.operatorId || null,
     reason: "代理核销自提码"
   });
+  wechatOrders.enqueue(state, order);
   saveState();
   return { ok: true, order };
 }
@@ -76,6 +78,7 @@ function shipOrder(state, orderId, staffId) {
     operatorType: "admin",
     reason: "后台发货并分配配送员"
   });
+  wechatOrders.enqueue(state, order);
   saveState();
   return { ok: true, order };
 }
@@ -139,6 +142,7 @@ function autoConfirmDeliveryOrders(state, now = new Date()) {
   const confirmed = [];
   for (const order of state.orders || []) {
     if (order.fulfillmentType !== "delivery" || order.status !== "paid" || order.fulfillmentStatus !== "delivered") continue;
+    if (wechatOrders.requiresReceipt(state, order)) continue;
     const deliveredAt = new Date(order.deliveredAt || 0).getTime();
     if (!Number.isFinite(deliveredAt) || deliveredAt > cutoff) continue;
     const result = confirmDeliveryOrder(state, order.id, { operatorType: "system", operatorId: "system", reason: "超过自动确认收货期限" });

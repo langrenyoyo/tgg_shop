@@ -1,5 +1,6 @@
 const { request } = require("../../utils/api");
 const { pay } = require("../../utils/payment");
+const wechatOrders = require("../../utils/wechat-orders");
 const ORDER_LABELS = { pending_payment: "待付款", paid: "已付款", completed: "已完成", cancelled: "已取消", closed: "已关闭", refunding: "退款处理中", refunded: "已退款" };
 const FULFILLMENT_LABELS = { not_started: "尚未安排", pending_pickup: "待自提", picked_up: "已自提", pending_ship: "待配送", shipping: "配送中", delivered: "已送达", cancelled: "已取消" };
 const REFUND_LABELS = { pending_review: "等待退款审核", processing: "退款处理中", refunded: "退款已完成", rejected: "退款未通过", failed: "退款失败，待处理" };
@@ -8,17 +9,17 @@ function nextStep(order) {
   if (order.status === "refunding") return "退款申请已提交，请在下方查看审核和退款进度。";
   if (order.status === "refunded") return "退款账务已完成。如涉及退货，商品验收由工作人员另行核对。";
   if (order.status === "cancelled" || order.status === "closed") return "订单已结束，可返回商城选购。";
-  if (order.status === "completed") return "订单已完成。如有售后问题，可填写原因申请退款。";
+  if (order.status === "completed") return order.wechatReceiptRequired && !order.wechatOrderSync?.receiptConfirmedAt ? "商品已交付，请通过下方微信确认收货。如有售后问题，可申请退款。" : "订单已完成。如有售后问题，可填写原因申请退款。";
   if (order.status === "paid" && order.fulfillmentStatus === "pending_pickup") return ["ready", "received"].includes(order.stationStatus) ? "商品已到站，请前往下方自提点，向工作人员出示自提码。" : order.stationStatus === "exception" ? "站点正在处理商品异常，请等待通知或联系客服。" : "商品正在备货，请等待站点确认到货后再前往自提。";
   if (order.status === "paid" && order.fulfillmentStatus === "pending_ship") return "付款已确认，等待商家安排配送。";
   if (order.status === "paid" && order.fulfillmentStatus === "shipping") return "商品正在配送，请实际收到商品后再确认收货。";
-  if (order.status === "paid" && order.fulfillmentStatus === "delivered") return "商品已送达，请确认收货；超过自动确认期限后系统将自动完成订单。";
+  if (order.status === "paid" && order.fulfillmentStatus === "delivered") return order.wechatReceiptRequired ? "商品已送达，请通过微信确认收货。" : "商品已送达，请确认收货；超过自动确认期限后系统将自动完成订单。";
   return "请刷新查看最新订单进度。";
 }
 Page({
   data: { order: null, reason: "", error: "", busy: false, loading: false, needLogin: false },
   onLoad(query) { this.id = query.id; },
-  onShow() { this.load(); },
+  async onShow() { await wechatOrders.reconcilePending(); return this.load(); },
   onUnload() { this.version = (this.version || 0) + 1; this.ownerId = null; },
   sameOwner(owner = this.ownerId) { return Boolean(owner && owner === this.ownerId && owner === wx.getStorageSync("tgg_user")?.id && wx.getStorageSync("tgg_token")); },
   canAct() {
@@ -89,7 +90,9 @@ Page({
     try {
       const confirmed = await new Promise(resolve => wx.showModal({ title: action === "cancel" ? "确认取消订单？" : "确认已收到商品？", success: result => resolve(result.confirm), fail: () => resolve(false) }));
       if (!confirmed || !this.sameOwner(owner)) return;
-      await request("/api/orders/" + encodeURIComponent(this.id) + "/" + action, { method: "POST", data: {} }); await this.load();
+      if (action === "receive") await wechatOrders.confirmReceipt(this.id);
+      else await request("/api/orders/" + encodeURIComponent(this.id) + "/" + action, { method: "POST", data: {} });
+      await this.load();
     }
     catch (error) { wx.showToast({ title: error.message, icon: "none" }); }
     finally { this.setData({ busy: false }); }
