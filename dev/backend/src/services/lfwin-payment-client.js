@@ -26,6 +26,8 @@ function readConfig(env) {
     signType: env.LFWIN_SIGN_TYPE || "RSA",
     privateKey: env.LFWIN_RSA_PRIVATE_KEY || "",
     publicKey: env.LFWIN_RSA_PUBLIC_KEY || "",
+    qrcodeService: env.LFWIN_QRCODE_SERVICE || "wxpay.comm.qrcode",
+    miniService: env.LFWIN_MINI_SERVICE || "heli.mini.pay",
     timeoutMs: env.LFWIN_TIMEOUT_MS || 10000
   };
 }
@@ -42,6 +44,8 @@ function normalizeConfig(config) {
     signType,
     privateKey: String(config.privateKey || "").replace(/\\n/g, "\n"),
     publicKey: String(config.publicKey || "").replace(/\\n/g, "\n"),
+    qrcodeService: String(config.qrcodeService || "wxpay.comm.qrcode"),
+    miniService: String(config.miniService || "heli.mini.pay"),
     timeoutMs: Math.max(1000, Number(config.timeoutMs || 10000))
   };
 }
@@ -49,9 +53,9 @@ function normalizeConfig(config) {
 async function createPayment(config, request, input = {}) {
   const method = input.method || "qrcode";
   const methods = {
-    qrcode: { path: "/payapi/pay/qrcode", service: "pay.comm.qrcode" },
+    qrcode: { path: "/payapi/pay/qrcode", service: config.qrcodeService },
     h5: { path: "/payapi/trade/h5", service: "pay.comm.h5" },
-    wechat_mini: { path: "/payapi/mini/wxpay", service: "comm.mini.pay" },
+    wechat_mini: { path: "/payapi/mini/wxpay", service: config.miniService },
     alipay_mini: { path: "/payapi/trade/alipay", service: "comm.mini.pay" }
   };
   const target = methods[method];
@@ -142,7 +146,7 @@ async function call(config, request, path, payload) {
 }
 
 function signPayload(config, payload) {
-  const fields = compact(payload);
+  const fields = compact(payload, true);
   fields.sign_type = config.signType === "RSA" ? "rsa" : "MD5";
   fields.sign = sign(config, fields);
   return fields;
@@ -150,7 +154,7 @@ function signPayload(config, payload) {
 
 function verifyPayload(config, payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
-  const fields = compact(payload);
+  const fields = compact(payload, true);
   const received = fields.sign;
   delete fields.sign;
   if (!received) return false;
@@ -224,8 +228,10 @@ function ensureConfigured(config) {
   if (config.signType === "MD5" && !config.signKey) throw new Error("LFWin signing key is not configured");
 }
 
-function compact(input) {
-  return Object.fromEntries(Object.entries(input || {}).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+function compact(input, includeEmpty = false) {
+  // Empty response fields are signed by LFWin, including trade_no,
+  // buyer_account and fund_bill_list on an unpaid order query.
+  return Object.fromEntries(Object.entries(input || {}).filter(([, value]) => value !== undefined && value !== null && (includeEmpty || value !== "")));
 }
 
 function createNonce() { return crypto.randomBytes(16).toString("hex"); }

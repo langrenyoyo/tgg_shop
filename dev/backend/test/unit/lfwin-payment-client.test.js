@@ -136,6 +136,34 @@ test("LFWin pins verification algorithm and merchant identity to server configur
   assert.equal(md5Client.verifyNotification(null), false);
 });
 
+test("LFWin verifies empty response fields without ignoring their presence or contents", () => {
+  const crypto = require("node:crypto");
+  const response = { status: "10000", paystatus: "0", trade_no: "", buyer_account: "", fund_bill_list: "", sign_type: "MD5" };
+  const signature = crypto.createHash("md5").update(canonicalize(response) + "&signkey=" + config.signKey).digest("hex");
+  const client = createLfwinClient({ config });
+  assert.equal(client.verifyNotification({ ...response, sign: signature }), true);
+  const missing = { ...response, sign: signature }; delete missing.trade_no;
+  assert.equal(client.verifyNotification(missing), false);
+  assert.equal(client.verifyNotification({ ...response, trade_no: "changed", sign: signature }), false);
+});
+
+test("LFWin uses documented QR and mini services and accepts server-configured channel overrides", async () => {
+  for (const [method, overrides, expected] of [
+    ["qrcode", {}, "wxpay.comm.qrcode"],
+    ["wechat_mini", {}, "heli.mini.pay"],
+    ["qrcode", { qrcodeService: "alipay.comm.qrcode" }, "alipay.comm.qrcode"],
+    ["wechat_mini", { miniService: "test.mini.pay" }, "test.mini.pay"]
+  ]) {
+    let submitted;
+    const client = createLfwinClient({ config: { ...config, ...overrides }, request: async (_, fields) => {
+      submitted = fields;
+      return signPayload(config, { status: "10000", orderid: "test-order" });
+    } });
+    await client.createPayment({ method, appId: "wx-test", openId: "test-openid", amount: 0.01, merchantOrderNo: "UAT-1", notifyUrl: "https://shop.example/notify" });
+    assert.equal(submitted.service, expected);
+  }
+});
+
 test("valid RSA signatures are accepted but malformed key or signature rejects safely", () => {
   const { generateKeyPairSync } = require("node:crypto");
   const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048, publicKeyEncoding: { type: "spki", format: "pem" }, privateKeyEncoding: { type: "pkcs8", format: "pem" } });
