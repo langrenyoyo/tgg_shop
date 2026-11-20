@@ -27,7 +27,7 @@ function readConfig(env) {
     privateKey: env.LFWIN_RSA_PRIVATE_KEY || "",
     publicKey: env.LFWIN_RSA_PUBLIC_KEY || "",
     qrcodeService: env.LFWIN_QRCODE_SERVICE || "wxpay.comm.qrcode",
-    miniService: env.LFWIN_MINI_SERVICE || "heli.mini.pay",
+    miniService: env.LFWIN_MINI_SERVICE || "comm.mini.pay",
     timeoutMs: env.LFWIN_TIMEOUT_MS || 10000
   };
 }
@@ -45,7 +45,7 @@ function normalizeConfig(config) {
     privateKey: String(config.privateKey || "").replace(/\\n/g, "\n"),
     publicKey: String(config.publicKey || "").replace(/\\n/g, "\n"),
     qrcodeService: String(config.qrcodeService || "wxpay.comm.qrcode"),
-    miniService: String(config.miniService || "heli.mini.pay"),
+    miniService: String(config.miniService || "comm.mini.pay"),
     timeoutMs: Math.max(1000, Number(config.timeoutMs || 10000))
   };
 }

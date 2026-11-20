@@ -147,10 +147,10 @@ test("LFWin verifies empty response fields without ignoring their presence or co
   assert.equal(client.verifyNotification({ ...response, trade_no: "changed", sign: signature }), false);
 });
 
-test("LFWin uses documented QR and mini services and accepts server-configured channel overrides", async () => {
+test("LFWin uses the configured QR and mini services and accepts server channel overrides", async () => {
   for (const [method, overrides, expected] of [
     ["qrcode", {}, "wxpay.comm.qrcode"],
-    ["wechat_mini", {}, "heli.mini.pay"],
+    ["wechat_mini", {}, "comm.mini.pay"],
     ["qrcode", { qrcodeService: "alipay.comm.qrcode" }, "alipay.comm.qrcode"],
     ["wechat_mini", { miniService: "test.mini.pay" }, "test.mini.pay"]
   ]) {
