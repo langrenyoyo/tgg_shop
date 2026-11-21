@@ -9,7 +9,7 @@ function setup() {
   const carts = { alice: [{ productId: "apple", quantity: 1, selected: true }], bob: [{ productId: "banana", quantity: 2, selected: true }] };
   const pending = [], drafts = [], navigation = [], messages = [];
   const owner = () => storage.tgg_user?.id || "guest";
-  const cart = { read: () => structuredClone(carts[owner()] || []), write: value => { carts[owner()] = structuredClone(value); }, writeCheckout: value => drafts.push({ owner: owner(), items: value }) };
+  const cart = { syncTabBarBadge() {}, read: () => structuredClone(carts[owner()] || []), write: value => { carts[owner()] = structuredClone(value); }, writeCheckout: value => drafts.push({ owner: owner(), items: value }) };
   let page;
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/cart/index.js"), "utf8"), {
     Page: value => { page = value; },

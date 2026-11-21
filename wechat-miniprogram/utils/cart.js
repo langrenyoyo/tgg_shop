@@ -7,15 +7,21 @@ function count(items = read()) {
     return total + (Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 0);
   }, 0);
 }
+let badgeBusy = false, badgeDirty = false;
 function syncTabBarBadge() {
+  if (badgeBusy) { badgeDirty = true; return; }
   const total = count();
+  // Serialize native updates so an older set cannot finish after a removal.
+  badgeBusy = true;
+  badgeDirty = false;
+  const complete = () => { badgeBusy = false; if (badgeDirty) syncTabBarBadge(); };
   try {
     if (total > 0 && typeof wx.setTabBarBadge === "function") {
-      wx.setTabBarBadge({ index: 3, text: total > 99 ? "99+" : String(total), fail() {} });
+      wx.setTabBarBadge({ index: 3, text: total > 99 ? "99+" : String(total), fail() {}, complete });
     } else if (typeof wx.removeTabBarBadge === "function") {
-      wx.removeTabBarBadge({ index: 3, fail() {} });
-    }
-  } catch { /* TabBar may not be ready during app launch. */ }
+      wx.removeTabBarBadge({ index: 3, fail() {}, complete });
+    } else complete();
+  } catch { complete(); /* TabBar may not be ready during app launch. */ }
 }
 function checkoutKey() { return "tgg_checkout_" + (wx.getStorageSync("tgg_user")?.id || "guest"); }
 function readCheckout() {

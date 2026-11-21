@@ -80,8 +80,8 @@ test("cart updates the tab bar badge with total item quantity", () => {
       getStorageSync: key => storage.get(key),
       setStorageSync: (key, value) => storage.set(key, value),
       removeStorageSync: key => storage.delete(key),
-      setTabBarBadge: value => badges.push(["set", value]),
-      removeTabBarBadge: value => badges.push(["remove", value])
+      setTabBarBadge: value => { badges.push(["set", value]); value.complete(); },
+      removeTabBarBadge: value => { badges.push(["remove", value]); value.complete(); }
     }
   };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/cart.js"), "utf8"), context);
@@ -96,6 +96,23 @@ test("cart updates the tab bar badge with total item quantity", () => {
   assert.equal(badges.at(-1)[1].index, 3);
   cart.write([{ productId: "bulk", quantity: 120 }]);
   assert.equal(badges.at(-1)[1].text, "99+");
+});
+
+test("an in-flight badge update cannot restore an obsolete count after checkout or an account switch", () => {
+  const storage = new Map([["tgg_user", { id: "alice" }]]), calls = [];
+  const wx = { getStorageSync: k => storage.get(k), setStorageSync: (k, v) => storage.set(k, v), removeStorageSync: k => storage.delete(k),
+    setTabBarBadge: options => calls.push({ type: "set", ...options }), removeTabBarBadge: options => calls.push({ type: "remove", ...options }) };
+  const ctx = { module: { exports: {} }, wx };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/cart.js"), "utf8"), ctx);
+  const cart = ctx.module.exports;
+  cart.write([{ productId: "apple", quantity: 2 }]);
+  cart.writeCheckout([{ productId: "apple", quantity: 2 }], true);
+  cart.completeCheckout(cart.checkoutIdempotencyKey());
+  assert.equal(cart.read().length, 0); assert.equal(calls.length, 1);
+  calls[0].complete(); assert.equal(calls[1].type, "remove");
+  storage.set("tgg_user", { id: "bob" }); cart.write([{ productId: "banana", quantity: 3 }]);
+  calls[1].complete(); assert.equal(calls[2].text, "3");
+  calls[2].complete(); assert.equal(calls.length, 3);
 });
 
 test("app launch refreshes the existing cart badge", () => {

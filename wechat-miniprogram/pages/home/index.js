@@ -34,23 +34,26 @@ Page({
     this.setData({ cartQuantities: productCart.quantities(), navigating: false });
     const returning = this.returningFromProduct;
     this.returningFromProduct = false;
-    if (returning && this.loaded && this.ownerId === wx.getStorageSync("tgg_user")?.id) return;
-    return this.load();
+    if (returning && this.loaded && this.ownerId === wx.getStorageSync("tgg_user")?.id) { this.restoreScroll(); return; }
+    return this.load(this.loaded && this.ownerId === wx.getStorageSync("tgg_user")?.id);
   },
+  onPageScroll(e) { this.savedScrollTop = Math.max(0, Number(e.scrollTop) || 0); },
+  restoreScroll() { if (this.savedScrollTop > 0 && typeof wx.pageScrollTo === "function") wx.pageScrollTo({ scrollTop: this.savedScrollTop, duration: 0 }); },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
 
-  async load() {
+  async load(preserve = false) {
+    preserve = preserve === true && this.loaded;
     const version = this.version = (this.version || 0) + 1;
     const owner = wx.getStorageSync("tgg_user")?.id;
     this.ownerId = owner;
-    this.loaded = false;
+    if (!preserve) { this.loaded = false; this.savedScrollTop = 0; }
     const active = () => version === this.version && owner === wx.getStorageSync("tgg_user")?.id;
-    this.setData({ home: emptyHome(), error: "", loading: true });
+    this.setData(preserve ? { error: "" } : { home: emptyHome(), error: "", loading: true });
     try {
       const home = await request("/api/home");
       if (!active()) return;
       this.loaded = true;
-      this.setData({ home: normalizeHome(home), error: "" });
+      this.setData({ home: normalizeHome(home), error: "" }, () => { if (preserve && active()) this.restoreScroll(); });
     } catch (error) {
       if (active()) this.setData({ error: error.message });
     } finally { if (version === this.version) this.setData({ loading: false }); }
@@ -85,7 +88,7 @@ Page({
     wx.setStorageSync("tgg_shop_entry", { category, search: "" });
     this.goShop();
   },
-  search(e) { wx.setStorageSync("tgg_shop_entry", { category: "", search: e.detail.value }); this.goShop(); },
+  search(e) { wx.setStorageSync("tgg_shop_entry", { category: "", search: typeof e?.detail?.value === "string" ? e.detail.value : "" }); this.goShop(); },
   goMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
   goCustomerService() { wx.navigateTo({ url: "/pages/customer-service/index" }); },
   goInvite() { wx.navigateTo({ url: "/pages/invite/index" }); },

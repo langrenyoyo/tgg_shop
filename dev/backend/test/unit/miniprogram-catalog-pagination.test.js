@@ -3,18 +3,51 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 
 function setup(name = "shop") {
-  const storage = { tgg_user: { id: "alice" } }, pending = [], navigation = [], updates = [];
+  const storage = { tgg_user: { id: "alice" } }, pending = [], navigation = [], updates = [], scrolls = [];
   let page;
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, `../../../../wechat-miniprogram/pages/${name}/index.js`), "utf8"), {
+    setTimeout, clearTimeout,
     Page: value => { page = value; },
     require: name => name.endsWith("product-cart") ? { quantities: () => ({ apple: 2 }) } : { request: url => new Promise((resolve, reject) => pending.push({ url, resolve, reject })) },
-    wx: { getStorageSync: key => storage[key], removeStorageSync: key => delete storage[key], navigateTo: value => navigation.push(value) }
+    wx: { getStorageSync: key => storage[key], removeStorageSync: key => delete storage[key], navigateTo: value => navigation.push(value), pageScrollTo: value => scrolls.push(value.scrollTop) }
   });
   page.setData = (value, callback) => { updates.push(value); Object.assign(page.data, value); callback?.(); };
-  return { page, storage, pending, navigation, updates };
+  return { page, storage, pending, navigation, updates, scrolls };
 }
 const result = (start, count, hasMore = true) => ({ items: Array.from({ length: count }, (_, i) => ({ id: `p${start + i}`, name: `苹果${start + i}` })), total: 25, hasMore, categories: ["水果"] });
 const tap = id => ({ currentTarget: { dataset: { id } } });
+
+test("input search returns no native replacement, supports backspace, debounces and rejects old results", async () => {
+  const { page, pending } = setup();
+  const initial = page.onShow();
+  assert.equal(page.inputSearch({ detail: { value: "苹果" } }), undefined);
+  assert.equal(page.data.search, "苹果");
+  assert.equal(page.inputSearch({ detail: { value: "苹" } }), undefined);
+  assert.equal(page.inputSearch({ detail: { value: "" } }), undefined);
+  assert.equal(page.data.search, "");
+  pending[0].resolve(result(100, 1, false)); await initial;
+  assert.equal(page.data.products.length, 0);
+  await new Promise(resolve => setTimeout(resolve, 300));
+  assert.equal(pending.length, 2); assert.equal(new URL(pending[1].url, "http://local").searchParams.get("search"), "");
+  pending[1].resolve(result(0, 2, false)); await new Promise(setImmediate);
+  assert.equal(page.data.products.length, 2);
+  page.inputSearch({ detail: { value: "取消" } }); page.onHide();
+  await new Promise(resolve => setTimeout(resolve, 300)); assert.equal(pending.length, 2);
+});
+
+test("home refresh after membership, points or sign-in return keeps content mounted and restores the saved offset", async () => {
+  const { page, pending, updates, scrolls, storage } = setup("home");
+  const first = page.onShow(); pending[0].resolve({ recommendProducts: result(0, 4).items }); await first;
+  page.onPageScroll({ scrollTop: 830 });
+  const content = page.data.home; updates.length = 0;
+  const back = page.onShow();
+  assert.equal(page.data.home, content); assert.ok(updates.every(v => !("home" in v)));
+  pending[1].resolve({ recommendProducts: result(0, 4).items }); await back;
+  assert.equal(scrolls.at(-1), 830);
+  storage.tgg_user = { id: "bob" };
+  const changed = page.onShow(); assert.equal(page.savedScrollTop, 0);
+  pending[2].resolve({}); await changed;
+});
 
 test("all category stays first, global search leaves the selected category, and selecting all clears search", async () => {
   const { page, pending } = setup();

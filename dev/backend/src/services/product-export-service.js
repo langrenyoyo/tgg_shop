@@ -11,7 +11,7 @@ function exportProducts(state) {
     const specification = unit === originalUnit ? details.specification : unit;
     const mainUnit = unit === originalUnit ? details.mainUnit : "";
     return [product.name, product.category, product.barcode || product.pospalBarcode, specification, mainUnit,
-      product.stock, details.costPrice, product.regularPrice, details.wholesalePrice, product.cashPrice,
+      product.stock, details.costPrice, product.regularPrice, details.wholesalePrice, product.cashPriceText || product.cashPrice,
       details.memberDiscount, details.stockMax, details.stockMin, details.brand, details.supplier,
       details.productionDate, details.shelfLife].map(value => value ?? "");
   });

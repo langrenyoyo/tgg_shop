@@ -283,7 +283,7 @@ function products(state) {
       trustedHtml(`<span class="product-drag-handle" title="拖动调整顺序">⠿ ${state.products.findIndex(row => row.id === item.id) + 1}</span>`),
       trustedHtml(`${escapeHtml(item.name || item.title || item.id)}<br><span class="muted-text">${escapeHtml(item.id)}${item.locationCode ? ` · 库位 ${escapeHtml(item.locationCode)}` : ""}</span>`),
       item.membershipGiftDays > 0 ? `${item.category} · 每件赠 ${item.membershipGiftDays} 天` : item.category || "-",
-      item.purePointsOnly ? `${item.pointsPriceText || `${item.pointsPrice || 0} 积分`}（实际扣减 ${item.pointsPrice || 0} 积分/件）` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ¥${Number(item.cashPrice || 0).toFixed(2)} / 零售价 ${typeof item.regularPrice === "string" ? item.regularPrice || "待设置" : item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPriceText || `${item.pointsPrice || 0} 积分`}（实际扣减 ${item.pointsPrice || 0} 积分/件）` : ""}`,
+      item.purePointsOnly ? `${item.pointsPriceText || `${item.pointsPrice || 0} 积分`}（实际扣减 ${item.pointsPrice || 0} 积分/件）` : `${item.membershipGiftDays > 0 ? "活动价" : "会员价"} ${item.cashPriceText || `¥${Number(item.cashPrice || 0).toFixed(2)}`}（结算 ¥${Number(item.cashPrice || 0).toFixed(2)}） / 零售价 ${typeof item.regularPrice === "string" ? item.regularPrice || "待设置" : item.regularPrice > 0 ? `¥${Number(item.regularPrice).toFixed(2)}` : "待设置"}${item.supportsPoints ? ` / ${item.pointsPriceText || `${item.pointsPrice || 0} 积分`}（实际扣减 ${item.pointsPrice || 0} 积分/件）` : ""}`,
       item.stock ?? 0,
       badge(item.status === "on" ? "on" : item.publishedAt ? "off" : "草稿 / 已下架", item.status === "on" ? "" : "orange"),
       productActionButtons(item)
@@ -323,7 +323,7 @@ function homeOps(state) {
   return `<section class="panel"><div class="panel-head"><h2>首页运营配置</h2><span>保存后在用户首页生效</span></div>
     ${state.homeMessage ? `<p role="status">${escapeHtml(state.homeMessage)}</p>` : ""}
     <form class="admin-form" data-config-form="home"><fieldset class="editor-fields" ${can("config:write") ? "" : "disabled"}>
-      <div class="editor-grid"><label>轮播图数量<select name="homeCarouselCount"><option value="3" ${(config.homeCarouselImages || []).length === 5 ? "" : "selected"}>3 张</option><option value="5" ${(config.homeCarouselImages || []).length === 5 ? "selected" : ""}>5 张</option></select></label>${field("服务标签（逗号分隔）", "homeServiceBadges", (config.homeServiceBadges || []).join("，"))}</div>
+      <div class="editor-grid"><label>轮播图数量<select name="homeCarouselCount"><option value="3" ${(config.homeCarouselImages || []).length === 5 ? "" : "selected"}>3 张</option><option value="5" ${(config.homeCarouselImages || []).length === 5 ? "selected" : ""}>5 张</option></select></label>${field("顶部滚动公告（逗号分隔多条）", "homeServiceBadges", (config.homeServiceBadges || []).join("，"))}</div>
       <p class="muted-text">首页轮播图仅展示，不绑定商品，也不会跳转。请配置 3 张或 5 张图片。</p>
       <div class="carousel-image-editors">${carouselImageEditors(config.homeCarouselImages, config.homeBannerImage).join("")}</div>
       <h3>企业客服</h3>

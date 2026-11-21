@@ -5,7 +5,7 @@ const { GIFT_CATEGORY } = require("../domain/product-membership");
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const fail = (status, error) => ({ ok: false, status, error });
 const allowed = (actor, permission) => (actor.role?.permissions || []).some(value => value === "*" || value === permission);
-const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "regularPrice", "pointsPrice", "pointsPriceText", "supportsCash", "supportsPoints", "barcode", "locationCode", "backupLocation", "storageType", "pickSequence", "membershipGiftDays"];
+const editable = ["name", "category", "tag", "image", "description", "unit", "cashPrice", "cashPriceText", "regularPrice", "pointsPrice", "pointsPriceText", "supportsCash", "supportsPoints", "barcode", "locationCode", "backupLocation", "storageType", "pickSequence", "membershipGiftDays"];
 
 function imageUrlValid(value) {
   if (!value || /[<>"'\\\s]/.test(value)) return false;
@@ -53,9 +53,10 @@ function prepareProduct(input, previous = {}) {
       product.regularPrice = value;
     } else return fail(400, "零售价须为展示文字或有效金额");
   }
-  if (own(input, "pointsPriceText")) {
-    if (typeof input.pointsPriceText !== "string" || input.pointsPriceText.trim().length > 120) return fail(400, "积分价展示文字须为最多 120 个字符的文本");
-    product.pointsPriceText = input.pointsPriceText.trim();
+  for (const key of ["pointsPriceText", "cashPriceText"]) {
+    if (!own(input, key)) continue;
+    if (typeof input[key] !== "string" || input[key].trim().length > 120 || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(input[key])) return fail(400, "价格展示文字须为最多 120 个字符的文本，不能包含控制字符");
+    product[key] = input[key].trim();
   }
   for (const key of ["stock", "pointsPrice", "cashPrice"]) {
     if (!own(input, key)) continue;

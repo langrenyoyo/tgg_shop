@@ -6,7 +6,7 @@ export function productImportView(state) {
   const issues = (items, title) => !items?.length ? "" : `<details open><summary>${title}（${items.length} 项）</summary><div class="product-import-scroll"><table><thead><tr><th>Excel 行号</th><th>字段</th><th>修改提示</th></tr></thead><tbody>${items.slice(0, 200).map(item => `<tr><td>第 ${item.row} 行</td><td>${esc(item.field)}</td><td>${esc(item.message)}</td></tr>`).join("")}</tbody></table></div>${items.length > 200 ? '<p>页面显示前 200 项，可下载完整校验结果查看全部问题。</p>' : ""}</details>`;
   return `<section class="panel product-import" aria-label="商品文档导入"><div class="panel-head"><h2>Excel 批量导入商品</h2><button type="button" class="action muted-action" data-product-import-template ${view.busy ? "disabled" : ""}>下载导入模板</button></div>
     <p>使用《商品导入模板.xls》，支持 Excel 97–2003 的 .xls 文件，最大 2 MB、每次最多 1000 个商品。必填：名称、分类、进货价、销售价。填写会员价时，“会员折扣”须填“否”。条码建议设为文本。</p>
-    <p class="note">导入后全部为下架草稿。销售价仅作零售价展示，会员价用于实际结算；未填会员价时留为 0，补齐后才能上架。商品图片需另行上传，积分兑换默认关闭。重复条码会报错，不覆盖已有商品。</p>
+    <p class="note">按“商品名称＋分类”匹配，存在则覆盖模板字段，不存在则新增；均保存为下架草稿。批发价非必填，销售价和会员价支持数字、中文、符号和英文。文字会员价仅展示，须补齐数字结算价才能上架；不自动提取或推算金额。覆盖保留原商品编号、图片及其他非模板配置，条码冲突会提醒。</p>
     <form class="admin-form" data-product-import-preview><label>选择商品文件<input type="file" name="workbook" accept=".xls,application/vnd.ms-excel" required ${view.busy ? "disabled" : ""}></label><button class="action" type="submit" ${view.busy ? "disabled" : ""}>上传并检查</button></form>
     ${view.busy ? '<p role="status">正在处理，请稍候…</p>' : ""}
     ${view.error ? `<p class="product-form-error" role="alert">${esc(view.error)}</p>` : ""}
@@ -15,7 +15,8 @@ export function productImportView(state) {
       ${!report.valid ? '<p class="product-form-error" role="alert">本批次未导入任何商品，请按以下提示修改文件，再重新上传。</p>' : ""}
       ${issues(report.errors, "必须修改的错误")}${issues(report.warnings, "请核对的提醒")}
       <button class="action muted-action" type="button" data-product-import-feedback>下载完整校验结果</button>
-      <details><summary>商品预览（显示前 50 行）</summary><div class="product-import-scroll"><table><thead><tr><th>行号</th><th>名称</th><th>分类</th><th>条码</th><th>规格/单位</th><th>库存</th><th>销售价</th><th>会员价</th></tr></thead><tbody>${report.rows.slice(0, 50).map(row => `<tr><td>${row.row}</td><td>${esc(row.name)}</td><td>${esc(row.category)}</td><td>${esc(row.barcode)}</td><td>${esc(row.unit)}</td><td>${row.stock}</td><td>${row.salePrice ?? "未填写"}</td><td>${row.memberPrice ?? "未填写"}</td></tr>`).join("")}</tbody></table></div></details>
+      <p>预计新增 ${report.createCount ?? report.total} 个，覆盖 ${report.updateCount || 0} 个。请核对覆盖对象、库存及价格。</p>
+      <details><summary>商品预览（显示前 50 行）</summary><div class="product-import-scroll"><table><thead><tr><th>行号</th><th>操作</th><th>名称</th><th>分类</th><th>条码</th><th>规格/单位</th><th>库存</th><th>销售价</th><th>会员价</th></tr></thead><tbody>${report.rows.slice(0, 50).map(row => `<tr><td>${row.row}</td><td>${row.action === "update" ? "覆盖" : "新增"}</td><td>${esc(row.name)}</td><td>${esc(row.category)}</td><td>${esc(row.barcode)}</td><td>${esc(row.unit)}</td><td>${row.stock}</td><td>${esc(row.salePrice ?? "未填写")}</td><td>${esc(row.memberPrice ?? "未填写")}</td></tr>`).join("")}</tbody></table></div></details>
       ${report.valid && report.previewId && !view.committed ? `<form class="admin-form" data-product-import-commit><label>导入原因<input name="reason" required maxlength="200" value="${esc(view.reason || "")}" placeholder="例如：首批商品资料导入" ${view.busy ? "disabled" : ""}></label>
       ${report.warnings.length ? `<label class="check"><input type="checkbox" name="acknowledgeWarnings" required ${view.acknowledged ? "checked" : ""} ${view.busy ? "disabled" : ""}>我已核对以上提醒</label>` : ""}
       <button class="action" type="submit" ${view.busy ? "disabled" : ""}>确认导入 ${report.total} 个下架草稿</button><p>预览有效期 30 分钟，确认时会再次检查条码、字段及权限。</p></form>` : ""}
@@ -94,7 +95,7 @@ export function createProductImport(state, { api, render, reload }) {
           .then(async result => {
             if (seq !== generation) return;
             view.committed = true;
-            view.message = `成功导入 ${result.batch.count} 个商品，均已保存为下架草稿。可在商品列表中编辑、补齐图片后上架。`;
+            view.message = `成功导入 ${result.batch.count} 个商品（新增 ${result.batch.createdCount ?? result.batch.count} 个，覆盖 ${result.batch.updatedCount || 0} 个），均已保存为下架草稿。请核对价格及库存后上架。`;
             try { await reload(); } catch { view.message += " 商品列表刷新失败，请手动刷新核对，勿重复上传。"; }
           });
       }

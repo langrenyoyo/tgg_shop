@@ -856,7 +856,7 @@ test("product document import reports bad fields, imports drafts and exports the
     return filename;
   };
   const good = ["浏览器导入测试苹果", "水果", "0000098765432", "500g", "盒", "", 3.5, 10, 6, 8, "否", 100, 5, "果园", "浏览器供货商", "2026-11-19", "30天"];
-  const bad = good.slice(); bad[0] = ""; bad[7] = "价格错误";
+  const bad = good.slice(); bad[0] = ""; bad[7] = "价格错误".repeat(31);
   const invalidFile = writeFile("错误商品.xls", bad), validFile = writeFile("商品.xls", good);
   const server = startServer();
   const chrome = spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
@@ -885,7 +885,7 @@ test("product document import reports bad fields, imports drafts and exports the
     await page.waitForText("本批次未导入任何商品");
     const errors = await page.evaluate(`document.querySelector('.product-import-result').innerText`);
     assert.match(errors, /第 3 行/); assert.match(errors, /名称（必填）/); assert.match(errors, /必填项不能为空/);
-    assert.match(errors, /销售价（必填）/); assert.match(errors, /非负金额/);
+    assert.match(errors, /销售价（必填）/); assert.match(errors, /最多 120/);
     assert.equal(await page.evaluate(`Boolean(document.querySelector('[data-product-import-commit]'))`), false);
     assert.deepEqual(await products(), before, "invalid workbook must not mutate products");
     await upload(validFile);
@@ -917,6 +917,17 @@ test("product document import reports bad fields, imports drafts and exports the
     assert.equal(exported[14], "浏览器供货商");
     const original = exportedRows.find(row => row[0] === "丹东草莓 500g");
     assert.equal(original[6], ""); assert.equal(original[14], "");
+    const updateRow = good.slice(); updateRow[7] = "零售 VIP <优惠>"; updateRow[9] = "会员专享 & ABC"; updateRow[8] = "";
+    await upload(writeFile("覆盖商品.xls", updateRow));
+    await page.waitForText("预计新增 0 个，覆盖 1 个");
+    assert.equal(await page.evaluate(`Boolean(document.querySelector('.product-import-result script'))`), false);
+    const previewHtml = await page.evaluate(`document.querySelector('.product-import-result').innerHTML`);
+    assert.ok(previewHtml.includes("&lt;优惠&gt;"));
+    await page.fillFormAndSubmit('[data-product-import-commit]', { reason: "覆盖导入验收", acknowledgeWarnings: true });
+    await page.waitForText("成功导入 1 个商品（新增 0 个，覆盖 1 个）");
+    const updated = await products(), overwritten = updated.find(p => p.id === imported.id);
+    assert.equal(updated.length, after.length); assert.equal(overwritten.cashPrice, 0);
+    assert.equal(overwritten.cashPriceText, updateRow[9]); assert.equal(overwritten.regularPrice, updateRow[7]);
     await page.evaluate(`fetch('/api/admin/users/u_1001', {method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('tggAdminToken')},body:JSON.stringify({memberMonths:1,reason:'浏览器验证银豹同步显示',idempotencyKey:crypto.randomUUID()})}).then(r=>{if(!r.ok)throw new Error('membership setup failed')})`);
     await page.click('#refresh');
     await page.click('button[data-view="users"]');

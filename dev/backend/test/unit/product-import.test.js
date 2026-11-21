@@ -52,7 +52,7 @@ test("preview is read-only and reports original Excel row numbers and preserved 
 
 test("all missing required cells are reported together and invalid workbook cannot be committed", async () => {
   const state = createSeed(), before = JSON.stringify(state);
-  const report = preview(state, [row({ name: "", category: "", costPrice: "", salePrice: "" }), row({ barcode: "other", stock: -1, memberPrice: "abc", productionDate: "2026-02-30" })]);
+  const report = preview(state, [row({ name: "", category: "", costPrice: "", salePrice: "" }), row({ barcode: "other", stock: -1, memberPrice: "a".repeat(121), productionDate: "2026-02-30" })]);
   assert.equal(report.valid, false); assert.equal(report.previewId, undefined);
   for (const field of ["名称（必填）", "分类（必填）", "进货价（必填）", "销售价（必填）"]) assert.ok(report.errors.some(e => e.row === 3 && e.field === field), field);
   for (const field of ["库存量", "会员价", "生产日期"]) assert.ok(report.errors.some(e => e.row === 4 && e.field === field), field);
@@ -84,7 +84,7 @@ test("optional omissions warn, remain drafts, and never silently copy sale price
 
 test("invalid optional fields, fractions, excess precision, limits and discount conflicts all block imports", () => {
   const cases = [
-    ["stock", 1.5], ["costPrice", -1], ["salePrice", "abc"], ["memberPrice", 1.234], ["wholesalePrice", 100000001],
+    ["stock", 1.5], ["costPrice", -1], ["salePrice", "a".repeat(121)], ["memberPrice", "a".repeat(121)], ["wholesalePrice", 100000001],
     ["memberDiscount", "是"], ["memberDiscount", "85"], ["stockMax", -1], ["stockMin", 101], ["productionDate", "1900-02-29"],
     ["shelfLife", "随便"], ["name", "a".repeat(121)], ["category", "纯积分"], ["supplier", "<script>"]
   ];
@@ -158,7 +158,7 @@ test("permissions, actor ownership and changed stock rights are checked again on
 
 test("a conflicting product or deleted category created after preview prevents the entire batch", async () => {
   for (const mode of ["barcode", "category"]) {
-    const state = createSeed(); const report = preview(state, [row(), row({ barcode: "other" })]);
+    const state = createSeed(); const report = preview(state, [row(), row({ barcode: "other", name: "另一商品" })]);
     if (mode === "barcode") state.products[0].barcode = row().barcode;
     else state.config.deletedProductCategories = ["水果"];
     const before = JSON.stringify(state), result = await commit(state, report);
@@ -188,6 +188,71 @@ test("import metadata, draft contents and receipt survive SQLite reload; replay 
   assert.equal(restored.products.find(p => p.id === id).barcode, row().barcode);
   assert.equal(restored.config.productImports.metadata[id].supplier, row().supplier);
   assert.equal((await commit(restored, report)).idempotent, true);
+});
+
+test("name and category upsert preserves identity, image and settings, clears optional template data, and records stock delta once", async () => {
+  const state = createSeed();
+  const existing = state.products[0];
+  Object.assign(existing, { name: row().name, category: row().category, barcode: row().barcode, image: "/assets/apple.png", stock: 15, status: "on", locationCode: "A-1" });
+  const before = structuredClone(existing), count = state.products.length;
+  const report = preview(state, [row({ stock: 4, wholesalePrice: "", brand: "" }), row({ name: "新增商品", barcode: "new" })]);
+  assert.equal(report.valid, true); assert.equal(report.updateCount, 1); assert.equal(report.createCount, 1);
+  const result = await commit(state, report);
+  assert.equal(state.products.length, count + 1);
+  assert.equal(result.batch.productIds[0], existing.id); assert.equal(result.batch.updatedCount, 1);
+  assert.equal(existing.image, before.image); assert.equal(existing.locationCode, "A-1");
+  assert.equal(existing.supportsPoints, before.supportsPoints); assert.equal(existing.status, "off");
+  assert.equal(existing.stock, 4); assert.equal(existing.revision, (before.revision || 0) + 1);
+  const entry = state.inventoryLedger.find(e => e.batchNo === report.previewId && e.productId === existing.id);
+  assert.equal(entry.changeType, "stocktake"); assert.equal(entry.quantityDelta, -11);
+  assert.equal(state.config.productImports.metadata[existing.id].wholesalePrice, null);
+  assert.equal(state.config.productImports.metadata[existing.id].brand, "");
+  assert.equal((await commit(state, report)).idempotent, true);
+  assert.equal(state.inventoryLedger.filter(e => e.batchNo === report.previewId).length, 2);
+});
+
+test("display prices accept Chinese, English and symbols and export as literal text, without deriving a payment amount", async () => {
+  const state = createSeed(), sale = "参考 <优惠> ¥12/kg ABC", member = "会员专享 ¥8/盒 & VIP";
+  const report = preview(state, [row({ salePrice: sale, memberPrice: member, wholesalePrice: "" })]);
+  assert.equal(report.valid, true); assert.ok(report.warnings.some(e => /不从文字推算/.test(e.message)));
+  const result = await commit(state, report), product = state.products.find(p => p.id === result.batch.productIds[0]);
+  assert.equal(product.regularPrice, sale); assert.equal(product.cashPriceText, member); assert.equal(product.cashPrice, 0);
+  assert.equal(require("../../src/services/product-admin-service").prepareProduct({ status: "on", image: "/assets/apple.png" }, product).ok, false);
+  const book = XLSX.read(require("../../src/services/product-export-service").exportProducts(state), { type: "buffer" });
+  const rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]], { header: 1 });
+  const exported = rows.find(r => r[0] === row().name); assert.equal(exported[7], sale); assert.equal(exported[9], member);
+});
+
+test("upsert refuses ambiguous identities, duplicate pairs, pure points targets and unauthorized stock decreases", () => {
+  const state = createSeed(), existing = state.products[0];
+  Object.assign(existing, { name: row().name, category: row().category, barcode: row().barcode, stock: 15 });
+  const staff = { ...actor, role: { permissions: ["product:write"] } };
+  assert.equal(preview(state, [row({ stock: 0 })], staff).valid, false);
+  assert.equal(preview(state, [row({ stock: 15 })], staff).valid, true);
+  const duplicate = preview(state, [row(), row({ barcode: "different" })]);
+  assert.equal(duplicate.valid, false); assert.ok(duplicate.errors.some(e => /名称和分类相同/.test(e.message)));
+  existing.purePointsOnly = true;
+  assert.equal(preview(state, [row()]).valid, false);
+  existing.purePointsOnly = false;
+  state.products.push({ ...existing, id: "ambiguous" });
+  assert.ok(preview(state, [row()]).errors.some(e => /多个同名同分类/.test(e.message)));
+});
+
+test("upsert revalidates target snapshots and restores existing data and metadata on persistence failure", async () => {
+  const state = createSeed(), existing = state.products[0];
+  Object.assign(existing, { name: row().name, category: row().category, barcode: row().barcode });
+  const stale = preview(state, [row()]); existing.stock++;
+  const afterChange = JSON.stringify(state);
+  await assert.rejects(commit(state, stale), /已变化/); assert.equal(JSON.stringify(state), afterChange);
+  state.config.productImports = { metadata: { [existing.id]: { brand: "原品牌" } }, batches: {} };
+  const report = preview(state, [row(), row({ name: "新增", barcode: "new" })]), before = JSON.stringify(state);
+  await assert.rejects(commit(state, report, async () => { throw new Error("disk"); }), /保存失败/);
+  assert.equal(JSON.stringify(state), before);
+  await assert.rejects(commit(state, report, async () => { existing.tag = "并发修改"; existing.stock += 2; throw new Error("disk"); }), /保存失败/);
+  assert.equal(existing.tag, "并发修改");
+  assert.equal(existing.stock, JSON.parse(before).products[0].stock + 2);
+  const retry = preview(state, [row()]);
+  assert.equal((await commit(state, retry)).ok, true);
 });
 
 function authorized(state, role, method, buffer) {

@@ -3,7 +3,7 @@ const XLSX = require("xlsx");
 const { nextId, saveState } = require("../data/store");
 const { prepareProduct } = require("./product-admin-service");
 const inventory = require("../repositories/inventory-repository");
-const { exclusive } = require("./operation-lock");
+const { exclusive, isBusy } = require("./operation-lock");
 
 const HEADERS = ["名称（必填）", "分类（必填）", "条码", "规格", "主单位", "库存量", "进货价（必填）", "销售价（必填）", "批发价", "会员价", "会员折扣", "库存上限", "库存下限", "品牌", "供货商", "生产日期", "保质期"];
 const KEYS = ["name", "category", "barcode", "specification", "mainUnit", "stock", "costPrice", "salePrice", "wholesalePrice", "memberPrice", "memberDiscount", "stockMax", "stockMin", "brand", "supplier", "productionDate", "shelfLife"];
@@ -64,8 +64,7 @@ function analyze(state, buffer, filename, actor) {
   for (const key of REQUIRED) if (!columns.has(key)) issue(1, HEADERS[KEYS.indexOf(key)], "缺少必填列，请恢复模板表头");
   for (const key of KEYS) if (!REQUIRED.has(key) && !columns.has(key)) issue(1, HEADERS[KEYS.indexOf(key)], "缺少可选列，将按空值处理", true);
   if (report.errors.length) return { report, products: [] };
-  const products = [], barcodes = new Map();
-  const existingCodes = new Set(state.products.flatMap(p => [p.barcode, p.pospalBarcode]).filter(Boolean).map(String));
+  const products = [], barcodes = new Map(), identities = new Map();
   for (let r = 1; r <= range.e.r; r++) {
     const cells = [...columns].map(([key, col]) => [key, cell(r, col)]);
     if (cells.every(([, c]) => !text(c?.v) && !c?.f)) continue;
@@ -76,6 +75,15 @@ function analyze(state, buffer, filename, actor) {
     const label = key => HEADERS[KEYS.indexOf(key)];
     const error = (key, message) => issue(row, label(key), message);
     const warn = (key, message) => issue(row, label(key), message, true);
+    const matches = state.products.filter(p => !p.deletedAt && p.name?.trim() === values.name && p.category?.trim() === values.category);
+    const previous = matches.length === 1 ? matches[0] : null;
+    if (matches.length > 1) error("name", "后台有多个同名同分类商品，无法确定覆盖对象，请先合并或更名");
+    const identity = JSON.stringify([values.name, values.category]);
+    if (identities.has(identity)) error("name", `与第 ${identities.get(identity)} 行名称和分类相同，请只保留一行`);
+    else identities.set(identity, row);
+    if (previous?.purePointsOnly) error("category", "不能用现金商品模板覆盖纯积分商品");
+    if (previous && isBusy(previous)) error("name", "商品正在处理中，请稍后重新预览");
+    if (previous) warn("name", "名称和分类已存在，将覆盖模板字段并保存为下架草稿；原商品编号、图片及非模板配置保留");
     for (const [key, c] of cells) {
       if (c?.f) error(key, "不能使用公式，请复制并粘贴为数值或文本");
       if (c?.t === "e") error(key, "单元格包含 Excel 错误值，请修正");
@@ -94,12 +102,19 @@ function analyze(state, buffer, filename, actor) {
       }
       return Number(raw);
     }
-    const costPrice = number("costPrice"), salePrice = number("salePrice"), wholesalePrice = number("wholesalePrice"), memberPrice = number("memberPrice");
+    function displayPrice(key) {
+      const raw = values[key] || "";
+      if (!raw) return null;
+      if (raw.length > 120 || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(raw)) error(key, "价格文本最多 120 个字符，不能包含控制字符");
+      return /^\d+(?:\.\d{1,2})?$/.test(raw) && Number(raw) <= 100000000 ? Number(raw) : raw;
+    }
+    const costPrice = number("costPrice"), salePrice = displayPrice("salePrice"), wholesalePrice = number("wholesalePrice"), memberPrice = displayPrice("memberPrice");
     const stock = number("stock", true), stockMax = number("stockMax", true), stockMin = number("stockMin", true);
     if (stockMax != null && stockMin != null && stockMin > stockMax) error("stockMin", "库存下限不能大于库存上限");
     if (!values.stock) warn("stock", "未填写库存，将以 0 导入，补齐库存后才能上架");
     if (!values.memberPrice) warn("memberPrice", "未填写会员价，实际结算价将留为 0，需补齐后才能上架（不会自动套用销售价）");
     if (memberPrice === 0) warn("memberPrice", "会员价为 0，需设置大于 0 的会员价后才能上架");
+    if (typeof memberPrice === "string") warn("memberPrice", "会员价按展示文字保存，不从文字推算收款金额；须补齐数字结算价后才能上架");
     if (salePrice === 0) warn("salePrice", "销售价为 0，需补齐零售价后才能上架");
     if (values.memberDiscount && !["是", "否"].includes(values.memberDiscount)) error("memberDiscount", "请填写“是”或“否”，不接受数字折扣");
     if (values.memberPrice && values.memberDiscount !== "否") error("memberDiscount", "已填写会员价时，会员折扣必须填写“否”");
@@ -114,7 +129,7 @@ function analyze(state, buffer, filename, actor) {
       }
     }
     if (barcode) {
-      if (existingCodes.has(barcode)) error("barcode", "该条码已存在于后台，本次只新增商品，不覆盖已有商品");
+      if (state.products.some(p => !p.deletedAt && p.id !== previous?.id && [p.barcode, p.pospalBarcode].filter(Boolean).map(String).includes(barcode))) error("barcode", "该条码已存在于其他商品，请核对名称、分类或条码");
       if (barcodes.has(barcode)) {
         error("barcode", `与第 ${barcodes.get(barcode)} 行条码重复，请修改或删除重复行`);
         issue(barcodes.get(barcode), label("barcode"), `与第 ${row} 行条码重复，请修改或删除重复行`);
@@ -139,14 +154,15 @@ function analyze(state, buffer, filename, actor) {
     if (values.category === "纯积分") error("category", "此模板没有积分价，不能导入纯积分商品；请使用后台纯积分商品编辑功能");
     if ((state.config?.deletedProductCategories || []).includes(values.category)) error("category", "该分类已删除，请选择其他分类");
     if (values.category === "买商品送会员") warn("category", "专区商品按现有规则每件默认赠送 30 天会员，请在上架前核对");
-    if ((stock || 0) > 0 && !allowed(actor, "stock:write")) error("stock", "当前账号没有库存管理权限，不能导入大于 0 的初始库存");
+    if ((stock || 0) !== (previous?.stock || 0) && !allowed(actor, "stock:write")) error("stock", "当前账号没有库存管理权限，不能导入或覆盖库存");
     const result = prepareProduct({ name: values.name || "", category: values.category || "", barcode, unit, stock: stock || 0,
-      regularPrice: salePrice, cashPrice: memberPrice || 0, supportsPoints: false, status: "off" });
+      regularPrice: salePrice, cashPrice: typeof memberPrice === "number" ? memberPrice : 0,
+      cashPriceText: typeof memberPrice === "string" ? memberPrice : "", supportsPoints: previous?.supportsPoints ?? false, status: "off" }, previous || {});
     if (!result.ok && report.errors.length === startErrors) error("name", result.error);
     const metadata = { specification: values.specification || "", mainUnit: values.mainUnit || "", costPrice, salePrice, wholesalePrice, memberPrice,
       memberDiscount: values.memberDiscount || "", stockMax, stockMin, brand: values.brand || "", supplier: values.supplier || "", productionDate, shelfLife };
-    report.rows.push({ row, name: values.name || "", category: values.category || "", barcode, unit, stock: stock || 0, salePrice, memberPrice });
-    products.push({ row, product: result.product, metadata });
+    report.rows.push({ row, name: values.name || "", category: values.category || "", barcode, unit, stock: stock || 0, salePrice, memberPrice, action: previous ? "update" : "create" });
+    products.push({ row, product: result.product, metadata, existingId: previous?.id || null });
   }
   report.total = report.rows.length;
   if (report.total > MAX_ROWS) issue(1, "商品行数", "最多导入 1000 行商品，请拆分文件");
@@ -155,7 +171,9 @@ function analyze(state, buffer, filename, actor) {
   report.validRows = report.total - invalidRows.size;
   if (!report.total) issue(2, "商品数据", "文件中没有商品，请从表头下方填写商品；模板提示行不属于商品");
   report.valid = report.errors.length === 0 && report.total > 0;
-  report.guidance = "商品将全部保存为下架草稿；销售价作为零售价展示，会员价作为实际结算价。图片需另行补齐，积分兑换默认关闭。";
+  report.createCount = products.filter(p => !p.existingId).length;
+  report.updateCount = products.length - report.createCount;
+  report.guidance = "按名称和分类匹配，存在则覆盖模板字段，不存在则新增，全部保存为下架草稿。批发价可空，销售价和会员价支持文本；文字会员价须另设数字结算价，不自动推算金额。";
   return { report, products };
 }
 
@@ -167,7 +185,9 @@ function previewImport(state, buffer, filename, actor, now = Date.now()) {
   for (const [id, item] of cache) if (item.expiresAt <= now) cache.delete(id);
   if (cache.size >= 20) throw problem(429, "待确认导入过多，请稍后重试（预览有效期 30 分钟）");
   const previewId = crypto.randomUUID();
-  cache.set(previewId, { buffer: Buffer.from(buffer), filename, actorId: owner(actor), expiresAt: now + 30 * 60000 });
+  const targets = result.products.map(item => ({ existingId: item.existingId,
+    snapshot: item.existingId ? JSON.stringify(state.products.find(p => p.id === item.existingId)) : null }));
+  cache.set(previewId, { buffer: Buffer.from(buffer), filename, actorId: owner(actor), targets, expiresAt: now + 30 * 60000 });
   return { ...result.report, previewId, expiresAt: new Date(now + 30 * 60000).toISOString() };
 }
 
@@ -186,32 +206,55 @@ async function commitImport(state, input, actor, logOperation, save = saveState)
     if (pending.expiresAt <= Date.now()) { cache.delete(input.previewId); throw problem(409, "导入预览已过期，请重新上传校验"); }
     const { report, products } = analyze(state, pending.buffer, pending.filename, actor);
     if (!report.valid) return { ok: false, report, error: "商品或权限已变化，请按提示修改后重新上传；本批次未导入任何商品" };
+    if (products.some((item, i) => item.existingId !== pending.targets[i]?.existingId
+      || (item.existingId && JSON.stringify(state.products.find(p => p.id === item.existingId)) !== pending.targets[i].snapshot))) {
+      throw problem(409, "覆盖对象、库存或商品资料已变化，请重新上传预览后确认");
+    }
     if (report.warnings.length && input.acknowledgeWarnings !== true) throw problem(400, "请先核对并确认导入提醒");
-    const now = new Date().toISOString(), ids = [], ledgerIds = [];
+    const now = new Date().toISOString(), ids = [], ledgerIds = [], createdIds = [], updates = [];
     const firstSort = Math.min(0, ...state.products.map(p => p.sortOrder || 0));
     state.config.productImports ||= { metadata: {}, batches: {} };
     const store = state.config.productImports;
     store.metadata ||= {}; store.batches ||= {};
     for (const [index, item] of products.entries()) {
-      const product = { ...item.product, id: nextId("p"), revision: 1, createdAt: now, updatedAt: now, sortOrder: firstSort - products.length + index };
+      const previous = item.existingId ? state.products.find(p => p.id === item.existingId) : null;
+      const product = previous || { ...item.product, id: nextId("p"), revision: 1, createdAt: now, updatedAt: now, sortOrder: firstSort - products.length + index };
+      const stockBefore = previous?.stock || 0;
+      if (previous) {
+        updates.push({ product, before: structuredClone(previous), metadata: store.metadata[product.id] ? structuredClone(store.metadata[product.id]) : null });
+        Object.assign(product, item.product, { revision: (previous.revision || 0) + 1, updatedAt: now });
+        updates[updates.length - 1].after = structuredClone(product);
+      } else { createdIds.push(product.id); state.products.push(product); }
       ids.push(product.id);
-      state.products.push(product);
       store.metadata[product.id] = { ...item.metadata, importBatchId: input.previewId, sourceRow: item.row };
-      ledgerIds.push(inventory.addEntry(state, { product, changeType: "initial_stock", quantityDelta: product.stock, stockBefore: 0,
+      if (!previous || stockBefore !== product.stock) ledgerIds.push(inventory.addEntry(state, { product, changeType: previous ? "stocktake" : "initial_stock", quantityDelta: product.stock - stockBefore, stockBefore,
         stockAfter: product.stock, batchNo: input.previewId, reason: input.reason.trim(), actor }).id);
     }
     const batch = { id: input.previewId, filename: pending.filename, actorId: owner(actor), reason: input.reason.trim(), count: ids.length, productIds: ids,
+      createdCount: createdIds.length, updatedCount: updates.length,
       fileHash: crypto.createHash("sha256").update(pending.buffer).digest("hex"), createdAt: now };
     store.batches[input.previewId] = batch;
-    logOperation(state, actor, "product.import", "product_import", batch.id, { reason: batch.reason, filename: batch.filename, count: batch.count, productIds: ids });
+    logOperation(state, actor, "product.import", "product_import", batch.id, { reason: batch.reason, filename: batch.filename, count: batch.count, productIds: ids,
+      createdCount: batch.createdCount, updatedCount: batch.updatedCount, updates: updates.map(entry => ({ before: entry.before, after: entry.after })) });
     try { await save(); }
     catch (error) {
       // Remove only this failed batch; preserve changes made by other requests.
-      const imported = new Set(ids), entries = new Set(ledgerIds);
+      const imported = new Set(createdIds), entries = new Set(ledgerIds);
       state.products = state.products.filter(p => !imported.has(p.id));
+      for (const entry of updates) {
+        for (const key of Object.keys(entry.after)) {
+          if (JSON.stringify(entry.after[key]) === JSON.stringify(entry.before[key])) continue;
+          if (key === "stock") { entry.product.stock += entry.before.stock - entry.after.stock; continue; }
+          if (JSON.stringify(entry.product[key]) !== JSON.stringify(entry.after[key])) continue;
+          if (Object.hasOwn(entry.before, key)) entry.product[key] = entry.before[key];
+          else delete entry.product[key];
+        }
+        if (entry.metadata) store.metadata[entry.product.id] = entry.metadata;
+        else delete store.metadata[entry.product.id];
+      }
       state.inventoryLedger = state.inventoryLedger.filter(entry => !entries.has(entry.id));
       state.adminOperationLogs = state.adminOperationLogs.filter(log => !(log.action === "product.import" && log.targetId === batch.id));
-      for (const id of ids) delete store.metadata[id];
+      for (const id of createdIds) delete store.metadata[id];
       delete store.batches[batch.id];
       throw problem(503, "导入保存失败，未确认导入成功；请使用当前预览重试或核对后台商品列表");
     }

@@ -6,4 +6,8 @@ function points(product) {
   if (!product) return '';
   return product.pointsPriceText || (product.pointsPrice || 0) + ' 积分';
 }
-module.exports = { display: display, points: points };
+function member(product) {
+  if (!product) return '';
+  return product.cashPriceText || '¥' + (product.cashPrice || 0);
+}
+module.exports = { display: display, points: points, member: member };

@@ -13,7 +13,8 @@ Page({
     const returning = this.returningFromProduct;
     this.returningFromProduct = false;
     if (entry) {
-      this.setData({ category: entry.search ? "全部" : entry.category || "全部", search: entry.search || "" });
+      const search = typeof entry.search === "string" ? entry.search : "";
+      this.setData({ category: search ? "全部" : entry.category || "全部", search });
       wx.removeStorageSync("tgg_shop_entry");
     }
     // Keep the scroll-view and its loaded pages mounted when detail closes.
@@ -21,7 +22,8 @@ Page({
     return this.load();
   },
   owner() { return wx.getStorageSync("tgg_user")?.id || "guest"; },
-  onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
+  onHide() { clearTimeout(this.searchTimer); },
+  onUnload() { clearTimeout(this.searchTimer); this.disposed = true; this.version = (this.version || 0) + 1; },
   load() {
     this.ownerId = this.owner();
     this.loaded = false;
@@ -62,7 +64,20 @@ Page({
   toggleCategoryMenu() { this.setData({ categoryCollapsed: !this.data.categoryCollapsed }); },
   changeCart(e) { productCart.change(this, this.data.products.find(item => item.id === e.currentTarget.dataset.id), Number(e.currentTarget.dataset.delta)); },
   buyGift(e) { productCart.buyGift(this, this.data.products.find(item => item.id === e.currentTarget.dataset.id)); },
-  search(e) { this.setData({ search: e.detail.value, category: "全部" }); return this.load(); },
+  inputSearch(e) {
+    const value = typeof e?.detail?.value === "string" ? e.detail.value : "";
+    this.setData({ search: value, category: "全部" });
+    // A bindinput return value replaces the native input. Never return a
+    // request promise; typing and backspace must stay synchronous.
+    clearTimeout(this.searchTimer);
+    this.version = (this.version || 0) + 1;
+    this.searchTimer = setTimeout(() => { if (!this.disposed) this.load(); }, 250);
+  },
+  search(e) {
+    clearTimeout(this.searchTimer);
+    const value = typeof e?.detail?.value === "string" ? e.detail.value : this.data.search || "";
+    this.setData({ search: value, category: "全部" }); return this.load();
+  },
   open(e) {
     this.returningFromProduct = true;
     wx.navigateTo({ url: "/pages/product/index?id=" + encodeURIComponent(e.currentTarget.dataset.id), fail: () => { this.returningFromProduct = false; } });

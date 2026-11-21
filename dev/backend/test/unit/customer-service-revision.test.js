@@ -47,7 +47,7 @@ test("the October 23 customer-service entry and copy changes remain wired as req
   assert.match(home, /class="exchange-strip" bindtap="goCustomerService"[\s\S]*?获取更高收益[\s\S]*?请添加企业客服/);
   assert.match(homeStyles, /\.home-category\s*\{[^}]*font-size:\s*24rpx/);
   assert.match(homeStyles, /\.home-category-icon\s*\{[^}]*width:\s*92rpx[^}]*height:\s*92rpx/);
-  assert.match(homeStyles, /\.home-category-icon image\s*\{[^}]*width:\s*74rpx[^}]*height:\s*74rpx/);
+  assert.match(homeStyles, /\.home-category-icon image\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/);
   assert.match(addressStyles, /input\s*\{[^}]*height:\s*76rpx[^}]*line-height:\s*76rpx[^}]*padding:\s*0 20rpx/);
   assert.match(invite, /class="invite-actions"/);
   assert.match(inviteStyles, /gap:\s*16rpx/);
@@ -96,4 +96,6 @@ test("both higher-income entries navigate to one QR page and that page supports 
   assert.equal(previews[0].current, qrPage.data.qrCode);
   assert.equal(previews[0].urls.length, 1);
   assert.equal(previews[0].urls[0], qrPage.data.qrCode);
+  const qrMarkup = readMini("pages/customer-service/index.wxml");
+  assert.match(qrMarkup, /class="btn btn-primary contact-button" open-type="contact"/);
 });

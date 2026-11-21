@@ -2475,7 +2475,7 @@ paths:
     post:
       tags: [Admin]
       summary: Validate a product XLS workbook without writing products
-      description: Requires product:write and stock:write for positive initial stock. Accepts actual BIFF8 XLS only, up to 2 MiB and 1000 products on a single worksheet. Returns valid, total, validRows, errors and warnings with original Excel row and field names, and the first-class row preview. A valid report includes an actor-bound previewId expiring after 30 minutes. All errors must be fixed before import; warnings require acknowledgement at commit. Existing or repeated barcodes are rejected; formulas and Excel error values are rejected.
+      description: Requires product:write and stock:write for any stock delta. Accepts actual BIFF8 XLS only, up to 2 MiB and 1000 products on a single worksheet. Matches trimmed name and category together to update existing products or create new products; ambiguous targets and duplicate identities are rejected. Returns valid, total, validRows, createCount, updateCount, row action, errors and warnings with original Excel row and field names. Wholesale price is optional; sale and member prices allow text up to 120 characters. A valid report includes an actor-bound previewId expiring after 30 minutes. Warnings require acknowledgement. Barcodes conflicting with other products or repeated in the workbook, formulas and Excel error values are rejected.
       security: [{ AdminBearerAuth: [] }]
       parameters:
         - in: query
@@ -2499,7 +2499,7 @@ paths:
     post:
       tags: [Admin]
       summary: Confirm and persist a validated product import as offline drafts
-      description: Revalidates the original server-held workbook and current permissions, barcodes and categories. All-or-nothing batch, with one initial inventory entry per product and a batch audit log. Same previewId and actor/reason replay idempotently after success, including after restart. Preview without a saved receipt is lost on restart and must be regenerated. Sale price maps to regularPrice (display only); member price maps to cashPrice, defaults to zero when absent; never derives discounts. Private purchasing and original import fields are stored separately from public products. Requires product:write and stock:write for positive stock. No POSPAL writes.
+      description: Revalidates the original workbook, permissions, barcodes, categories and exact target snapshots. Updates existing name/category matches and creates other rows as offline drafts, preserving existing IDs, images and non-template settings. Initial stock entries for creates and stocktake deltas for updates share the batch audit. Same previewId and actor/reason replay idempotently after success, including after restart. Unsaved previews are lost on restart. Sale price maps to regularPrice; numeric member price maps to cashPrice, other text maps to cashPriceText with cashPrice zero. A positive numeric settlement price is required before publication; text never determines payment amounts. Private purchasing fields stay separate. Requires product:write and stock:write for any stock delta. No POSPAL writes.
       security: [{ AdminBearerAuth: [] }]
       requestBody:
         required: true
@@ -2513,7 +2513,7 @@ paths:
                 reason: { type: string, minLength: 1, maxLength: 200 }
                 acknowledgeWarnings: { type: boolean, description: Must be true if the report contains warnings }
       responses:
-        "200": { description: Persisted batch receipt with count and productIds, optionally idempotent=true }
+        "200": { description: Persisted batch receipt with count, createdCount, updatedCount and productIds, optionally idempotent=true }
         "400": { description: Missing preview, reason or warning acknowledgement }
         "401": { description: Admin login required }
         "403": { description: Missing product write permission }
@@ -2558,6 +2558,10 @@ paths:
                   type: number
                   nullable: true
                   description: 会员价或专区活动价，现金订单实际结算单价
+                cashPriceText:
+                  type: string
+                  maxLength: 120
+                  description: 会员价展示文字，支持中文、英文及符号；留空展示 cashPrice，不参与现金结算。
                 regularPrice:
                   oneOf:
                     - type: string
@@ -2690,6 +2694,10 @@ paths:
                   type: number
                   nullable: true
                   description: 会员价或专区活动价，现金订单实际结算单价
+                cashPriceText:
+                  type: string
+                  maxLength: 120
+                  description: 会员价展示文字，支持中文、英文及符号；留空展示 cashPrice，不参与现金结算。
                 regularPrice:
                   oneOf:
                     - type: string

@@ -4,7 +4,7 @@ const resolveAssetUrl = cartApi.resolveAssetUrl || (value => value);
 const cart = require("../../utils/cart");
 Page({
   data: { items: [], error: "", loading: false, totalCash: 0, totalPoints: 0, selectedCount: 0 },
-  onShow() { this.load(); },
+  onShow() { cart.syncTabBarBadge(); this.load(); },
   onUnload() { this.version = (this.version || 0) + 1; },
   owner() { return wx.getStorageSync("tgg_user")?.id || "guest"; },
   canEdit() {
@@ -21,7 +21,7 @@ Page({
       const items = cart.read().map(item => { const product = products.find(p => p.id === item.productId) || null; return { ...item, product: product ? { ...product, image: resolveAssetUrl(product.image) } : null }; });
       this.setData({ items, ...cartTotals(items), error: "" });
     } catch (error) { if (version === this.version && owner === this.owner()) this.setData({ error: error.message }); }
-    finally { if (version === this.version) this.setData({ loading: false }); }
+    finally { if (version === this.version) { this.setData({ loading: false }); cart.syncTabBarBadge(); } }
   },
   select(e) {
     if (!this.canEdit()) return;

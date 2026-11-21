@@ -8,7 +8,7 @@
 <view wx:if="{{product.supportsPoints}}">{{retail.points(product)}}</view>
 <view wx:if="{{product.supportsCash && !product.purePointsOnly}}" class="price-detail">
   <view wx:if="{{retail.display(product.regularPrice)}}" class="regular-price">零售价 {{retail.display(product.regularPrice)}}</view>
-  <view class="member-highlight">{{product.membershipGiftDays > 0 ? '活动价' : '会员价'}} ¥{{product.cashPrice}}</view>
+  <view class="member-highlight">{{product.membershipGiftDays > 0 ? '活动价' : '会员价'}} {{retail.member(product)}}</view>
 </view>
 <view class="muted">库存 {{product.stock}} · {{product.category}}</view>
 <view wx:if="{{product.unit}}">规格：{{product.unit}}</view>
