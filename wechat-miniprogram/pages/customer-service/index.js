@@ -18,7 +18,14 @@ Page({
     }
   },
   preview() {
-    if (!this.data.qrCode) return;
-    wx.previewImage({ current: this.data.qrCode, urls: [this.data.qrCode] });
+    if (this.disposed || this.data.loading || !this.data.qrCode) return;
+    wx.previewImage({
+      current: this.data.qrCode,
+      urls: [this.data.qrCode],
+      showmenu: true,
+      fail: () => {
+        if (!this.disposed) wx.showToast({ title: "二维码打开失败，请稍后重试", icon: "none" });
+      }
+    });
   }
 });

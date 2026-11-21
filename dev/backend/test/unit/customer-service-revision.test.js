@@ -96,6 +96,35 @@ test("both higher-income entries navigate to one QR page and that page supports 
   assert.equal(previews[0].current, qrPage.data.qrCode);
   assert.equal(previews[0].urls.length, 1);
   assert.equal(previews[0].urls[0], qrPage.data.qrCode);
+  assert.equal(previews[0].showmenu, true);
   const qrMarkup = readMini("pages/customer-service/index.wxml");
+  assert.match(qrMarkup, /show-menu-by-longpress="\{\{true\}\}"/);
+  assert.match(qrMarkup, /bindtap="preview" bindlongpress="preview"/);
   assert.match(qrMarkup, /class="btn btn-primary contact-button" open-type="contact"/);
+  assert.doesNotMatch(qrMarkup, /contact-button[^>]*bindtap=/);
+});
+
+test("QR preview uses current backend settings and handles missing, failed and unloaded pages independently of mini-program contact", async () => {
+  const previews = [], messages = [];
+  let page, config = { customerServiceQrCode: "/uploads/first.png" }, offline = false;
+  vm.runInNewContext(readMini("pages/customer-service/index.js"), {
+    Page: value => { page = value; },
+    require: () => ({ request: async () => { if (offline) throw new Error("网络不可用"); return config; }, resolveAssetUrl: value => value ? `https://shop.example${value}` : "" }),
+    wx: { previewImage: value => previews.push(value), showToast: value => messages.push(value.title) }
+  });
+  page.setData = value => Object.assign(page.data, value);
+  page.preview(); assert.equal(previews.length, 0);
+  await page.load(); page.preview();
+  assert.equal(previews[0].current, "https://shop.example/uploads/first.png");
+  previews[0].fail(); assert.equal(messages.length, 1);
+  config = { customerServiceQrCode: "/uploads/replaced.png" };
+  await page.load(); page.preview();
+  assert.equal(previews[1].current, "https://shop.example/uploads/replaced.png");
+  config = {}; await page.load(); page.preview();
+  assert.equal(previews.length, 2); assert.match(page.data.error, /使用在线客服/);
+  offline = true; await page.load(); page.preview();
+  assert.equal(previews.length, 2); assert.equal(page.data.error, "网络不可用");
+  offline = false; config = { customerServiceQrCode: "/uploads/replaced.png" };
+  await page.load(); page.onUnload(); page.preview(); previews[1].fail();
+  assert.equal(previews.length, 2); assert.equal(messages.length, 1);
 });

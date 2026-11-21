@@ -330,7 +330,7 @@ function homeOps(state) {
       <div class="product-upload wide" data-customer-service-qr-row>
         <label>客服微信二维码地址<input name="customerServiceQrCode" value="${escapeAttr(config.customerServiceQrCode || "")}" placeholder="上传二维码或填写 HTTPS 图片地址"></label>
         <label>上传客服二维码<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-customer-service-qr-upload></label>
-        <span data-customer-service-qr-message role="status">用户长按二维码可添加客服微信</span>
+        <span data-customer-service-qr-message role="status">请上传企业微信“联系我”二维码原图，确保清晰且未过期。用户可点击放大后长按识别添加；下方联系按钮继续使用小程序客服。</span>
       </div>
       <h3>首页分类入口</h3><p class="muted-text">可修改首页分类名称和 Logo；“商品分类值”用于匹配商品分类，建议保持与商品分类一致。</p>
       <div class="category-shortcut-editors">${categoryShortcuts.map(homeCategoryShortcutEditor).join("")}</div>
