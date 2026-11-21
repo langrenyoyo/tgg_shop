@@ -12,7 +12,11 @@ button::after { border: 0; }
 .choice.selected { background: #00a865; color: #fff; }
 .task-card { display: flex; align-items: center; gap: 18rpx; padding: 26rpx 22rpx; border-radius: 26rpx; background: #fff; box-shadow: 0 6rpx 24rpx rgba(32,59,48,.025); }
 .invite-card { margin-top: 24rpx; background: #e6f0db; border: 2rpx solid #dce8ce; }.invite-card .description { color: #80946f; }.invite-card .dot { background: #d4e6c0; }.invite-card .state { background: #fff; color: #57753b; }
-.signin-card { margin-top: 24rpx; margin-bottom: 10px; border: 2rpx solid #b8e4c8; }.signin-button { margin: 0; border: 0; padding: 12rpx 18rpx; }
+.signin-card { margin-top: 24rpx; margin-bottom: 10px; border: 2rpx solid #dca538; background: linear-gradient(120deg, #dba64d 0%, #fff4cf 48%, #f3ce7c 100%); box-shadow: inset 0 2rpx 0 rgba(255,255,255,.5), 0 6rpx 20rpx rgba(180,123,23,.08); }
+.signin-card .task-title { color: #3f452b; }
+.signin-card .description { color: #7d7045; }
+.signin-card .dot { color: #527436; background: linear-gradient(135deg, #f3d58b, #e6b954); box-shadow: inset 0 2rpx 4rpx rgba(255,255,255,.35); }
+.signin-card .signin-button { margin: 0; border: 0; padding: 12rpx 24rpx; color: #386332; background: linear-gradient(90deg, #e4b044, #fff0a9 50%, #d39a24); box-shadow: inset 0 2rpx 0 rgba(255,255,255,.5); }
 .task-list { margin-top: 24rpx; }.task-list .task-card { margin-bottom: 18rpx; }
 .icon-column { flex: 0 0 72rpx; }.dot { width: 72rpx; height: 72rpx; line-height: 72rpx; border-radius: 22rpx; color: #009359; background: #e7f4e6; text-align: center; font-size: 28rpx; font-weight: 700; }
 .task-main { flex: 1; min-width: 0; }
