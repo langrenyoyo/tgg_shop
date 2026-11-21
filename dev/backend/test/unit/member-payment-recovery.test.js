@@ -56,6 +56,15 @@ test("test payment settles without invoking LFWin or native payment", async () =
   assert.deepEqual(calls, ["/api/config", "/api/test/payments/member-test/settle"]);
 });
 
+test("payment settled during initiation does not invoke native payment again", async () => {
+  const context = { module: { exports: {} }, require: () => ({ request: async url => {
+    if (url === "/api/config") return { testBypassEnabled: false };
+    return { payment: { status: "paid" }, provider: { requestPayment: null } };
+  } }), wx: { requestPayment() { assert.fail("A settled payment must not invoke native payment again"); } } };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/utils/payment.js"), "utf8"), context);
+  assert.equal((await context.module.exports.pay({ payNo: "goods-race", status: "pending" })).status, "paid");
+});
+
 test("membership test query is read-only and does not contact an unconfigured provider", async () => {
   let page;
   const pending = { payNo: "member-test", payScene: "member_open", status: "pending", metadata: { lfwin: { submissionState: "unknown" } } };

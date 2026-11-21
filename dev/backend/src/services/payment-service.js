@@ -15,6 +15,11 @@ const { isolatedNonProduction, cashPaymentsEnabled } = require("../config/runtim
 const { grantMembership } = require("../domain/product-membership");
 const { enqueueMembershipSync } = require("../domain/pospal-membership");
 const wechatOrders = require("../domain/wechat-orders");
+const { diagnostic: lfwinDiagnostic } = require("./lfwin-diagnostic");
+// Payment signatures belong only in the owned initiation response, never in
+// payment metadata (which list and finance APIs serialize). Restarting safely
+// loses this short-lived cache and requires manual recovery of that old order.
+const miniPaymentCache = new WeakMap();
 
 function listUserPayments(state, userId) {
   return state.paymentLedger.filter((payment) => payment.userId === userId);
@@ -125,7 +130,26 @@ async function initiateLfwinLocked(state, payment, input, client) {
 
   // A local configuration failure must not become an uncertain provider order.
   if (typeof client.isConfigured === "function" && !client.isConfigured()) return { ok: false, status: 503, error: "支付服务尚未配置，请联系管理员；测试环境请启用测试支付" };
-  if (["sending", "unknown"].includes(payment.metadata?.lfwin?.submissionState)) return { ok: false, status: 409, error: "上次支付发起结果待核对，请先查询付款结果" };
+  if (["sending", "unknown"].includes(payment.metadata?.lfwin?.submissionState)) {
+    const previous = findPaymentException(state, payment.id, "payment_initiation_uncertain")?.payload?.diagnostic;
+    return { ok: false, status: 409, error: previous?.category === "settlement_configuration" ? `${previous.message}（-5039）` : "上次支付发起结果待核对，请先查询付款结果" };
+  }
+  if (payment.metadata?.lfwin?.providerOrderNo || payment.metadata?.lfwin?.submissionState) {
+    const current = await queryLfwinPayment(state, payment.payNo, client);
+    if (!current.ok) return current;
+    if (payment.status === "paid") return { ok: true, payment, provider: { requestPayment: null } };
+    const cached = miniPaymentCache.get(payment);
+    if (cached && input.method === "wechat_mini" && cached.appId === input.appId && cached.openId === input.openId
+      && cached.expiresAt > Date.now() && cached.providerOrderNo === payment.metadata.lfwin.providerOrderNo
+      && String(current.provider?.status) === "0" && sameAmount(payment.amount, current.provider?.amount)
+      && sameAmount(payment.amount, cached.amount)) {
+      return { ok: true, payment, provider: { orderId: cached.providerOrderNo, requestPayment: { ...cached.fields } }, idempotent: true };
+    }
+    miniPaymentCache.delete(payment);
+    return { ok: false, status: 409, error: "该支付单已提交，当前无法恢复支付参数，请联系客服核对后处理，请勿重复付款" };
+  }
+  const expiresAt = new Date(Math.min(Date.now() + 10 * 60 * 1000, input.expireAt ? new Date(input.expireAt).getTime() : Infinity));
+  if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) return { ok: false, status: 400, error: "支付有效期无效，请重新发起" };
   payment.metadata = { ...(payment.metadata || {}), lfwin: {
     ...(payment.metadata?.lfwin || {}), submissionState: "sending", requestedAt: new Date().toISOString()
   } };
@@ -141,7 +165,7 @@ async function initiateLfwinLocked(state, payment, input, client) {
       merchantOrderNo: payment.payNo,
       notifyUrl: process.env.LFWIN_NOTIFY_URL,
       description: input.description || payment.payScene,
-      expireAt: input.expireAt,
+      expireAt: expiresAt,
       appId: input.appId,
       openId: input.openId,
       buyerId: input.buyerId,
@@ -161,6 +185,13 @@ async function initiateLfwinLocked(state, payment, input, client) {
     };
     payment.updatedAt = new Date().toISOString();
     await saveState();
+    const requestPayment = input.method === "wechat_mini" ? parseMiniPayment(response) : null;
+    if (requestPayment && response.orderid) {
+      miniPaymentCache.set(payment, { appId: input.appId, openId: input.openId,
+        providerOrderNo: response.orderid, amount: payment.amount, expiresAt: expiresAt.getTime(), fields: { ...requestPayment } });
+      const expiryTimer = setTimeout(() => miniPaymentCache.delete(payment), Math.max(0, expiresAt.getTime() - Date.now()));
+      expiryTimer.unref();
+    }
     return {
       ok: true,
       payment,
@@ -170,13 +201,13 @@ async function initiateLfwinLocked(state, payment, input, client) {
         codeUrl: response.code_url,
         paymentUrl: response.pay_url || response.code_url,
         expiresAt: response.time_expire || null,
-        requestPayment: input.method === "wechat_mini" ? parseMiniPayment(response) : null
+        requestPayment
       }
     };
   } catch (error) {
     payment.metadata.lfwin.submissionState = "unknown";
     const failure = providerFailure(error, "支付发起结果待核对，请查询付款结果");
-    createPaymentException(state, payment, "payment_initiation_uncertain", "支付平台收单结果待核对，请按商户单号查单", { error: failure.providerStatus || "provider_error" });
+    recordProviderFailure(state, payment, "payment_initiation_uncertain", error);
     await saveState();
     return failure;
   }
@@ -202,6 +233,8 @@ async function queryLfwinPayment(state, payNo, client = createLfwinClient()) {
     if (String(response.paystatus) === "1") return applyLfwinPaymentNotification(state, response, client);
     return { ok: true, payment, provider: publicPaymentProvider(response) };
   } catch (error) {
+    recordProviderFailure(state, payment, "payment_query_failed", error);
+    await saveState();
     return providerFailure(error, "查询支付结果失败，请稍后重试");
   }
 }
@@ -251,6 +284,7 @@ function applyLfwinPaymentNotification(state, payload, client = createLfwinClien
     return result;
   }
   payment.status = "paid";
+  miniPaymentCache.delete(payment);
   payment.callbackTime = new Date().toISOString();
   payment.updatedAt = payment.callbackTime;
   payment.thirdTradeNo = payload.trade_no || payload.orderid;
@@ -326,7 +360,18 @@ function providerFailure(error, message) {
   const providerStatus = rawStatus !== undefined && /^[A-Za-z0-9_-]{1,32}$/.test(String(rawStatus))
     ? String(rawStatus)
     : undefined;
-  return { ok: false, status: 502, error: message, ...(providerStatus ? { providerStatus } : {}) };
+  const detail = lfwinDiagnostic(error);
+  return { ok: false, status: 502, error: detail.category !== "provider_error" ? `${detail.message}（${detail.code}）` : message,
+    ...(providerStatus ? { providerStatus } : {}) };
+}
+
+function recordProviderFailure(state, payment, type, error) {
+  const detail = lfwinDiagnostic(error);
+  const exception = createPaymentException(state, payment, type, "支付接口异常，请按商户单号核对通道结果", {
+    error: detail.providerStatus || "provider_error", diagnostic: detail
+  });
+  exception.payload.diagnostic = detail;
+  exception.updatedAt = new Date().toISOString();
 }
 
 function cancelTimedOutPayments(state, input = {}) {
