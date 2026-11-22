@@ -10,6 +10,8 @@
 
 品牌素材位于 `assets/`。需要重新生成导航图标及横幅照片时，在仓库根目录安装 Pillow 后运行 `python wechat-miniprogram/scripts/generate-brand-assets.py`。模板与样式可运行 `node wechat-miniprogram/scripts/compile.js --compiler-dir "开发者工具内的 wcc-exec 目录"` 检查；最终渲染以微信开发者工具和真机为准。
 
+图片和音视频按包内总量控制在 200 KB 以下。更新素材后运行 `python wechat-miniprogram/scripts/optimize-assets.py`，压缩首页三个快捷图标和邀请分享图，并校验所有本地媒体总量；只检查可用 `python wechat-miniprogram/scripts/optimize-assets.py --check`（无需 Pillow）。压缩保持原文件路径，不影响图标引用或邀请分享。开发者工具执行“清缓存 → 清除编译缓存”，重新编译，再点代码质量“重新扫描”。
+
 ## 说明
 
 当前已注册 20 个页面，覆盖：
