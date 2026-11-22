@@ -2,5 +2,21 @@
 <button wx:if="{{error === '请登录后查看提交记录'}}" bindtap="goLogin">去登录</button>
 <view wx:if="{{submission}}" class="card"><view class="title">{{submission.taskTitle || submission.title}}</view><view>提交单 {{submission.id}}</view><view>{{submission.submissionState === 'unknown' || submission.submissionState === 'sending' ? '提交结果待核对，请勿重复交单' : submission.status === 'approved' ? '已通过' : submission.status === 'rejected' ? '已驳回' : '审核中'}}</view><view>{{submission.reasons || submission.remarks}}</view><view>{{submission.createdAt}}</view>
 <view wx:if="{{submission.status === 'rejected'}}">请查看驳回原因及任务要求，是否允许再次提交以任务当前规则为准。</view>
+<view class="submission-proof">
+  <view class="proof-heading">交单信息</view>
+  <view class="proof-field"><text>用户姓名</text><text>{{submission.payload.name || '未填写'}}</text></view>
+  <view class="proof-field"><text>手机号码</text><text>{{submission.payload.mobile || '未填写'}}</text></view>
+  <view class="proof-field"><text>备注一</text><text>{{submission.payload.text1 || '无'}}</text></view>
+  <view class="proof-field"><text>备注二</text><text>{{submission.payload.text2 || '无'}}</text></view>
+  <view class="proof-heading">交单截图（{{proofImages.length}} 张）</view>
+  <view wx:if="{{proofImages.length}}" class="proof-tip">点击截图查看原图</view>
+  <view class="proof-grid" wx:if="{{proofImages.length}}">
+    <view wx:for="{{proofImages}}" wx:key="url" class="proof-item" data-index="{{index}}" bindtap="previewProof" role="button" aria-label="查看第 {{index + 1}} 张交单截图">
+      <image wx:if="{{!item.failed}}" class="proof-image" src="{{item.url}}" mode="aspectFit" data-index="{{index}}" data-url="{{item.url}}" binderror="proofError"/>
+      <view wx:else class="proof-failed">截图加载失败<text>点击尝试查看原图</text></view>
+    </view>
+  </view>
+  <view wx:else class="proof-tip">此交单未提供截图</view>
+</view>
 <button wx:if="{{submission.taskId}}" bindtap="openTask">查看任务要求</button></view>
 <button bindtap="openRecords">查看全部提交记录</button></view>

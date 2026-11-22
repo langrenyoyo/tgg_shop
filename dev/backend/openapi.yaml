@@ -1580,6 +1580,7 @@ paths:
     get:
       tags: [Tasks]
       summary: Get current user's submission detail
+      description: Returns only the authenticated user's submission and original payload fields including images. Remote reviews additionally expose proofImages as normalized HTTP(S) URLs resolved against the task platform base URL; payload.images remains unchanged. Local submissions retain the originally submitted image addresses in payload.images. Reading details does not change audit status or reward ledgers.
       parameters:
         - name: submissionId
           in: path

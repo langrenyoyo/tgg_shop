@@ -104,6 +104,16 @@ test("provider invitation allocation is preserved on task detail and converted t
   assert.equal(detail.commissionSyReward, "17.00");
 });
 
+test("review evidence exposes usable URLs while preserving the raw provider images for comparison", t => {
+  configure(t);
+  const raw = "/uploads/one.png,https://images.example/two.jpg";
+  const result = client.normalizeExamine({ id: 1, sf_uid: "alice", task_id: 42, images: raw });
+  assert.equal(result.payload.images, raw);
+  assert.deepEqual(result.proofImages, ["https://example.invalid/uploads/one.png", "https://images.example/two.jpg"]);
+  assert.deepEqual(client.normalizeExamine({ id: 2 }).proofImages, []);
+  assert.deepEqual(client.normalizeExamine({ id: 3, images: ["javascript:alert(1)", "https://user:password@example.com/a.png", "/uploads/one.png"] }).proofImages, ["https://example.invalid/uploads/one.png"]);
+});
+
 test("runtime refuses missing production platform credentials or partially configured development connections", () => {
   const empty = validateRuntimeConfig({}, true);
   assert.ok(empty.errors.some(error => error.includes("TGG_TASK_PLATFORM_KEY is required")));

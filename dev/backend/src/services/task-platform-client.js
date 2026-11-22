@@ -131,6 +131,7 @@ function normalizeExamine(row) {
     status: normalizeStatus(row.status),
     reward: row.reward,
     reasons: row.reasons || "",
+    proofImages: normalizeStepImages({ img: row.images }),
     payload: {
       name: row.name,
       mobile: row.mobile,
