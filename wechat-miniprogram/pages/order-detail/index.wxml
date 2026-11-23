@@ -28,7 +28,16 @@
     </view>
     <view wx:if="{{order.fulfillmentType === 'pickup'}}">自提点：{{order.pickupSiteSnapshot.name}}<view>{{order.pickupSiteSnapshot.address}}</view></view>
     <view wx:else>配送地址：{{order.deliveryAddress}}<view>配送时间：{{order.deliveryDate}} {{order.deliveryTimeSlot}}</view></view>
-    <view wx:if="{{order.status === 'paid' && order.fulfillmentStatus === 'pending_pickup'}}">自提码：{{order.pickupCode}}</view>
+    <view wx:if="{{order.fulfillmentType === 'pickup' && order.status === 'paid' && order.fulfillmentStatus === 'pending_pickup'}}" class="pickup-pass">
+      <view class="pickup-pass-title">自提凭证</view>
+      <view wx:if="{{pickupQr}}" class="pickup-qr" style="width:{{pickupQr.size}}rpx;height:{{pickupQr.size}}rpx;" role="img" aria-label="供站点工作人员扫码查单的自提二维码">
+        <view wx:for="{{pickupQr.runs}}" wx:key="id" class="pickup-qr-run" style="left:{{item.x}}rpx;top:{{item.y}}rpx;width:{{item.width}}rpx;height:{{pickupQr.cellSize}}rpx;" />
+      </view>
+      <view class="pickup-code-label">自提码</view>
+      <text class="pickup-code" selectable>{{order.pickupCode}}</text>
+      <view class="muted">{{pickupQr ? '请向站点工作人员出示此码扫码查单' : '请向站点工作人员出示数字自提码'}}</view>
+      <view class="muted">工作人员核对货物后确认提货，请妥善保管凭证</view>
+    </view>
     <view wx:if="{{order.status === 'paid' || order.status === 'completed'}}">
       <textarea bindinput="reason" value="{{reason}}" disabled="{{busy}}" placeholder="退款原因" />
       <button bindtap="refund" loading="{{busy}}" disabled="{{busy || loading}}">申请退款</button>

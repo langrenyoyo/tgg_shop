@@ -1,0 +1,7 @@
+.pickup-pass { margin-top: 28rpx; padding: 28rpx 16rpx; text-align: center; border: 2rpx solid #dceee3; border-radius: 24rpx; background: #f6fbf7; }
+.pickup-pass-title { font-size: 30rpx; font-weight: 700; margin-bottom: 16rpx; }
+.pickup-qr { position: relative; margin: 0 auto 16rpx; background: #fff; flex-shrink: 0; }
+.pickup-qr-run { position: absolute; background: #000; }
+.pickup-code-label { color: #527262; font-size: 24rpx; }
+.pickup-code { display: block; font-size: 52rpx; font-weight: 800; letter-spacing: 10rpx; color: #203b30; margin: 4rpx 0 16rpx; }
+.pickup-pass .muted { margin-top: 8rpx; }

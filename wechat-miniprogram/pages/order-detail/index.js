@@ -1,6 +1,7 @@
 const { request } = require("../../utils/api");
 const { pay } = require("../../utils/payment");
 const wechatOrders = require("../../utils/wechat-orders");
+const { createPickupQr } = require("../../utils/pickup-qr");
 const ORDER_LABELS = { pending_payment: "待付款", paid: "已付款", completed: "已完成", cancelled: "已取消", closed: "已关闭", refunding: "退款处理中", refunded: "已退款" };
 const FULFILLMENT_LABELS = { not_started: "尚未安排", pending_pickup: "待自提", picked_up: "已自提", pending_ship: "待配送", shipping: "配送中", delivered: "已送达", cancelled: "已取消" };
 const REFUND_LABELS = { pending_review: "等待退款审核", processing: "退款处理中", refunded: "退款已完成", rejected: "退款未通过", failed: "退款失败，待处理" };
@@ -17,9 +18,10 @@ function nextStep(order) {
   return "请刷新查看最新订单进度。";
 }
 Page({
-  data: { order: null, reason: "", error: "", busy: false, loading: false, needLogin: false },
+  data: { order: null, pickupQr: null, reason: "", error: "", busy: false, loading: false, needLogin: false },
   onLoad(query) { this.id = query.id; },
   async onShow() { await wechatOrders.reconcilePending(); return this.load(); },
+  onHide() { this.version = (this.version || 0) + 1; this.setData({ pickupQr: null }); },
   onUnload() { this.version = (this.version || 0) + 1; this.ownerId = null; },
   sameOwner(owner = this.ownerId) { return Boolean(owner && owner === this.ownerId && owner === wx.getStorageSync("tgg_user")?.id && wx.getStorageSync("tgg_token")); },
   canAct() {
@@ -32,7 +34,7 @@ Page({
     const owner = wx.getStorageSync("tgg_user")?.id;
     if (this.ownerId !== owner) this.setData({ reason: "" });
     this.ownerId = owner;
-    this.setData({ order: null, error: "", loading: false, needLogin: false });
+    this.setData({ order: null, pickupQr: null, error: "", loading: false, needLogin: false });
     if (!this.sameOwner(owner)) { this.setData({ error: "请登录后查看订单", needLogin: true }); return; }
     if (!this.id) { this.setData({ error: "缺少订单编号，请从订单列表重新进入" }); return; }
     this.setData({ loading: true });
@@ -41,7 +43,11 @@ Page({
       if (!order) throw new Error("订单不存在");
       const refunds = await Promise.all((order.refunds || []).map(refund => request("/api/refunds/" + encodeURIComponent(refund.id)).catch(() => refund)));
       if (version !== this.version || !this.sameOwner(owner)) return;
-      this.setData({ order: { ...order, statusText: ORDER_LABELS[order.status] || "订单状态待核对", fulfillmentText: ["cancelled", "closed", "refunded"].includes(order.status) ? "" : FULFILLMENT_LABELS[order.fulfillmentStatus] || "", nextStep: nextStep(order), refunds: refunds.map(refund => ({ ...refund, statusText: REFUND_LABELS[refund.status] || "退款状态待核对" })) }, error: "", needLogin: false });
+      // A QR generation failure must not prevent payment/refund progress or the
+      // existing numeric pickup-code fallback from being displayed.
+      let pickupQr = null;
+      try { pickupQr = createPickupQr(order); } catch {}
+      this.setData({ pickupQr, order: { ...order, statusText: ORDER_LABELS[order.status] || "订单状态待核对", fulfillmentText: ["cancelled", "closed", "refunded"].includes(order.status) ? "" : FULFILLMENT_LABELS[order.fulfillmentStatus] || "", nextStep: nextStep(order), refunds: refunds.map(refund => ({ ...refund, statusText: REFUND_LABELS[refund.status] || "退款状态待核对" })) }, error: "", needLogin: false });
     } catch (error) { if (version === this.version) this.setData({ error: error.message, needLogin: error.statusCode === 401 }); }
     finally { if (version === this.version) this.setData({ loading: false }); }
   },

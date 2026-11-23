@@ -10,10 +10,10 @@ const station = require("../../src/services/station-service");
 function harness() {
   const state = createSeed(), account = state.stationAccounts[0], order = state.orders[0];
   station.receive(state, account, order.id, { packages: [{ shelfCode: "A-1", storageType: "ambient", bagCount: 2 }, { shelfCode: "C-1", storageType: "chilled", bagCount: 1 }] });
-  let page, loseResponse = false;
+  let page, loseResponse = false, scanResult = order.pickupCode;
   const calls = [], messages = [];
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/station/index.js"), "utf8"), {
-    Page: value => { page = value; }, wx: { showToast: value => messages.push(value.title), scanCode: options => options.success({ result: order.pickupCode }) },
+    Page: value => { page = value; }, wx: { showToast: value => messages.push(value.title), scanCode: options => options.success({ result: scanResult }) },
     require: () => ({ request: async (url, options = {}) => {
       calls.push({ url, data: JSON.parse(JSON.stringify(options.data || {})) });
       if (url === "/api/station/me") return { station: station.publicStation(account), sites: state.pickupSites };
@@ -30,7 +30,7 @@ function harness() {
     } })
   });
   page.setData = (value, cb) => { Object.assign(page.data, value); cb?.(); };
-  return { page, state, order, calls, messages, loseResponse: () => { loseResponse = true; } };
+  return { page, state, order, calls, messages, loseResponse: () => { loseResponse = true; }, setScan: value => { scanResult = value; } };
 }
 
 test("mini scan displays all locations without handing over; incomplete package check blocks confirmation", async () => {
@@ -81,4 +81,23 @@ test("mini stale pickup preview is cleared after server rejects changed storage"
   assert.equal(h.page.data.pickupPreview, null);
   assert.equal(h.page.pickupAttempt, null);
   assert.match(h.messages.at(-1), /重新查找/);
+});
+
+test("scanning a user QR selects its exact order even when six-digit pickup codes collide", async () => {
+  const h = harness(); await h.page.load();
+  const duplicate = JSON.parse(JSON.stringify(h.order));
+  duplicate.id = "duplicate-order";
+  h.state.orders.push(duplicate);
+  assert.equal(station.receive(h.state, h.state.stationAccounts[0], duplicate.id).ok, true);
+  assert.equal(station.lookupPickup(h.state, h.state.stationAccounts[0], { pickupCode: h.order.pickupCode }).status, 409);
+  h.setScan(JSON.stringify({ orderId: h.order.id, pickupCode: h.order.pickupCode }));
+  await h.page.scan({ currentTarget: { dataset: { target: "pickupCode" } } });
+  assert.equal(h.page.data.pickupPreview.order.id, h.order.id);
+  assert.equal(h.order.status, "paid");
+  assert.equal(duplicate.status, "paid");
+  assert.equal(h.calls.filter(call => call.url.endsWith("/pickup-verify")).length, 0);
+  h.page.pickupCheck({ detail: { value: ["package-1", "package-2"] } });
+  await h.page.confirmPickup();
+  assert.equal(h.order.status, "completed");
+  assert.equal(duplicate.status, "paid");
 });
