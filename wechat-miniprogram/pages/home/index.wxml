@@ -1,6 +1,14 @@
 <wxs src="../../utils/regular-price.wxs" module="retail"/>
 <view class="page home-page">
-  <view wx:if="{{home.serviceBadges.length}}" class="announcement" aria-label="商城公告"><text class="announcement-icon">♬</text><swiper class="announcement-swiper" vertical autoplay circular interval="3500" duration="500"><swiper-item wx:for="{{home.serviceBadges}}" wx:key="index"><view class="announcement-text">{{item}}</view></swiper-item></swiper></view>
+  <view wx:if="{{home.announcementText}}" class="announcement" aria-label="商城公告" bindtap="showAnnouncement">
+    <text class="announcement-icon">♬</text>
+    <view class="announcement-window">
+      <view class="announcement-track" style="animation-duration:{{home.announcementDuration}}s;">
+        <text class="announcement-text">{{home.announcementText}}</text>
+        <text class="announcement-text" aria-hidden="true">{{home.announcementText}}</text>
+      </view>
+    </view>
+  </view>
   <view class="greet">
     <view class="location-mark"><view></view></view>
     <view class="location-copy"><view class="location-label">美好生活 · 从新鲜开始</view><view class="location-name">{{home.pickupSite.name || '小鹿超级省'}}</view><view wx:if="{{home.pickupSite.address}}" class="location-address">{{home.pickupSite.address}}</view></view>

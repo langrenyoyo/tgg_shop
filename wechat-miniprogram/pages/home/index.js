@@ -91,6 +91,10 @@ Page({
   search(e) { wx.setStorageSync("tgg_shop_entry", { category: "", search: typeof e?.detail?.value === "string" ? e.detail.value : "" }); this.goShop(); },
   goMembership() { wx.navigateTo({ url: "/pages/membership/index" }); },
   goCustomerService() { wx.navigateTo({ url: "/pages/customer-service/index" }); },
+  showAnnouncement() {
+    const content = this.data.home.serviceBadges?.join("\n\n");
+    if (content) wx.showModal({ title: "商城公告", content, showCancel: false, confirmText: "我知道了" });
+  },
   goInvite() { wx.navigateTo({ url: "/pages/invite/index" }); },
 
   goTasks() {
@@ -106,6 +110,10 @@ Page({
 function emptyHome() { return { user: {}, pickupSite: {}, categories: [], categoryShortcuts: [], banners: [{ title: "时令鲜果季", subtitle: "每日新鲜到家" }], recommendProducts: [] }; }
 function normalizeHome(home) {
   const value = home && typeof home === "object" && !Array.isArray(home) ? home : {};
+  const serviceBadges = (Array.isArray(value.serviceBadges) ? value.serviceBadges : []).filter(item => typeof item === "string" && item.trim()).map(item => item.trim());
+  const announcementText = serviceBadges.map(item => item.replace(/\s+/g, " ")).join("　｜　");
+  // Read long notices at the same pace; do not cut them off on a fixed timer.
+  const announcementDuration = Math.max(12, Math.ceil(Array.from(announcementText).length * 0.4 + 1));
   const banners = Array.isArray(value.banners)
     ? value.banners
       .filter(item => item && typeof item === "object")
@@ -122,5 +130,5 @@ function normalizeHome(home) {
   ];
   const categories = (Array.isArray(value.categoryShortcuts) ? value.categoryShortcuts : Array.isArray(value.categories) ? value.categories : categoryDefaults).map(item => typeof item === "string" ? { name: item, category: item, key: item, icon: "" } : item).filter(item => item && String(item.name || "").trim() && String(item.category || item.name || "").trim()).slice(0, 8);
   const resolvedCategories = categories.map(item => ({ ...item, icon: categoryDefaults.some(entry => entry.icon === item.icon) ? item.icon : resolveAssetUrl(item.icon || "") }));
-  return { ...value, pickupSite: value.pickupSite && typeof value.pickupSite === "object" ? value.pickupSite : {}, categories: resolvedCategories, categoryShortcuts: resolvedCategories, banners, bannerImage: resolveAssetUrl(value.bannerImage || banners[0].image || ""), bannerProduct: value.bannerProduct ? { ...value.bannerProduct, image: resolveAssetUrl(value.bannerProduct.image) } : null, recommendProducts: products.map(item => ({ ...item, image: resolveAssetUrl(item.image) })), user: value.user && typeof value.user === "object" ? value.user : {} };
+  return { ...value, serviceBadges, announcementText, announcementDuration, pickupSite: value.pickupSite && typeof value.pickupSite === "object" ? value.pickupSite : {}, categories: resolvedCategories, categoryShortcuts: resolvedCategories, banners, bannerImage: resolveAssetUrl(value.bannerImage || banners[0].image || ""), bannerProduct: value.bannerProduct ? { ...value.bannerProduct, image: resolveAssetUrl(value.bannerProduct.image) } : null, recommendProducts: products.map(item => ({ ...item, image: resolveAssetUrl(item.image) })), user: value.user && typeof value.user === "object" ? value.user : {} };
 }
