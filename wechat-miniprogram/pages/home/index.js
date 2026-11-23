@@ -31,14 +31,29 @@ Page({
 
   onShow() {
     this.disposed = false;
+    this.hidden = false;
     this.setData({ cartQuantities: productCart.quantities(), navigating: false });
     const returning = this.returningFromProduct;
     this.returningFromProduct = false;
-    if (returning && this.loaded && this.ownerId === wx.getStorageSync("tgg_user")?.id) { this.restoreScroll(); return; }
+    if (returning && this.loaded && this.ownerId === wx.getStorageSync("tgg_user")?.id) { this.restoreScroll(); this.startAnnouncement(); return; }
     return this.load(this.loaded && this.ownerId === wx.getStorageSync("tgg_user")?.id);
   },
   onPageScroll(e) { this.savedScrollTop = Math.max(0, Number(e.scrollTop) || 0); },
   restoreScroll() { if (this.savedScrollTop > 0 && typeof wx.pageScrollTo === "function") wx.pageScrollTo({ scrollTop: this.savedScrollTop, duration: 0 }); },
+  onHide() { this.hidden = true; this.announcementVersion = (this.announcementVersion || 0) + 1; this.setData({ announcementRunning: false }); },
+  onResize() { this.startAnnouncement(); },
+  startAnnouncement() {
+    const version = this.announcementVersion = (this.announcementVersion || 0) + 1;
+    this.setData({ announcementRunning: false });
+    if (this.disposed || this.hidden || !this.data.home.announcementText || typeof wx.createSelectorQuery !== "function") return;
+    const query = wx.createSelectorQuery().in(this);
+    query.select(".announcement-copy").boundingClientRect();
+    query.exec(rows => {
+      if (this.disposed || version !== this.announcementVersion) return;
+      const width = Math.ceil(rows?.[0]?.width || 0);
+      if (width > 0) this.setData({ announcementWidth: width * 2, announcementDuration: Math.max(8, width / 30), announcementRunning: true });
+    });
+  },
   onUnload() { this.disposed = true; this.version = (this.version || 0) + 1; },
 
   async load(preserve = false) {
@@ -53,7 +68,7 @@ Page({
       const home = await request("/api/home");
       if (!active()) return;
       this.loaded = true;
-      this.setData({ home: normalizeHome(home), error: "" }, () => { if (preserve && active()) this.restoreScroll(); });
+      this.setData({ home: normalizeHome(home), error: "" }, () => { if (!active()) return; if (preserve) this.restoreScroll(); this.startAnnouncement(); });
     } catch (error) {
       if (active()) this.setData({ error: error.message });
     } finally { if (version === this.version) this.setData({ loading: false }); }

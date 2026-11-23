@@ -99,9 +99,9 @@ test("both higher-income entries navigate to one QR page and that page supports 
   assert.equal(previews[0].showmenu, true);
   const qrMarkup = readMini("pages/customer-service/index.wxml");
   assert.match(qrMarkup, /show-menu-by-longpress="\{\{true\}\}"/);
-  assert.match(qrMarkup, /bindtap="preview" bindlongpress="preview"/);
-  assert.match(qrMarkup, /class="btn btn-primary contact-button" open-type="contact"/);
-  assert.doesNotMatch(qrMarkup, /contact-button[^>]*bindtap=/);
+  assert.match(qrMarkup, /bindtap="preview"/);
+  assert.doesNotMatch(qrMarkup, /bindlongpress=|open-type="contact"|在线联系企业客服/);
+  assert.match(qrMarkup, /bindtap="saveQr"/);
 });
 
 test("QR preview uses current backend settings and handles missing, failed and unloaded pages independently of mini-program contact", async () => {
@@ -121,10 +121,32 @@ test("QR preview uses current backend settings and handles missing, failed and u
   await page.load(); page.preview();
   assert.equal(previews[1].current, "https://shop.example/uploads/replaced.png");
   config = {}; await page.load(); page.preview();
-  assert.equal(previews.length, 2); assert.match(page.data.error, /使用在线客服/);
+  assert.equal(previews.length, 2); assert.match(page.data.error, /联系商家配置/);
   offline = true; await page.load(); page.preview();
   assert.equal(previews.length, 2); assert.equal(page.data.error, "网络不可用");
   offline = false; config = { customerServiceQrCode: "/uploads/replaced.png" };
   await page.load(); page.onUnload(); page.preview(); previews[1].fail();
   assert.equal(previews.length, 2); assert.equal(messages.length, 1);
+});
+
+test("QR saving preserves the original image and handles denied permission and download failure", async () => {
+  let page, deny = false, statusCode = 200, downloading = 0;
+  const saved = [], notices = [], dialogs = [], settings = [];
+  vm.runInNewContext(readMini("pages/customer-service/index.js"), {
+    Page: value => { page = value; }, require: () => ({}),
+    wx: {
+      downloadFile: options => { downloading++; assert.equal(options.url, "https://shop.example/qr.png"); options.success({ statusCode, tempFilePath: "/tmp/original.png" }); },
+      saveImageToPhotosAlbum: options => { if (deny) options.fail({ errMsg: "saveImageToPhotosAlbum:fail auth deny" }); else { saved.push(options.filePath); options.success({}); } },
+      showToast: options => notices.push(options.title), showModal: options => dialogs.push(options), openSetting: options => settings.push(options)
+    }
+  });
+  page.setData = value => Object.assign(page.data, value);
+  page.setData({ qrCode: "https://shop.example/qr.png", loading: false });
+  await Promise.all([page.saveQr(), page.saveQr()]);
+  assert.equal(downloading, 1); assert.deepEqual(saved, ["/tmp/original.png"]); assert.equal(page.data.saving, false);
+  deny = true; await page.saveQr(); assert.equal(dialogs.length, 1);
+  dialogs[0].success({ confirm: true }); assert.equal(settings.length, 1);
+  statusCode = 404; await page.saveQr(); assert.match(notices.at(-1), /下载失败/); assert.equal(saved.length, 1);
+  page.imageError({ currentTarget: { dataset: { src: "old" } } }); assert.ok(page.data.qrCode);
+  page.imageError(); assert.equal(page.data.qrCode, "");
 });

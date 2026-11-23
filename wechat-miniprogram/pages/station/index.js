@@ -47,18 +47,36 @@ Page({
   switchView(e) { if (!this.data.busy && !this.data.current && !this.data.pickupPreview) this.setData({ view: e.currentTarget.dataset.view }, () => this.load()); },
   filteredOrders() { return this.data.orders.filter(row => this.data.view === "receive" ? ["expected", "in_transit"].includes(row.stationStatus) : ["ready", "received"].includes(row.stationStatus)); },
   async scan(e) {
-    if (this.data.busy || this.data.current || this.data.pickupPreview) return;
+    if (this.scanning || this.data.busy || this.data.current || this.data.pickupPreview || this.disposed) return;
+    this.scanning = true;
     try {
       const result = await new Promise((resolve, reject) => wx.scanCode({ onlyFromCamera: false, scanType: ["qrCode", "barCode"], success: resolve, fail: reject }));
+      if (this.disposed) return;
       const raw = String(result.result || "").trim();
-      if (e.currentTarget.dataset.target === "orderId") return this.receiveById(raw);
+      if (!raw || raw.length > 1024) throw new Error("无效的取货码或订单码");
+      if (e?.currentTarget?.dataset?.target === "orderId") return this.receiveById(raw);
       const payload = raw.startsWith("{") ? JSON.parse(raw) : { pickupCode: raw };
-      return this.pickupByCode(payload.orderId || "", payload.pickupCode || payload.code || raw);
-    } catch (error) { wx.showToast({ title: error.message || "扫码失败", icon: "none" }); }
+      const expectedId = e?.currentTarget?.dataset?.id || "";
+      const orderId = payload?.orderId || "", code = payload?.pickupCode || payload?.code;
+      if (typeof orderId !== "string" || (orderId && !/^[A-Za-z0-9_-]{1,128}$/.test(orderId)) || typeof code !== "string" || !/^\d{6}$/.test(code)) throw new Error("请扫描有效的六位取货码或自提二维码");
+      if (expectedId && orderId && expectedId !== orderId) throw new Error("二维码与当前订单不匹配，请核对后重扫");
+      return this.pickupByCode(expectedId || orderId, code);
+    } catch (error) { if (!this.disposed && !/cancel/i.test(error.errMsg || "")) wx.showToast({ title: error.message || "扫码失败", icon: "none" }); }
+    finally { this.scanning = false; }
   },
   manual() { wx.showModal({ title: this.data.view === "receive" ? "输入订单号" : "输入取货码", editable: true, success: result => { if (!result.confirm) return; this.data.view === "receive" ? this.receiveById(result.content.trim()) : this.pickupByCode("", result.content.trim()); } }); },
   receive(e) { this.receiveById(e.currentTarget.dataset.id); },
-  pickup(e) { const row = this.data.orders.find(item => item.id === e.currentTarget.dataset.id); this.pickupByCode(row?.id || "", ""); },
+  pickup(e) {
+    if (!this.data.canPickup || this.scanning || this.choosingPickup || this.data.busy || this.data.current || this.data.pickupPreview || this.disposed) return;
+    const row = this.data.orders.find(item => item.id === e.currentTarget.dataset.id);
+    if (!row) return;
+    this.choosingPickup = true;
+    wx.showActionSheet({ itemList: ["扫码核验", "手动输入取货码"], success: result => {
+      if (this.disposed) return;
+      if (result.tapIndex === 0) this.scan({ currentTarget: { dataset: { id: row.id, target: "pickupCode" } } });
+      else if (result.tapIndex === 1) this.pickupByCode(row.id, "");
+    }, complete: () => { this.choosingPickup = false; } });
+  },
   async receiveById(orderId) {
     if (!this.data.canReceive) return wx.showToast({ title: "没有收货权限", icon: "none" });
     if (this.data.busy || this.data.current || this.data.pickupPreview) return;

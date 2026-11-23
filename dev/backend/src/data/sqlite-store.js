@@ -9,6 +9,11 @@ const DEFAULT_DB_FILE = path.resolve(__dirname, "..", "..", "data", "tgg-dev.sql
 let db;
 let activeFile;
 
+function savedItemDisplay(snapshotJson, productId) {
+  const saved = (JSON.parse(snapshotJson || "{}").items || []).find(item => item.productId === productId);
+  return saved?.productSnapshot ? { productSnapshot: require("../domain/order-item-view").productSnapshot(saved.productSnapshot) } : {};
+}
+
 function loadSQLiteState(dbFile = process.env.TGG_SQLITE_FILE || DEFAULT_DB_FILE) {
   const database = openDatabase(dbFile);
   runMigrations(database);
@@ -308,7 +313,8 @@ function readState(database) {
       items: (orderItems[row.id] || []).map((item) => ({
         productId: item.product_id,
         quantity: item.quantity,
-        title: item.title
+        title: item.title,
+        ...savedItemDisplay(row.snapshot_json, item.product_id)
       })),
       paymentMode: row.payment_mode,
       cashAmount: centsToMoney(row.cash_amount_cents),

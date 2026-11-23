@@ -74,7 +74,7 @@ async function handleAuthRoutes(ctx) {
     return send(ctx.res, result.ok ? 200 : result.status, result.ok ? result : { error: result.error });
   }
 
-  if (req.method === "GET" && url.pathname === "/api/me") return send(ctx.res, 200, authService.getCurrentUser(user));
+  if (req.method === "GET" && url.pathname === "/api/me") return send(ctx.res, 200, { ...authService.getCurrentUser(user), orderCounts: require("../domain/order-item-view").orderCounts(state, user?.id) }, { "Cache-Control": "no-store" });
 
   if (req.method === "POST" && url.pathname === "/api/me/phone") {
     const result = await bindPhone(state, user, await readBody(req));

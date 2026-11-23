@@ -95,7 +95,7 @@ function assertCanCreateOrder(state, user, payload) {
     if (product.purePointsOnly && paymentMode !== "pure_points") return { ok: false, error: "纯积分商品不支持现金或现金补差" };
     if (product.stock < quantity) return { ok: false, error: `${product.name} 库存不足` };
 
-    items.push({ productId: product.id, quantity, title: product.name });
+    items.push({ productId: product.id, quantity, title: product.name, productSnapshot: require("./order-item-view").productSnapshot(product) });
 
     if (paymentMode === "cash") {
       if (!isMember(user) && !giftPurchase) return { ok: false, error: "现金购物需要先开通月会员" };

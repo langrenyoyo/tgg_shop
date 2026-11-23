@@ -985,10 +985,26 @@ paths:
           description: Authentication required
     get:
       tags: [Auth]
-      summary: Alias of current user endpoint
+      summary: Current user with owned order counts for profile badges
+      security:
+        - UserBearerAuth: []
       responses:
         "200":
-          description: Current user
+          description: Current user plus pendingPayment, pendingPickup, shipping and refunding counts. Counts match the user's order tabs and exclude other users. Response is not cached.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      orderCounts:
+                        type: object
+                        properties:
+                          pendingPayment: { type: integer, minimum: 0 }
+                          pendingPickup: { type: integer, minimum: 0 }
+                          shipping: { type: integer, minimum: 0 }
+                          refunding: { type: integer, minimum: 0 }
 
   /api/config:
     get:
@@ -1126,6 +1142,7 @@ paths:
     get:
       tags: [Orders]
       summary: Get own order with refund records and status history
+      description: Each item includes a whitelisted product display object. New orders retain the product snapshot captured at checkout. Legacy items fall back to current catalog display values with priceIsCurrent true; these reference prices never recalculate the order cash or point totals.
       parameters:
         - name: orderId
           in: path

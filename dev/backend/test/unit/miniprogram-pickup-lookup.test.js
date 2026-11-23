@@ -13,7 +13,7 @@ function harness() {
   let page, loseResponse = false, scanResult = order.pickupCode;
   const calls = [], messages = [];
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/station/index.js"), "utf8"), {
-    Page: value => { page = value; }, wx: { showToast: value => messages.push(value.title), scanCode: options => options.success({ result: scanResult }) },
+    Page: value => { page = value; }, wx: { showToast: value => messages.push(value.title), scanCode: options => options.success({ result: scanResult }), showActionSheet: options => { assert.deepEqual(Array.from(options.itemList), ["扫码核验", "手动输入取货码"]); options.success({ tapIndex: 0 }); options.complete(); } },
     require: () => ({ request: async (url, options = {}) => {
       calls.push({ url, data: JSON.parse(JSON.stringify(options.data || {})) });
       if (url === "/api/station/me") return { station: station.publicStation(account), sites: state.pickupSites };
@@ -100,4 +100,33 @@ test("scanning a user QR selects its exact order even when six-digit pickup code
   await h.page.confirmPickup();
   assert.equal(h.order.status, "completed");
   assert.equal(duplicate.status, "paid");
+});
+
+test("selected-order scan rejects a different order and accepts its own QR or numeric barcode", async () => {
+  const h = harness(); await h.page.load();
+  const event = { currentTarget: { dataset: { target: "pickupCode", id: h.order.id } } };
+  for (const raw of [JSON.stringify({ orderId: "other-order", pickupCode: h.order.pickupCode }), "https://example.com", "null", JSON.stringify({ pickupCode: {} })]) {
+    h.setScan(raw); await h.page.scan(event);
+    assert.equal(h.page.data.pickupPreview, null);
+  }
+  assert.equal(h.calls.filter(call => call.url === "/api/station/pickup-lookup").length, 0);
+  for (const raw of [h.order.pickupCode, JSON.stringify({ orderId: h.order.id, pickupCode: h.order.pickupCode })]) {
+    h.setScan(raw); await h.page.scan(event);
+    assert.equal(h.page.data.pickupPreview.order.id, h.order.id);
+    assert.equal(h.calls.at(-1).data.orderId, h.order.id);
+    h.page.cancelPickup();
+  }
+  assert.equal(h.order.status, "paid");
+  assert.equal(h.calls.filter(call => call.url.endsWith("/pickup-verify")).length, 0);
+});
+
+test("pickup card offers scan and carries selected order ID through readonly lookup", async () => {
+  const h = harness(); await h.page.load();
+  h.page.setData({ view: "pickup" }); await h.page.load();
+  h.page.pickup({ currentTarget: { dataset: { id: h.order.id } } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.page.data.pickupPreview.order.id, h.order.id);
+  assert.equal(h.calls.at(-1).data.orderId, h.order.id);
+  assert.equal(h.order.status, "paid");
+  assert.equal(h.page.choosingPickup, false);
 });

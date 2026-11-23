@@ -5,3 +5,16 @@
 .pickup-code-label { color: #527262; font-size: 24rpx; }
 .pickup-code { display: block; font-size: 52rpx; font-weight: 800; letter-spacing: 10rpx; color: #203b30; margin: 4rpx 0 16rpx; }
 .pickup-pass .muted { margin-top: 8rpx; }
+.order-detail-page { height: 100vh; min-height: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.order-content { flex: 1; min-height: 0; height: 0; }
+.order-inner { padding: 24rpx; padding-bottom: calc(24rpx + env(safe-area-inset-bottom)); }
+.order-inner .title { overflow-wrap: anywhere; }
+.order-product { display: flex; align-items: flex-start; gap: 18rpx; padding: 24rpx 0; border-bottom: 1rpx solid #edf2ed; }
+.order-product-image { width: 130rpx; height: 130rpx; border-radius: 16rpx; flex-shrink: 0; }
+.order-product-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.order-payment-footer { flex-shrink: 0; max-height: 65vh; overflow-y: auto; box-sizing: border-box; padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); background: #fff; border-top: 1rpx solid #e2eee5; box-shadow: 0 -6rpx 24rpx rgba(32,59,48,.05); }
+.payment-total { font-weight: 700; color: #008754; }
+.payment-site { margin: 10rpx 0 18rpx; max-height: 100rpx; overflow-y: auto; overflow-wrap: anywhere; }
+.payment-actions { display: flex; flex-direction: column; gap: 14rpx; }
+.payment-actions button { width: 100%; margin: 0; padding: 10rpx 16rpx; border-radius: 16rpx; background: #00a865; color: #fff; font-size: 32rpx; line-height: 1.8; }
+.payment-actions button[disabled] { background: #00a865; color: #fff; }

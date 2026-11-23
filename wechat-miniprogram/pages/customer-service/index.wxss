@@ -5,7 +5,6 @@
 .qr-panel { padding: 36rpx 28rpx; border-radius: 24rpx; background: #fff; text-align: center; }
 .qr-instruction { color: #22352a; font-size: 30rpx; font-weight: 600; }
 .qr-tip { margin-top: 14rpx; color: #65786a; font-size: 24rpx; line-height: 1.6; }
-.customer-service-qr { display: block; width: 500rpx; max-width: 100%; height: 500rpx; margin: 30rpx auto 0; }
+.customer-service-qr { display: block; width: 600rpx; max-width: 100%; height: auto; margin: 30rpx auto 0; }
 .qr-status { min-height: 280rpx; display: flex; align-items: center; justify-content: center; padding: 30rpx; color: #7a887d; font-size: 26rpx; line-height: 1.6; }
 .retry-button { margin-top: 20rpx; }
-.contact-button { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; min-height: 88rpx; margin-top: 24rpx; padding: 16rpx 20rpx; line-height: 1.4; white-space: nowrap; }

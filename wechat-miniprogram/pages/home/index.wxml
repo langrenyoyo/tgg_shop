@@ -1,17 +1,17 @@
 <wxs src="../../utils/regular-price.wxs" module="retail"/>
 <view class="page home-page">
   <view wx:if="{{home.announcementText}}" class="announcement" aria-label="商城公告" bindtap="showAnnouncement">
-    <text class="announcement-icon">♬</text>
+    <view class="announcement-icon" aria-label="公告"><view class="speaker-body"></view><view class="speaker-cone"></view><view class="speaker-wave"></view></view>
     <view class="announcement-window">
-      <view class="announcement-track" style="animation-duration:{{home.announcementDuration}}s;">
-        <text class="announcement-text">{{home.announcementText}}</text>
+      <view class="announcement-track {{announcementRunning ? 'announcement-running' : ''}}" style="width:{{announcementWidth || 0}}px;animation-duration:{{announcementDuration || home.announcementDuration}}s;">
+        <text class="announcement-text announcement-copy">{{home.announcementText}}</text>
         <text class="announcement-text" aria-hidden="true">{{home.announcementText}}</text>
       </view>
     </view>
   </view>
   <view class="greet">
     <view class="location-mark"><view></view></view>
-    <view class="location-copy"><view class="location-label">美好生活 · 从新鲜开始</view><view class="location-name">{{home.pickupSite.name || '小鹿超级省'}}</view><view wx:if="{{home.pickupSite.address}}" class="location-address">{{home.pickupSite.address}}</view></view>
+    <view class="location-copy"><view class="location-label">美好生活 · 从省钱开始</view><view class="location-name">{{home.pickupSite.name || '小鹿超级省'}}</view><view wx:if="{{home.pickupSite.address}}" class="location-address">{{home.pickupSite.address}}</view></view>
     <view class="brand-mark">小鹿<text>超级省</text></view>
   </view>
   <view class="search-box"><view class="search-icon"></view><input placeholder="搜一搜，发现今天的新鲜好物" placeholder-style="color:#91a08f" bindconfirm="search" confirm-type="search"/></view>

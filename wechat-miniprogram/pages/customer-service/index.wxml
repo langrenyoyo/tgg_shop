@@ -5,11 +5,11 @@
   </view>
   <view class="qr-panel">
     <view class="qr-instruction">长按二维码，添加企业微信</view>
-    <view class="qr-tip">也可点击放大后，长按识别图中二维码</view>
+    <view class="qr-tip">可点击查看原图。如长按未出现识别入口，请保存二维码后，打开微信扫一扫 → 相册识别。</view>
     <view wx:if="{{loading}}" class="qr-status">二维码加载中…</view>
-    <image wx:elif="{{qrCode}}" class="customer-service-qr" src="{{qrCode}}" mode="aspectFit" show-menu-by-longpress="{{true}}" bindtap="preview" bindlongpress="preview" aria-label="企业微信二维码，点击放大或长按识别"/>
+    <image wx:elif="{{qrCode}}" class="customer-service-qr" src="{{qrCode}}" data-src="{{qrCode}}" mode="widthFix" show-menu-by-longpress="{{true}}" bindtap="preview" binderror="imageError" aria-label="企业微信二维码，点击放大或长按识别"/>
     <view wx:else class="qr-status">{{error}}</view>
     <button wx:if="{{error}}" class="btn btn-light retry-button" bindtap="load">重新加载</button>
-    <button class="btn btn-primary contact-button" open-type="contact" show-message-card>在线联系企业客服</button>
+    <button wx:if="{{qrCode && !loading}}" class="btn btn-light retry-button" bindtap="saveQr" loading="{{saving}}" disabled="{{saving}}">保存二维码</button>
   </view>
 </view>

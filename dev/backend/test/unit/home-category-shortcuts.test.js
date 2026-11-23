@@ -83,3 +83,25 @@ test("admin can rename, reorder, disable and replace a home category logo", () =
   assert.equal(invalid.ok, false);
   assert.equal(JSON.stringify(state.config.homeCategoryShortcuts), before);
 });
+
+test("announcement measures its full copy, restarts after resize and ignores hidden or stale measurements", async () => {
+  let page;
+  const queries = [];
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/home/index.js"), "utf8"), {
+    Page: value => { page = value; },
+    require: () => ({ request: async () => ({ serviceBadges: ["长公告".repeat(80)] }) }),
+    wx: { getStorageSync: () => null, createSelectorQuery: () => ({ in() { return this; }, select() { return this; }, boundingClientRect() { return this; }, exec(callback) { queries.push(callback); } }) }
+  });
+  page.setData = (value, callback) => { Object.assign(page.data, value); callback?.(); };
+  await page.load();
+  assert.equal(queries.length, 1);
+  queries[0]([{ width: 1500 }]);
+  assert.equal(page.data.announcementWidth, 3000); assert.equal(page.data.announcementDuration, 50);
+  assert.equal(page.data.announcementRunning, true);
+  page.onResize(); page.onHide(); queries[1]([{ width: 9999 }]);
+  assert.equal(page.data.announcementRunning, false); assert.equal(page.data.announcementWidth, 3000);
+  page.hidden = false; page.onResize(); queries[2]([{ width: 300 }]);
+  assert.equal(page.data.announcementWidth, 600); assert.equal(page.data.announcementRunning, true);
+  page.onResize(); page.onUnload(); queries[3]([{ width: 9999 }]);
+  assert.equal(page.data.announcementWidth, 600);
+});

@@ -1,4 +1,6 @@
-const { request } = require("../../utils/api");
+const orderApi = require("../../utils/api");
+const { request } = orderApi;
+const resolveAssetUrl = orderApi.resolveAssetUrl || (value => value);
 const { pay } = require("../../utils/payment");
 const wechatOrders = require("../../utils/wechat-orders");
 const { createPickupQr } = require("../../utils/pickup-qr");
@@ -41,6 +43,7 @@ Page({
     try {
       const order = await request("/api/orders/" + encodeURIComponent(this.id));
       if (!order) throw new Error("订单不存在");
+      order.items = (order.items || []).map(item => ({ ...item, product: { ...(item.product || {}), name: item.product?.name || item.title, image: resolveAssetUrl(item.product?.image || "") } }));
       const refunds = await Promise.all((order.refunds || []).map(refund => request("/api/refunds/" + encodeURIComponent(refund.id)).catch(() => refund)));
       if (version !== this.version || !this.sameOwner(owner)) return;
       // A QR generation failure must not prevent payment/refund progress or the

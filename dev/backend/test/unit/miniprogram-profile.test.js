@@ -66,3 +66,17 @@ test("home ignores old requests and clears recommendations before failed reload"
   assert.equal(h.page.data.home.recommendProducts.length, 0);
   assert.equal(h.page.data.error, "offline");
 });
+
+test("profile badges use owned counts, cap at 99+ and clear on reload and logout", async () => {
+  const h = setup();
+  const load = h.page.load();
+  h.pending[0].resolve({ id: "alice", orderCounts: { pendingPayment: 101, pendingPickup: 2, shipping: 0, refunding: 1 } }); await load;
+  assert.deepEqual(Array.from(h.page.data.orderEntries, row => row.count), [101, 2, 0, 1, 0]);
+  assert.equal(h.page.data.orderEntries[0].badgeText, "99+");
+  const reload = h.page.load();
+  assert.equal(h.page.data.orderEntries.every(row => row.count === 0), true);
+  h.pending[1].resolve({ id: "alice", orderCounts: { pendingPayment: 3 } }); await reload;
+  const logout = h.page.logout();
+  assert.equal(h.page.data.orderEntries.every(row => row.count === 0), true);
+  h.pending[2].resolve({ ok: true }); await logout;
+});
