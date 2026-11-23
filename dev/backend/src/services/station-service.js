@@ -3,6 +3,7 @@ const { verifyPickup } = require("../domain/fulfillment-rules");
 const tickets = require("../repositories/ticket-repository");
 const { canStation, publicStation } = require("../domain/station-accounts");
 const { packagesFor, preparePackages, pickupVersion } = require("../domain/station-storage");
+const { pickingLease } = require("../domain/station-picking");
 
 const RECEIVABLE = new Set(["paid"]);
 const BLOCKED = new Set(["cancelled", "refunding", "refunded", "closed"]);
@@ -67,6 +68,7 @@ function safeOrder(order, station = {}, state = {}) {
     holdUntil: station.holdUntil || "",
     overdue: order.status === "paid" && Boolean(station.holdUntil && new Date(station.holdUntil).getTime() <= Date.now()),
     pickerId: station.pickerId || "",
+    pickerName: (state.stationAccounts || []).find(account => account.id === station.pickerId)?.name || station.pickerId || "",
     pickedUpAt: station.pickedUpAt || "",
     exceptionType: station.exceptionType || "",
     exceptionRemark: station.exceptionRemark || ""
@@ -343,13 +345,22 @@ function claim(state, account, orderId, input = {}) {
   if (!order) return { ok: false, status: 404, error: "订单不存在或不属于当前站点" };
   const record = stationOrder(state, order) || { orderId, siteId: orderSiteId(order) };
   if ((!input.release && state.config.stationPickingEnabled === false) || order.status !== "paid" || !["expected", "in_transit", "picking", "exception"].includes(effectiveStatus(order, record))) return { ok: false, status: 409, error: "当前订单不可拣货" };
-  if (record.pickerId && record.pickerId !== account.id) return { ok: false, status: 409, error: "其他工作人员已领取此订单" };
+  let previousPickerId = "";
+  if (record.pickerId && record.pickerId !== account.id) {
+    const lease = pickingLease(state, record);
+    if (input.release || !lease.expired || input.takeover !== true || input.takeoverVersion !== lease.version) return {
+      ok: false, status: 409, code: "PICKING_OWNED", takeoverAllowed: !input.release && lease.expired,
+      takeoverVersion: !input.release && lease.expired ? lease.version : undefined,
+      error: lease.expired ? "此订单被其他工作人员领取已超过 30 分钟，可核实现场情况后接手" : "其他工作人员已领取此订单，请联系其完成收货或释放任务"
+    };
+    previousPickerId = record.pickerId;
+  }
   if (input.release) { record.pickerId = ""; record.stationStatus = record.exceptionType ? "exception" : "expected"; }
-  else { record.pickerId = account.id; record.stationStatus = "picking"; }
+  else { record.pickerId = account.id; record.stationStatus = "picking"; record.pickingClaimedAt = new Date().toISOString(); }
   order.stationStatus = record.stationStatus;
   state.stationOrders ||= [];
   if (!state.stationOrders.includes(record)) state.stationOrders.push(record);
-  appendLog(state, { siteId: record.siteId, orderId, operatorId: account.id, action: input.release ? "picking.release" : "picking.claim", result: "success" });
+  appendLog(state, { siteId: record.siteId, orderId, operatorId: account.id, action: input.release ? "picking.release" : previousPickerId ? "picking.takeover" : "picking.claim", ...(previousPickerId ? { previousPickerId, reason: "工作人员确认接手超过 30 分钟的拣货任务" } : {}), result: "success" });
   saveState();
   return { ok: true, order: safeOrder(order, record, state) };
 }

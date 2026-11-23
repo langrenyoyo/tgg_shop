@@ -814,7 +814,7 @@ paths:
     post:
       tags: [Station]
       summary: Claim or release a picking task for an authorized station order
-      description: Requires station:receive permission.
+      description: Requires station:receive permission. A task held by another worker for at least 30 minutes returns a PICKING_OWNED conflict with takeoverAllowed and takeoverVersion. After explicit confirmation, submit takeover=true with that version to take over. The server rechecks site, permissions, payment, task status and claim age/version; it audits the previous worker. Renewed or completed tasks reject stale versions. Historical age comes from persisted claim logs; unknown age never permits takeover. Taking over does not receive or hand over goods.
       security:
         - StationBearerAuth: []
       parameters:
@@ -826,10 +826,12 @@ paths:
               type: object
               properties:
                 release: { type: boolean, default: false }
+                takeover: { type: boolean, default: false }
+                takeoverVersion: { type: string, description: Version from a confirmed takeoverAllowed conflict }
       responses:
         "200": { description: Task claimed or released }
         "404": { description: Order not found or not authorized }
-        "409": { description: Order unavailable or claimed by another worker }
+        "409": { description: Order unavailable, claimed by another worker or takeover version changed; PICKING_OWNED may include takeoverAllowed and takeoverVersion }
         "403": { description: Missing station receive permission }
 
   /api/station/pickup-lookup:

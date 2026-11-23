@@ -1,4 +1,5 @@
 const { request, clearStationSession } = require("../../utils/station-api");
+const STATION_LABELS = { expected: "待收货", in_transit: "运输中", picking: "拣货中", ready: "待提货", received: "待提货", exception: "异常待处理", picked_up: "已提货" };
 
 Page({
   data: { station: {}, canReceive: false, canPickup: false, canException: false, siteName: "授权站点", counts: {}, orders: [], pickingConfig: {}, current: null, checkItems: [], shelfCode: "", packageRows: [], storageLabels: ["常温", "冷藏", "冷冻", "生鲜"], pickupPreview: null, pickupChecked: [], pickupReady: false, busy: false, view: "receive", loading: false, error: "" },
@@ -29,7 +30,7 @@ Page({
         this.setData({ view: this.data.canReceive ? "receive" : this.data.canPickup ? "pickup" : "exceptions" });
       }
       const rows = (orders || []).filter(item => item.status === "paid" && (this.data.view === "receive" ? ["expected", "in_transit", "picking"].includes(item.stationStatus) : this.data.view === "exceptions" ? item.stationStatus === "exception" || item.overdue : ["ready", "received"].includes(item.stationStatus))).map(item => ({ ...item, itemsText: (item.items || []).map(row => `${row.title || row.name || row.productId} × ${row.quantity}`).join("、") }));
-      this.setData({ station: me.station || {}, siteName: site.name || "授权站点", pickingConfig: dashboard.pickingConfig || {}, counts: dashboard.counts || {}, orders: rows, loading: false });
+      this.setData({ station: me.station || {}, siteName: site.name || "授权站点", pickingConfig: dashboard.pickingConfig || {}, counts: dashboard.counts || {}, orders: rows.map(row => ({ ...row, stationStatusText: STATION_LABELS[row.stationStatus] || row.stationStatus, receiveLabel: row.pickerId === me.station?.id ? "继续核对收货" : row.pickerId ? "查看并接手收货" : "领取并核对收货" })), loading: false });
       const summary = new Map();
       if (dashboard.pickingConfig?.batchEnabled && this.data.view === "receive") rows.forEach(order => (order.pickingItems || []).forEach(item => {
         const key = `${order.pickupSiteId}:${item.productId}`;
@@ -62,9 +63,19 @@ Page({
     if (!this.data.canReceive) return wx.showToast({ title: "没有收货权限", icon: "none" });
     if (this.data.busy || this.data.current || this.data.pickupPreview) return;
     if (!orderId) return wx.showToast({ title: "订单号不能为空", icon: "none" });
+    const version = this.version;
     this.setData({ busy: true });
     try {
-      const result = await request(`/api/station/orders/${encodeURIComponent(orderId)}/picking`, { method: "POST", data: {} });
+      let result;
+      const path = `/api/station/orders/${encodeURIComponent(orderId)}/picking`;
+      try { result = await request(path, { method: "POST", data: {} }); }
+      catch (error) {
+        if (error.statusCode !== 409 || error.code !== "PICKING_OWNED" || !error.takeoverAllowed || !error.takeoverVersion) throw error;
+        const confirmed = await new Promise(resolve => wx.showModal({ title: "接手超时拣货任务？", content: `订单 ${orderId} 已被其他工作人员领取超过 30 分钟。请先确认原工作人员未在处理；接手后需重新核对商品数量和存放位置。`, confirmText: "确认接手", success: value => resolve(value.confirm), fail: () => resolve(false) }));
+        if (!confirmed || this.disposed || version !== this.version) return;
+        result = await request(path, { method: "POST", data: { takeover: true, takeoverVersion: error.takeoverVersion } });
+      }
+      if (this.disposed || version !== this.version) return;
       const row = result.order;
       const packageRows = row.packages?.length ? row.packages : [...new Set(row.pickingItems.map(item => item.storageType || "ambient"))].map(storageType => ({ storageType, shelfCode: "", bagCount: 1 }));
       this.setData({ current: row, shelfCode: row.shelfCode || "", packageRows: packageRows.map(item => ({ ...item, typeIndex: Math.max(0, ["ambient", "chilled", "frozen", "fresh"].indexOf(item.storageType)) })), checkItems: row.pickingItems.map(item => ({ ...item, actualQuantity: "", scannedBarcode: "" })) });

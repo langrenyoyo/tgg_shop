@@ -79,6 +79,11 @@ function request(path, { method = "GET", data = null, retry = true } = {}) {
         }
         const error = new Error(res.data?.error || `请求失败 ${res.statusCode}`);
         error.statusCode = res.statusCode;
+        if (res.data?.code === "PICKING_OWNED") {
+          error.code = res.data.code;
+          error.takeoverAllowed = res.data.takeoverAllowed === true;
+          error.takeoverVersion = res.data.takeoverVersion;
+        }
         reject(error);
       },
       fail: error => reject(new Error(error.errMsg || "请求失败"))

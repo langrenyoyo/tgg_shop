@@ -81,3 +81,11 @@ test("station refresh network errors allow recovery, invalid credentials require
   assert.equal(storage.has("tgg_station_token"), false);
   assert.equal(storage.get("tgg_token"), "customer-token");
 });
+
+test("station picking conflict retains the server takeover confirmation data without automatic retry", async () => {
+  const { api, calls } = setup();
+  const pending = assert.rejects(api.request("/api/station/orders/one/picking", { method: "POST", data: {} }), error => error.statusCode === 409 && error.code === "PICKING_OWNED" && error.takeoverAllowed === true && error.takeoverVersion === "revision-one");
+  reply(calls[0], 409, { error: "超时任务", code: "PICKING_OWNED", takeoverAllowed: true, takeoverVersion: "revision-one" });
+  await pending;
+  assert.equal(calls.length, 1);
+});
