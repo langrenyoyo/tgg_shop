@@ -9,7 +9,7 @@ const { requestWithdrawal } = require("../../src/services/account-service");
 const { updateConfig } = require("../../src/services/admin-service");
 
 test("ordinary nonmembers can withdraw sub-yuan balances regardless of legacy platform minimums", () => {
-  for (const amount of [0.1, 0.5, 0.99]) {
+  for (const amount of [0.11, 0.5, 0.99]) {
     const state = createSeed();
     const user = state.users[1];
     user.withdrawableBalance = amount;
@@ -28,7 +28,7 @@ test("ordinary nonmembers can withdraw sub-yuan balances regardless of legacy pl
 });
 
 test("channel net minimum and amount precision still reject before freezing funds", () => {
-  for (const amount of [0, -1, 0.001, 0.105, 0.09, NaN, Infinity]) {
+  for (const amount of [0, -1, 0.001, 0.105, 0.09, 0.1, NaN, Infinity]) {
     const state = createSeed();
     const user = state.users[1];
     const balance = user.withdrawableBalance;
@@ -40,7 +40,7 @@ test("channel net minimum and amount precision still reject before freezing fund
   }
   const state = createSeed();
   state.config.withdrawFeeRate = 0.1;
-  assert.equal(requestWithdrawal(state, state.users[1], { amount: 0.1 }).withdrawal.fee, 0);
+  assert.equal(requestWithdrawal(state, state.users[1], { amount: 0.1 }).ok, false);
   assert.equal(requestWithdrawal(state, state.users[1], { amount: 0.11 }).ok, true);
 });
 
@@ -65,7 +65,7 @@ test("historical notices remove platform thresholds but retain operational and c
   assert.equal(normalized.config.withdrawNotice, cleaned);
   assert.equal(normalized.config.withdrawDailyCountLimit, 0);
   assert.equal(normalized.config.withdrawDailyAmountLimit, 0);
-  assert.equal(normalized.config.withdrawFeeRate, 0);
+  assert.equal(normalized.config.withdrawFeeRate, 0.1);
 });
 
 test("admin saves cleaned notices and cannot reinstate the retired minimum", () => {
@@ -73,7 +73,7 @@ test("admin saves cleaned notices and cannot reinstate the retired minimum", () 
   const actor = { role: { id: "super_admin", permissions: ["*"] } };
   const notice = "提现最低 1 元。手续费为 1%。失败退回余额。";
   const result = updateConfig(state, { withdrawNotice: notice, reason: "取消最低金额" }, actor);
-  assert.equal(result.withdrawNotice, "失败退回余额。");
+  assert.equal(result.withdrawNotice, "平台提现手续费为 10%。失败退回余额。");
   const before = JSON.stringify(state.config);
   assert.equal(updateConfig(state, { withdrawMinAmount: 1, reason: "旧客户端" }, actor).ok, false);
   assert.equal(JSON.stringify(state.config), before);
@@ -86,7 +86,7 @@ test("the screenshot's custom amount-range wording loses its minimum on public r
     const state = createSeed();
     const suffix = "，每人每日最多 2 次，每日 00:00 重置。\n提现手续费为 1%。";
     state.config.withdrawNotice = range + suffix;
-    const expected = "提现金额须符合支付渠道要求。";
+    const expected = "提现金额须符合支付渠道要求。\n平台提现手续费为 10%。";
     assert.equal(activeConfig(state.config).withdrawNotice, expected);
     assert.equal(normalizeState(state).config.withdrawNotice, expected);
     assert.equal(updateConfig(state, { withdrawNotice: range + suffix, reason: "清理截图中的旧说明" }, actor).withdrawNotice, expected);
@@ -138,10 +138,10 @@ test("old fee and daily policies are migrated without changing any existing with
   assert.equal(replay.withdrawal.arrivalAmount, 9.9);
   assert.equal(user.withdrawableBalance, 10);
   const next = requestWithdrawal(state, user, { amount: 10, idempotencyKey: "new-request" });
-  assert.equal(next.withdrawal.fee, 0);
-  assert.equal(next.withdrawal.arrivalAmount, 10);
+  assert.equal(next.withdrawal.fee, 1);
+  assert.equal(next.withdrawal.arrivalAmount, 9);
   const config = activeConfig(state.config);
-  assert.equal(config.withdrawFeeRate, 0);
+  assert.equal(config.withdrawFeeRate, 0.1);
   assert.equal(config.withdrawDailyCountLimit, 0);
   assert.equal(config.withdrawDailyAmountLimit, 0);
   assert.doesNotMatch(config.withdrawNotice, /1%|2 次|00:00|10\s*分钟|1 至/);
@@ -150,6 +150,34 @@ test("old fee and daily policies are migrated without changing any existing with
   const actor = { role: { id: "super_admin", permissions: ["*"] } };
   for (const key of ["withdrawFeeRate", "withdrawDailyCountLimit", "withdrawDailyAmountLimit"]) {
     assert.equal(updateConfig(state, { [key]: 1, reason: "legacy client" }, actor).ok, false);
-    assert.equal(state.config[key], 0);
+    assert.equal(state.config[key], key === "withdrawFeeRate" ? 0.1 : 0);
   }
+});
+
+test("10 percent withdrawal fees round in cents and conserve the full amount", () => {
+  for (const [amount, fee, arrival] of [[0.11, 0.01, 0.1], [0.14, 0.01, 0.13], [0.15, 0.02, 0.13], [0.5, 0.05, 0.45], [0.99, 0.1, 0.89], [10, 1, 9], [123.45, 12.35, 111.1], [200, 20, 180]]) {
+    const state = createSeed(), user = state.users[1];
+    user.withdrawableBalance = 500;
+    state.config.withdrawFeeRate = 0; // Old stored values cannot disable the policy.
+    const result = requestWithdrawal(state, user, { amount, idempotencyKey: "round-fee" });
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.withdrawal.fee, fee); assert.equal(result.withdrawal.arrivalAmount, arrival);
+    assert.equal(Math.round((fee + arrival) * 100), Math.round(amount * 100));
+    assert.equal(user.withdrawableBalance, Math.round((500 - amount) * 100) / 100);
+    assert.equal(requestWithdrawal(state, user, { amount, idempotencyKey: "round-fee" }).idempotent, true);
+    assert.equal(state.withdrawableLedger.filter(row => row.bizNo === result.withdrawal.id).length, 1);
+  }
+});
+
+test("historical zero-fee requests retain zero fees after migration and idempotent replay", () => {
+  const state = createSeed(), user = state.users[1];
+  const payload = { amount: 10, idempotencyKey: "historical-free" };
+  const old = requestWithdrawal(state, user, payload).withdrawal;
+  old.fee = 0; old.arrivalAmount = 10;
+  const before = JSON.stringify(state.withdrawRequests), balance = user.withdrawableBalance;
+  normalizeState(state);
+  assert.equal(JSON.stringify(state.withdrawRequests), before);
+  const replay = requestWithdrawal(state, user, payload);
+  assert.equal(replay.idempotent, true); assert.equal(replay.withdrawal.fee, 0); assert.equal(replay.withdrawal.arrivalAmount, 10);
+  assert.equal(user.withdrawableBalance, balance);
 });

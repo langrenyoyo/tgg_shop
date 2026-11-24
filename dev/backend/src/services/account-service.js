@@ -229,10 +229,12 @@ function requestWithdrawal(state, user, input) {
     return { ok: false, status: 409, error: "尚未取得有效的微信收款授权，暂不可提现，请联系管理员" };
   }
 
-  // New requests have no platform fee. Existing requests retain their snapshot
-  // through the idempotency return above and the provider settlement workflow.
-  const fee = 0;
-  const arrivalAmount = amount;
+  // Calculate in cents. Idempotent replays above retain their original fee.
+  const amountCents = Math.round(amount * 100);
+  const feeRate = require("../config/withdrawal-notice").withdrawalPolicy.withdrawFeeRate;
+  const feeCents = Math.round(amountCents * feeRate);
+  const fee = feeCents / 100;
+  const arrivalAmount = (amountCents - feeCents) / 100;
   if (arrivalAmount <= 0) return { ok: false, status: 400, error: "扣除手续费后到账金额必须大于 0 元" };
   if (arrivalAmount < 0.1) return { ok: false, status: 400, error: "渠道要求扣除手续费后到账金额至少为 0.1 元" };
   const now = new Date().toISOString();

@@ -24,7 +24,7 @@ function setup(balance = 600, options = {}) {
       if (url === "/api/me") return { id: storage.tgg_user?.id, withdrawableBalance: balance };
       if (url === "/api/withdrawals/authorization" && requestOptions?.method === "POST") return options.start ? options.start() : { appId: "wx123", mchId: "1900000001", authorizationPackage: "native-package", status: "pending" };
       if (url === "/api/withdrawals/authorization") return options.authorization ? options.authorization() : { status: "none", required: true };
-      if (url === "/api/config") return { withdrawMinAmount: 1, withdrawMaxAmount: 200, withdrawFeeRate: 0.01, withdrawDailyCountLimit: 2, withdrawDailyAmountLimit: 500, deliveryTimeZone: "Asia/Shanghai", ...options.config };
+      if (url === "/api/config") return { withdrawMinAmount: 1, withdrawMaxAmount: 200, withdrawFeeRate: 0.1, withdrawDailyCountLimit: 2, withdrawDailyAmountLimit: 500, deliveryTimeZone: "Asia/Shanghai", ...options.config };
       if (url === "/api/withdrawals" && !requestOptions) return rows;
       if (url.endsWith("/transfer-package")) return { package: "provider-package", mchId: "1900000001" };
       return { ok: true };
@@ -176,12 +176,12 @@ test("late authorization status cannot restore another account's state or an unl
   assert.notEqual(page.data.authorizationStatus, "active");
 });
 
-test("withdraw page retains channel caps and history but does not expose retired daily limits or fees", async () => {
+test("withdraw page exposes 10 percent fees and retains channel caps and history without retired daily limits", async () => {
   const { page, requests } = setup();
   await page.load();
   assert.equal(page.data.withdrawRules.minAmount, undefined);
   assert.equal(page.data.withdrawRules.maxAmount, 200);
-  assert.equal(page.data.withdrawRules.feePercent, undefined);
+  assert.equal(page.data.withdrawRules.feePercent, 10);
   assert.equal(page.data.withdrawRules.dailyCount, undefined);
   assert.equal(page.data.withdrawRules.dailyAmount, undefined);
   assert.equal(page.data.rows[0].statusText, "审核中");
@@ -200,8 +200,8 @@ test("withdraw page accepts a sub-yuan balance despite old minimum config", asyn
   page.input({ detail: { value: "0.5" } });
   assert.equal(page.data.withdrawAmountError, "");
   assert.equal(page.data.withdrawPreview.amount, "0.50");
-  assert.equal(page.data.withdrawPreview.fee, "0.00");
-  assert.equal(page.data.withdrawPreview.arrivalAmount, "0.50");
+  assert.equal(page.data.withdrawPreview.fee, "0.05");
+  assert.equal(page.data.withdrawPreview.arrivalAmount, "0.45");
   await page.submit();
   const submitted = requests.find(item => item.url === "/api/withdrawals" && item.options?.method === "POST");
   assert.equal(submitted.options.data.amount, 0.5);
@@ -218,20 +218,21 @@ test("empty balance and invalid channel amounts cannot submit", async () => {
   const funded = setup(0.5);
   await funded.page.load();
   assert.match(funded.page.amountError("0.09"), /渠道/);
-  assert.equal(funded.page.amountError("0.10"), "");
+  assert.match(funded.page.amountError("0.10"), /扣除手续费/);
+  assert.equal(funded.page.amountError("0.11"), "");
   assert.match(funded.page.amountError("0.101"), /两位小数/);
   const template = fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/service/index.wxml"), "utf8");
   assert.doesNotMatch(template, /最低提现|最低金额|balanceBelowMinimum/);
 });
 
-test("withdrawal preview clears invalid input and has no fee even when older config specifies a rate", async () => {
+test("withdrawal preview rounds 10 percent fees to cents and clears invalid input", async () => {
   const { page } = setup(600);
   await page.load();
   page.input({ detail: { value: "123.45" } });
   assert.equal(page.data.withdrawPreview.amount, "123.45");
-  assert.equal(page.data.withdrawPreview.arrivalAmount, "123.45");
-  assert.equal(page.data.withdrawPreview.fee, "0.00");
-  for (const raw of ["", "0", "0.09", "200.01", "0.101", "abc"]) {
+  assert.equal(page.data.withdrawPreview.arrivalAmount, "111.10");
+  assert.equal(page.data.withdrawPreview.fee, "12.35");
+  for (const raw of ["", "0", "0.09", "0.10", "200.01", "0.101", "abc"]) {
     page.input({ detail: { value: raw } });
     assert.equal(page.data.withdrawPreview, null);
   }
@@ -239,6 +240,14 @@ test("withdrawal preview clears invalid input and has no fee even when older con
   assert.doesNotMatch(template, /每日次数|每日额度|withdrawLimitReached|10\s*分钟/);
   assert.match(template, /预计到账：¥\{\{withdrawPreview.arrivalAmount\}\}/);
   assert.match(template, /代扣的税费/);
+});
+
+test("withdrawal preview matches server cent rounding at fee boundaries", async () => {
+  const { page } = setup(600); await page.load();
+  for (const [amount, fee, arrival] of [["0.11", "0.01", "0.10"], ["0.14", "0.01", "0.13"], ["0.15", "0.02", "0.13"], ["10", "1.00", "9.00"], ["123.45", "12.35", "111.10"]]) {
+    page.input({ detail: { value: amount } });
+    assert.equal(page.data.withdrawPreview.fee, fee); assert.equal(page.data.withdrawPreview.arrivalAmount, arrival);
+  }
 });
 
 test("page uses the authoritative channel amount and removes the fixed single-request cap row", async () => {

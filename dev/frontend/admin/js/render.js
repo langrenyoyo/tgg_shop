@@ -584,7 +584,7 @@ function settings(state) {
     <section class="panel" id="settings-finance">
       <div class="panel-head"><h2>财务规则设置</h2><span>提现和配送完成后的结算规则</span></div>
       <form class="config-form" data-config-form="finance">
-        <p class="note wide">新提现申请不收取平台手续费，不限制每日次数和每日累计金额。渠道单笔限额与收款授权仍适用；历史提现单按原申请记录处理。</p>
+        <p class="note wide">新提现申请收取 10% 平台手续费，从提现金额中扣除并四舍五入到分。不限制每日次数和每日累计金额。渠道单笔限额与收款授权仍适用；历史提现单按原申请记录处理。</p>
         <label class="wide">小程序提现说明<textarea name="withdrawNotice" rows="6" maxlength="2000" placeholder="每行一条规则">${escapeHtml(config.withdrawNotice || "")}</textarea><small>保存后立即展示在小程序提现页，支持换行，最多 2000 个字符。</small></label>
         <label>自动确认收货天数<input name="autoConfirmDeliveryDays" type="number" min="1" max="365" step="1" value="${Number(config.autoConfirmDeliveryDays || 7)}"></label>
         <div class="settings-save"><span>提现限制、提现说明及自动确认规则保存后立即生效</span><button class="action" type="submit">保存财务规则</button></div>
@@ -653,8 +653,8 @@ function withdrawalApprovalRows(state) {
   return simpleTable("提现审批", ["提现单", "用户", "金额", "手续费", "状态", "操作"], (state.withdrawals || []).map((item) => [
     item.id,
     item.userId,
-    `¥${Number(item.amount || 0).toFixed(1)}`,
-    `¥${Number(item.fee || 0).toFixed(1)}`,
+    `¥${Number(item.amount || 0).toFixed(2)}`,
+    `¥${Number(item.fee || 0).toFixed(2)}`,
     badge(item.status, item.status === "pending_review" ? "orange" : ""),
     item.status === "pending_review" ? trustedHtml(`${gatedAction("approval:request", `<button class="action" data-withdraw-action="${escapeAttr(item.id)}" data-action-type="approve">提交通过复核</button>`, "无提交权限")} ${gatedAction("approval:request", `<button class="action danger-action" data-withdraw-action="${escapeAttr(item.id)}" data-action-type="reject">提交驳回复核</button>`, "无提交权限")}`) : item.status === "approved" ? gatedAction("withdraw:approve", `<button class="action" data-withdraw-submit="${escapeAttr(item.id)}">提交服务商</button>`, "无提现权限") : "-"
   ]));

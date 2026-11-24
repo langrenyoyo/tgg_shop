@@ -57,7 +57,8 @@
       <view class="withdraw-balance">¥{{balance}}</view>
       <view class="withdraw-rules">
         <view>提现金额须符合支付渠道要求</view>
-        <view>平台提现手续费：不收取</view>
+        <view>平台提现手续费：{{withdrawRules.feePercent}}%</view>
+        <view class="muted">手续费从提现金额中扣除，四舍五入到分。</view>
         <view>申请时间：全天可提交</view>
         <view>到账进度：提交申请 → 审核 → 渠道处理 → 到账</view>
         <view class="muted">到账时间以实际审核和支付渠道处理结果为准，可在下方提现记录中查看进度。</view>

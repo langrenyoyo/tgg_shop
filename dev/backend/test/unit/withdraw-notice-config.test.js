@@ -43,7 +43,7 @@ test("withdrawal requests enforce the per-request maximum", () => {
   assert.equal(user.withdrawableBalance, 1000);
 });
 
-test("new withdrawals ignore legacy daily limits and fees while preserving per-request channel caps", () => {
+test("new withdrawals use 10 percent fees and ignore legacy daily limits while preserving channel caps", () => {
   const state = createSeed();
   const user = state.users.find(item => item.id === "u_1001");
   user.withdrawableBalance = 1000;
@@ -53,8 +53,8 @@ test("new withdrawals ignore legacy daily limits and fees while preserving per-r
   const result = account.requestWithdrawal(state, user, { amount: 200, idempotencyKey: "daily-third" });
 
   assert.equal(result.ok, true);
-  assert.equal(result.withdrawal.fee, 0);
-  assert.equal(result.withdrawal.arrivalAmount, 200);
+  assert.equal(result.withdrawal.fee, 20);
+  assert.equal(result.withdrawal.arrivalAmount, 180);
   assert.equal(user.withdrawableBalance, 400);
 });
 

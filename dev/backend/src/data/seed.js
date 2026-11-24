@@ -75,7 +75,7 @@ function createSeed() {
       },
       purePointsNoCashTopup: true,
       ...require("../config/withdrawal-notice").withdrawalPolicy,
-      withdrawNotice: "全天可提交提现申请，平台不收取提现手续费。\n申请提交后进入审核，审核通过后由支付渠道处理，到账时间以实际处理结果为准。\n收款至已授权的微信账户，提现失败后金额退回可提现余额。",
+      withdrawNotice: "全天可提交提现申请，平台提现手续费为 10%。\n手续费从提现金额中扣除并四舍五入到分。\n申请提交后进入审核，审核通过后由支付渠道处理，到账时间以实际处理结果为准。\n收款至已授权的微信账户，提现失败后金额退回可提现余额。",
       paymentTimeoutMinutes: 30,
       autoConfirmDeliveryDays: 7,
       dashboardAlertThresholds: {

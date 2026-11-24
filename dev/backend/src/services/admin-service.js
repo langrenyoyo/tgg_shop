@@ -880,7 +880,7 @@ function updateConfig(state, input, actor = {}) {
     monthlyPointRewardSettlementMinute: value => Number.isInteger(value) && value >= 0 && value <= 59,
     withdrawMinAmount: value => value === 0,
     withdrawMaxAmount: value => value === 0,
-    withdrawFeeRate: value => value === 0,
+    withdrawFeeRate: value => value === require("../config/withdrawal-notice").withdrawalPolicy.withdrawFeeRate,
     paymentTimeoutMinutes: value => value === 0 || value >= 1,
     stationPickupHoldHours: value => Number.isInteger(value) && value >= 1 && value <= 720,
     cashOrderMaxAmount: value => value > 0,

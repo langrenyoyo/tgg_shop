@@ -42,12 +42,15 @@ Page({
         const maxAmount = Number(config.withdrawChannelMaxAmount ?? config.withdrawMaxAmount);
         const safeRows = (Array.isArray(rows) ? rows : []).map(item => ({ ...item, statusText: WITHDRAWAL_STATUSES[item.status] || "状态待核对" }));
         const balance = Number(user.withdrawableBalance || 0);
-        this.withdrawContext = { maxAmount, balance };
+        const feeRate = Number(config.withdrawFeeRate);
+        if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate >= 1) throw new Error("提现手续费配置无效，请刷新后重试");
+        this.withdrawContext = { maxAmount, balance, feeRate };
         this.setData({
           balance,
           config,
           withdrawRules: {
             maxAmount,
+            feePercent: Math.round(feeRate * 10000) / 100,
             notice: String(config.withdrawNotice || "").trim()
           },
           withdrawNoticeLines: String(config.withdrawNotice || "").trim().split(/\r?\n/).filter(Boolean),
@@ -138,13 +141,14 @@ Page({
     if (Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) return "提现金额最多支持两位小数";
     if (Number.isFinite(context.maxAmount) && context.maxAmount > 0 && amount > context.maxAmount) return `当前支付渠道单笔最多支持 ¥${context.maxAmount}，请调整金额`;
     if (amount > Number(context.balance || 0)) return "提现金额不能超过可提现余额";
-    if (Math.round(amount * 100) < 10) return "支付渠道支持的单笔金额需达到 0.1 元";
+    const amountCents = Math.round(amount * 100), feeCents = Math.round(amountCents * (context.feeRate || 0));
+    if (amountCents - feeCents < 10) return "扣除手续费后到账金额需达到支付渠道要求的 0.1 元";
     return "";
   },
   previewWithdrawal(raw) {
     if (!String(raw || "").trim() || this.amountError(raw)) return null;
-    const amount = Number(raw).toFixed(2);
-    return { amount, fee: "0.00", arrivalAmount: amount };
+    const cents = Math.round(Number(raw) * 100), feeCents = Math.round(cents * (this.withdrawContext?.feeRate || 0));
+    return { amount: (cents / 100).toFixed(2), fee: (feeCents / 100).toFixed(2), arrivalAmount: ((cents - feeCents) / 100).toFixed(2) };
   },
   exchangeError(raw) {
     if (!String(raw || "").trim()) return "";

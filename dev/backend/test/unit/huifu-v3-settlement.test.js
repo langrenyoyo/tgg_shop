@@ -38,8 +38,9 @@ test("documented amount-less query settles only the persisted submitted amount, 
   assert.equal((await service.queryWithdrawal(f.state, f.row.id)).idempotent, true);
   const entries = f.state.withdrawableLedger.filter(x => x.bizNo === f.row.id);
   assert.equal(entries.filter(x => x.changeType === "withdraw_payout").length, 1);
-  assert.equal(entries.find(x => x.changeType === "withdraw_payout").amount, 10);
-  assert.equal(entries.filter(x => x.changeType === "withdraw_fee").length, 0);
+  assert.equal(entries.find(x => x.changeType === "withdraw_payout").amount, 9);
+  assert.equal(entries.filter(x => x.changeType === "withdraw_fee").length, 1);
+  assert.equal(entries.find(x => x.changeType === "withdraw_fee").amount, 1);
 });
 
 test("legacy fee-bearing requests still settle their saved net amount and fee exactly once", async t => {
@@ -65,7 +66,7 @@ test("query identity, returned amount and saved snapshot mismatches cannot settl
     assert.equal(f.row.status, "processing");
   }
   f.response = {};
-  f.row.submission.amountCents = 990;
+  f.row.submission.amountCents = 899;
   assert.equal((await service.queryWithdrawal(f.state, f.row.id)).ok, false);
   delete f.row.submission;
   assert.equal((await service.queryWithdrawal(f.state, f.row.id)).ok, false);
