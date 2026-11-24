@@ -25,7 +25,7 @@
 .quick-icon image { width: 100%; height: 100%; border-radius: 50%; }
 .amber { background: #faecd1; }.mint { background: #ddf1e2; }.peach { background: #f9e4d9; }.cream { background: #f0edda; }
 .exchange-strip { background: #e5f0de; border: 2rpx solid #dcebd5; border-radius: 24rpx; padding: 24rpx; display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
-.exchange-title { font-size: 26rpx; font-weight: 600; color: #008754; }.exchange-subtitle { font-size: 21rpx; color: #849274; margin-top: 6rpx; }
+.exchange-title { font-size: 26rpx; font-weight: 800; color: #008754; }.exchange-subtitle { font-size: 21rpx; font-weight: 700; color: #849274; margin-top: 6rpx; }
 .exchange-action { color: #486d38; font-size: 23rpx; flex-shrink: 0; }
 .service-strip { display: flex; gap: 12rpx; margin: 18rpx 0; overflow-x: auto; }.service-badge { flex: 0 0 auto; padding: 10rpx 18rpx; border-radius: 999rpx; background: #fff; color: #54734d; font-size: 21rpx; }.promotion-list { display: flex; gap: 14rpx; margin: 16rpx 0 22rpx; overflow-x: auto; }.promotion-card { min-width: 190rpx; padding: 20rpx; border-radius: 22rpx; color: #fff; }.promotion-card view { font-weight: 700; font-size: 25rpx; }.promotion-card text { display: block; margin-top: 6rpx; font-size: 20rpx; opacity: .9; }.promotion-card.green { background: #3e9b69; }.promotion-card.orange { background: #d99555; }.promotion-card.blue { background: #628fc1; }
 .home-categories { display: flex; justify-content: space-between; gap: 12rpx; margin-top: 10px; padding: 0 2rpx 18rpx; }
@@ -34,10 +34,10 @@
 .home-category-icon image { width: 100%; height: 100%; border-radius: 50%; }
 .home-category-icon text { color: #159661; font-weight: 700; font-size: 34rpx; }
 .section-caption { font-size: 21rpx; font-weight: 400; color: #8b9988; margin-top: 4rpx; }
-.announcement { display: flex; align-items: center; gap: 14rpx; height: 64rpx; padding: 0 18rpx; margin-bottom: 10px; border-radius: 14rpx; background: #fff; color: #008754; }
+.announcement { display: flex; align-items: center; gap: 14rpx; height: 64rpx; padding: 0 18rpx; margin-bottom: 10px; border: 2rpx solid #dfbd87; border-radius: 14rpx; background: linear-gradient(110deg, #e6c38f 0%, #f7e7c6 48%, #e4bd82 100%); color: #008754; box-shadow: inset 0 2rpx 3rpx rgba(255, 251, 235, .85), inset 0 -2rpx 3rpx rgba(177, 125, 53, .12), 0 4rpx 12rpx rgba(161, 121, 57, .16); }
 .announcement-icon { flex-shrink: 0; position: relative; width: 38rpx; height: 36rpx; color: #008754; }
 .speaker-body { position: absolute; left: 0; top: 12rpx; width: 10rpx; height: 14rpx; border: 3rpx solid #008754; border-right: 0; border-radius: 3rpx 0 0 3rpx; }
-.speaker-cone { position: absolute; left: 9rpx; top: 6rpx; width: 14rpx; height: 26rpx; border: 3rpx solid #008754; transform: skewY(-22deg); border-radius: 2rpx; background: #fff; }
+.speaker-cone { position: absolute; left: 9rpx; top: 6rpx; width: 14rpx; height: 26rpx; border: 3rpx solid #008754; transform: skewY(-22deg); border-radius: 2rpx; background: #e9cb9c; }
 .speaker-wave { position: absolute; right: 0; top: 7rpx; width: 9rpx; height: 25rpx; border-right: 3rpx solid #008754; border-radius: 50%; }
 .announcement-window { flex: 1; min-width: 0; height: 64rpx; overflow: hidden; }
 .announcement-track { display: flex; white-space: nowrap; }
