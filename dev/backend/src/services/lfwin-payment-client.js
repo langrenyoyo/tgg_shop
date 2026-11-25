@@ -115,7 +115,7 @@ async function refundPayment(config, request, input = {}) {
     mch_refund_no: input.merchantRefundNo,
     reason: input.reason,
     notify_url: input.notifyUrl
-  });
+  }, { refundProcessing: true });
 }
 
 async function queryRefund(config, request, input = {}) {
@@ -129,13 +129,19 @@ async function queryRefund(config, request, input = {}) {
     order_time: input.orderTime ? toUnixSeconds(input.orderTime) : undefined,
     refund_no: input.providerRefundNo,
     mch_refund_no: input.merchantRefundNo
-  });
+  }, { refundProcessing: true });
 }
 
-async function call(config, request, path, payload) {
+async function call(config, request, path, payload, options = {}) {
   ensureConfigured(config);
   const signed = signPayload(config, payload);
   const response = await request(`${config.baseUrl}${path}`, signed, config.timeoutMs);
+  // LFWin v4 documents an unsigned 4001 as a processing acknowledgement.
+  // This is only a hint to query again, never evidence for settling a refund.
+  if (options.refundProcessing && String(response?.status) === "4001") {
+    if (response.sign && !verifyPayload(config, response)) throw new Error("LFWin response signature verification failed");
+    return { status: "4001", orderid: response.orderid, mch_refund_no: response.mch_refund_no, refund_no: response.refund_no };
+  }
   if (!response || String(response.status) !== SUCCESS_STATUS) {
     const error = new Error(response?.message || "LFWin request failed");
     error.providerResponse = response;
@@ -183,8 +189,16 @@ function canonicalize(payload) {
   return Object.keys(payload)
     .filter((key) => key !== "sign" && payload[key] !== undefined && payload[key] !== null)
     .sort()
-    .map((key) => `${key}=${payload[key]}`)
+    .map((key) => `${key}=${signatureValue(payload[key])}`)
     .join("&");
+}
+
+function signatureValue(value) {
+  // PHP JSON values in LFWin list responses escape Unicode and slashes. Keep
+  // all nested fields in the signature; dropping lists would allow tampering.
+  return value && typeof value === "object"
+    ? JSON.stringify(value).replace(/[\u007f-\uffff]/g, char => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0")).replace(/\//g, "\\/")
+    : value;
 }
 
 async function requestForm(url, fields, timeoutMs) {

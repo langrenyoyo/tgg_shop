@@ -7,6 +7,35 @@ const { createOrder } = require("../../src/domain/rules");
 const paymentService = require("../../src/services/payment-service");
 const goodsPayment = require("../helpers/goods-payment");
 
+test("LFWin v4 4001 is a processing hint only on refund endpoints", async () => {
+  const response = { status: "4001", orderid: "LF-1", mch_refund_no: "RFD-1", refund_no: "RF-1", message: "private prose" };
+  const client = createLfwinClient({ config, request: async () => response });
+  const input = { providerOrderNo: "LF-1", merchantRefundNo: "RFD-1", amount: 1, notifyUrl: "https://example.test/refund" };
+  assert.deepEqual(await client.refundPayment(input), { status: "4001", orderid: "LF-1", mch_refund_no: "RFD-1", refund_no: "RF-1" });
+  assert.equal((await client.queryRefund(input)).status, "4001");
+  await assert.rejects(client.queryPayment(input));
+  const invalid = createLfwinClient({ config, request: async () => ({ ...response, sign: "bad" }) });
+  await assert.rejects(invalid.refundPayment(input), /signature/);
+  for (const code of ["4000", "4002", "1002"]) {
+    await assert.rejects(createLfwinClient({ config, request: async () => ({ status: code }) }).refundPayment(input));
+  }
+});
+
+test("LFWin verifies PHP JSON refund lists including Unicode, slashes and nested tampering", async () => {
+  const crypto = require("node:crypto");
+  const response = { status: "10000", sign_type: "MD5", message: "SUCCESS", lists: [{ orderid: "LF-1", mch_refund_no: "RFD-1", refund_status: "1", refundmoney: "3.74", reason: "退货/测试😀" }] };
+  // Independent representation of the provider's PHP json_encode output.
+  const encodedList = '[{"orderid":"LF-1","mch_refund_no":"RFD-1","refund_status":"1","refundmoney":"3.74","reason":"\\u9000\\u8d27\\/\\u6d4b\\u8bd5\\ud83d\\ude00"}]';
+  const original = 'lists=' + encodedList + '&message=SUCCESS&sign_type=MD5&status=10000&signkey=' + config.signKey;
+  response.sign = crypto.createHash('md5').update(original).digest('hex');
+  const client = createLfwinClient({ config, request: async () => response });
+  assert.equal(client.verifyNotification(response), true);
+  assert.equal((await client.queryRefund({})).lists[0].refundmoney, "3.74");
+  response.lists[0].refundmoney = "9.99";
+  assert.equal(client.verifyNotification(response), false);
+  await assert.rejects(client.queryRefund({}), /signature/);
+});
+
 const config = {
   baseUrl: "https://api2uat.lfwin.com",
   apiKey: "test-key",

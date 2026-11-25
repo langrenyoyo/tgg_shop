@@ -23,6 +23,8 @@ const printWorker = require("./src/services/print-service").createWorker();
 const membershipWorker = require("./src/services/pospal-membership-service").createMembershipWorker();
 const { backfillActiveMemberships } = require("./src/services/pospal-membership-service");
 const wechatOrderWorker = require("./src/services/wechat-order-service").createWorker();
+const refundWorker = require("./src/services/refund-service").createWorker();
+let refundTimer = null;
 let membershipTimer = null;
 let printTimer = null;
 let paymentTimeoutTimer = null;
@@ -106,11 +108,13 @@ async function start() {
     runTaskSweep();
     runMembershipSync();
     runWechatOrders();
+    runRefundReconciliation();
   });
   taskSweepTimer = setInterval(runTaskSweep, 15 * 60 * 1000);
   printTimer = setInterval(() => printWorker.run().catch(() => console.error("Print worker failed; check persistence and printer tasks")), 10000);
   membershipTimer = setInterval(runMembershipSync, 10000);
   wechatOrderTimer = setInterval(runWechatOrders, 30000);
+  refundTimer = setInterval(runRefundReconciliation, 30000);
 }
 
 start().catch((error) => {
@@ -122,6 +126,8 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 async function shutdown() {
+  if (refundTimer) clearInterval(refundTimer);
+  await refundWorker.stop().catch(() => {});
   if (wechatOrderTimer) clearInterval(wechatOrderTimer);
   await wechatOrderWorker.stop().catch(() => {});
   if (rewardSweepTimer) clearInterval(rewardSweepTimer);
@@ -135,6 +141,10 @@ async function shutdown() {
   await taskSweep.stop().catch(() => {});
   await shutdownStore().catch(() => {});
   server.close(() => process.exit(0));
+}
+
+function runRefundReconciliation() {
+  withPersistence(() => refundWorker.run()).catch(() => console.error("Refund reconciliation failed; check refund provider status"));
 }
 
 async function sweepTimedOutPayments(source) {

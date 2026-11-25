@@ -3852,7 +3852,7 @@ paths:
     post:
       tags: [Admin]
       summary: Submit an approved cash refund to LFWin
-      description: Requires refund:approve permission. The local cash ledger is not written until a verified provider success result is received.
+      description: Requires refund:approve permission. LFWin v4 status 4001 is a processing acknowledgement, not submission failure. Both 4001 and 10000 await a separately verified query or callback; neither writes the cash ledger. Pending and uncertain refunds are queried in the background after at least one minute and are never automatically submitted again.
       security:
         - AdminBearerAuth: []
       parameters:
@@ -3869,6 +3869,7 @@ paths:
     post:
       tags: [Admin]
       summary: Query an LFWin refund
+      description: Verifies the complete provider response, including PHP JSON serialized list fields. Exactly one list row must match the merchant refund number and original provider payment; the refund amount must match before success settlement. Status refund_status 0 is processing, 1 is success, and 2 is failure. Successful settlement closes the corresponding initiation uncertainty alert and its linked ticket. Concurrent queries and submissions share a per-refund lock.
       security:
         - AdminBearerAuth: []
       parameters:

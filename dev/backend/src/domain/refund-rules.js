@@ -203,7 +203,7 @@ module.exports = {
   approveRefund,
   settleProviderRefund(state, refundId) {
     const refundOrder = refundRepository.findById(state, refundId);
-    if (refundOrder && refundOrder.status !== "pending_review") refundOrder.status = "pending_review";
+    if (refundOrder && !["pending_review", "refunded"].includes(refundOrder.status)) refundOrder.status = "pending_review";
     return approveRefund(state, refundId, { providerConfirmed: true });
   }
 };

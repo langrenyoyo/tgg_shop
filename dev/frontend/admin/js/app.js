@@ -537,6 +537,14 @@ document.body.addEventListener("click", (event) => {
     promotionRemove.closest("[data-promotion-row]")?.remove();
     return;
   }
+  const refundQuery = event.target.closest("[data-refund-query]");
+  if (refundQuery) {
+    if (refundQuery.disabled) return;
+    refundQuery.disabled = true;
+    api(`/api/admin/refunds/${encodeURIComponent(refundQuery.dataset.refundQuery)}/query-provider`, { method: "POST", body: "{}" })
+      .then(loadDashboard).catch(error => { window.alert(error.message); return loadDashboard(); }).finally(() => { refundQuery.disabled = false; });
+    return;
+  }
   const withdrawSubmit = event.target.closest("[data-withdraw-submit]");
   if (withdrawSubmit) {
     if (withdrawSubmit.disabled || !window.confirm(`确认将提现单 ${withdrawSubmit.dataset.withdrawSubmit} 提交服务商？提交后须等待服务商回调或查单结果。`)) return;

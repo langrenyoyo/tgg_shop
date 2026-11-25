@@ -642,10 +642,10 @@ function refundApprovalRows(state) {
     item.id,
     item.orderId,
     item.userId,
-    `¥${Number(item.refundCashAmount || 0).toFixed(1)}`,
+    `¥${Number(item.refundCashAmount || 0).toFixed(2)}`,
     item.refundPointAmount || 0,
     badge(item.status, item.status === "pending_review" ? "orange" : ""),
-    item.status === "pending_review" ? gatedAction("approval:request", `<button class="action danger-action" data-refund-approve="${escapeAttr(item.id)}">提交复核</button>`, "无提交权限") : "-"
+    item.status === "pending_review" ? gatedAction("approval:request", `<button class="action danger-action" data-refund-approve="${escapeAttr(item.id)}">提交复核</button>`, "无提交权限") : ["approved", "sending", "unknown", "refunding"].includes(item.status) ? gatedAction("refund:approve", `<button class="action" data-refund-query="${escapeAttr(item.id)}">查询退款结果</button>`, "无查询权限") : "-"
   ]));
 }
 
