@@ -137,8 +137,9 @@ test("invalid or disabled inviter can be cleared explicitly to recover registrat
     assert.equal(storage.get("tgg_pending_invite"), invalid);
     recipient.app.onShow({ query: {} });
     assert.equal(storage.get("tgg_pending_invite"), invalid);
-    const page = recipient.loginPage(); page.onLoad(); page.onShow();
-    assert.equal(page.data.inviteCode, invalid); page.clearInvite();
+    const page = recipient.loginPage(); page.onLoad();
+    page.setData({ agreed: true }); await page.handleLogin({ detail: { code: "phone-a" } });
+    assert.equal(page.data.invalidInvite, invalid); page.clearInvite();
     assert.equal(storage.has("tgg_pending_invite"), false);
     page.setData({ agreed: true }); await page.handleLogin({ detail: { code: "phone-a" } });
     assert.equal(page.data.error, ""); assert.ok(storage.get("tgg_user")?.id);
@@ -172,7 +173,7 @@ test("latest invite wins before registration; no-code registration remains valid
   assert.equal(state.inviteRelations.some(row => row.inviteeUserId === noCode.user.id), false);
 });
 
-test("scene parsing accepts encoded invitations, rejects malformed input, and manual entry can replace it", () => {
+test("scene parsing preserves automatic invitations and the login page has no manual invite entry", () => {
   const storage = new Map(), recipient = runtime(storage);
   recipient.app.onLaunch({ query: { scene: "ABC012345678" } });
   assert.equal(storage.get("tgg_pending_invite"), "ABC012345678");
@@ -181,9 +182,10 @@ test("scene parsing accepts encoded invitations, rejects malformed input, and ma
   for (const scene of ["%xx", "x".repeat(33), "a&b", 123, ""]) {
     recipient.app.onShow({ query: { scene } }); assert.equal(storage.get("tgg_pending_invite"), "OTHER-CODE");
   }
-  const page = recipient.loginPage(); page.onShow(); page.editInvite({ detail: { value: "  MANUAL-CODE  " } });
-  assert.equal(storage.get("tgg_pending_invite"), "MANUAL-CODE");
-  page.setData({ loading: true }); page.clearInvite(); assert.equal(storage.get("tgg_pending_invite"), "MANUAL-CODE");
+  const page = recipient.loginPage(); assert.equal(page.editInvite, undefined);
+  page.clearInvite(); assert.equal(storage.get("tgg_pending_invite"), "OTHER-CODE");
+  page.setData({ invalidInvite: "OLD-CODE" }); page.clearInvite();
+  assert.equal(storage.get("tgg_pending_invite"), "OTHER-CODE", "a newer invitation must survive invalid-invite recovery");
 });
 
 test("legacy logged-in accounts obtain a stable invitation code from info or code endpoints without registering again", async t => {

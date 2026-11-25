@@ -13,6 +13,8 @@
     <view class="title">{{order.id}}</view>
     <view>{{order.statusText}}<text wx:if="{{order.fulfillmentText}}"> · {{order.fulfillmentText}}</text></view>
     <view class="muted">{{order.nextStep}}</view>
+    <view wx:if="{{order.shippingNotificationText}}" class="muted">{{order.shippingNotificationText}}</view>
+    <button wx:if="{{order.shippingNotification.canSubscribe}}" bindtap="subscribeShipping" disabled="{{busy || loading}}">接收发货通知</button>
     <view wx:for="{{order.items}}" wx:key="productId" class="order-product">
       <image wx:if="{{item.product.image}}" class="order-product-image" src="{{item.product.image}}" mode="aspectFill"/>
       <view class="order-product-copy"><view>{{item.product.name || item.title}} × {{item.quantity}}</view>

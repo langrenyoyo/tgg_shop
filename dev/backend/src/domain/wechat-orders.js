@@ -41,6 +41,7 @@ function capturePaymentIdentity(state, payment, payload, env = process.env) {
   return true;
 }
 function summary(state, order) {
+  if (['cancelled', 'closed', 'refunded'].includes(order.status)) return { status: 'skipped' };
   const job = state.config?.wechatOrders?.jobs?.[order.id];
   if (!paymentFor(state, order)) return { status: 'not_required' };
   if (!job) return { status: fulfilled(order) ? 'pending' : 'awaiting_fulfillment' };

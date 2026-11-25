@@ -2,9 +2,7 @@
   <view class="brand">TGG Shop</view>
   <block wx:if="{{stage === 'login'}}">
     <view class="heading">微信登录</view>
-    <view class="field-label">邀请码（选填，仅新用户注册时绑定）</view>
-    <input class="nickname" value="{{inviteCode}}" maxlength="32" placeholder="扫码自动填写，也可粘贴好友邀请码" bindinput="editInvite" disabled="{{loading}}"/>
-    <button wx:if="{{inviteCode}}" class="secondary" bindtap="clearInvite" disabled="{{loading}}">清除邀请码</button>
+    <button wx:if="{{invalidInvite}}" class="secondary" bindtap="clearInvite" disabled="{{loading}}">清除失效邀请后重试</button>
     <view class="notice">登录时授权微信身份和手机号，用于账号绑定、订单及门店会员关联。头像和昵称由你主动选择，可稍后完善。</view>
     <checkbox-group bindchange="onConsentChange">
       <label class="consent"><checkbox value="agree" checked="{{agreed}}" disabled="{{loading}}" color="#16a34a" /><text>我已阅读并同意以上登录授权说明</text></label>

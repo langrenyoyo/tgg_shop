@@ -3,6 +3,7 @@ const { request } = orderApi;
 const resolveAssetUrl = orderApi.resolveAssetUrl || (value => value);
 const { pay } = require("../../utils/payment");
 const wechatOrders = require("../../utils/wechat-orders");
+const shippingNotifications = require("../../utils/shipping-notifications");
 const { createPickupQr } = require("../../utils/pickup-qr");
 const ORDER_LABELS = { pending_payment: "待付款", paid: "已付款", completed: "已完成", cancelled: "已取消", closed: "已关闭", refunding: "退款处理中", refunded: "已退款" };
 const FULFILLMENT_LABELS = { not_started: "尚未安排", pending_pickup: "待自提", picked_up: "已自提", pending_ship: "待配送", shipping: "配送中", delivered: "已送达", cancelled: "已取消" };
@@ -50,11 +51,27 @@ Page({
       // existing numeric pickup-code fallback from being displayed.
       let pickupQr = null;
       try { pickupQr = createPickupQr(order); } catch {}
+      order.shippingNotificationText = shippingNotifications.label(order.shippingNotification);
       this.setData({ pickupQr, order: { ...order, statusText: ORDER_LABELS[order.status] || "订单状态待核对", fulfillmentText: ["cancelled", "closed", "refunded"].includes(order.status) ? "" : FULFILLMENT_LABELS[order.fulfillmentStatus] || "", nextStep: nextStep(order), refunds: refunds.map(refund => ({ ...refund, statusText: REFUND_LABELS[refund.status] || "退款状态待核对" })) }, error: "", needLogin: false });
     } catch (error) { if (version === this.version) this.setData({ error: error.message, needLogin: error.statusCode === 401 }); }
     finally { if (version === this.version) this.setData({ loading: false }); }
   },
   reason(e) { this.setData({ reason: e.detail.value }); },
+  async subscribeShipping() {
+    if (!this.canAct() || !this.data.order.shippingNotification?.canSubscribe) return;
+    const owner = this.ownerId;
+    this.setData({ busy: true });
+    try {
+      const grant = await shippingNotifications.requestAuthorization(this.data.order.shippingNotification);
+      if (!this.sameOwner(owner)) return;
+      if (!grant) return wx.showToast({ title: "未开启提醒，可继续在订单页查看进度", icon: "none" });
+      await request('/api/orders/' + encodeURIComponent(this.id) + '/shipping-subscription', { method: 'POST', data: grant });
+      if (!this.sameOwner(owner)) return;
+      wx.showToast({ title: "已订阅发货提醒", icon: "none" });
+      await this.load();
+    } catch (error) { if (this.sameOwner(owner)) wx.showToast({ title: error.message, icon: "none" }); }
+    finally { this.setData({ busy: false }); }
+  },
   async queryPayment() {
     if (!this.canAct()) return;
     const owner = this.ownerId;

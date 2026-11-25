@@ -67,6 +67,7 @@ async function checkManagement(state, client = createOrderClient(), { save = sav
 function status(state, env = process.env) {
   const jobs = Object.values(state.config?.wechatOrders?.jobs || {});
   return { enabled: model.enabled(env), configured: Boolean(env.WECHAT_APPID && env.WECHAT_APPSECRET), appId: env.WECHAT_APPID || '',
+    shippingNotifications: require('./shipping-notification-service').adminStatus(state, env),
     management: state.config?.wechatOrders?.management || null,
     counts: jobs.reduce((counts, job) => { counts[job.status] = (counts[job.status] || 0) + 1; return counts; }, {}) };
 }

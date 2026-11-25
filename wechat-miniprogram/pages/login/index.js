@@ -13,7 +13,7 @@ function phoneAuthorizationError(detail = {}) {
 Page({
   data: {
     loading: false, agreed: false, stage: "login", nickname: "",
-    avatarPreview: "", error: "", editing: false, selectingAvatar: false, maskedPhone: "", inviteCode: ""
+    avatarPreview: "", error: "", editing: false, selectingAvatar: false, maskedPhone: "", invalidInvite: ""
   },
 
   onLoad(query = {}) {
@@ -27,15 +27,11 @@ Page({
     }
   },
   onUnload() { this.disposed = true; },
-  onShow() { this.setData({ inviteCode: wx.getStorageSync("tgg_pending_invite") || "" }); },
-  editInvite(e) {
+  clearInvite() {
     if (this.data.loading) return;
-    const code = String(e.detail.value || "").trim();
-    this.setData({ inviteCode: code, error: "" });
-    if (code) wx.setStorageSync("tgg_pending_invite", code);
-    else wx.removeStorageSync("tgg_pending_invite");
+    if (this.data.invalidInvite && wx.getStorageSync("tgg_pending_invite") === this.data.invalidInvite) wx.removeStorageSync("tgg_pending_invite");
+    this.setData({ invalidInvite: "", error: "" });
   },
-  clearInvite() { this.editInvite({ detail: { value: "" } }); },
   onConsentChange(e) { if (!this.data.loading) this.setData({ agreed: e.detail.value.includes("agree") }); },
   openPrivacy() {
     if (!wx.openPrivacyContract) return wx.showToast({ title: "请升级微信后查看隐私保护指引", icon: "none" });
@@ -48,6 +44,7 @@ Page({
     const phoneCode = e?.detail?.code;
     if (!phoneCode) return this.setData({ error: phoneAuthorizationError(e?.detail) });
     this.setData({ loading: true, error: "" });
+    let attemptedInvite = "";
     try {
       if (wx.requirePrivacyAuthorize) {
         await new Promise((resolve, reject) => wx.requirePrivacyAuthorize({
@@ -55,12 +52,13 @@ Page({
         }));
       }
       if (this.disposed) return;
+      attemptedInvite = wx.getStorageSync("tgg_pending_invite") || "";
       const res = await wechatLogin({ isCurrent: () => !this.disposed, phoneCode });
       if (this.disposed) return;
       this.openProfile(res.user);
       if (res.user.avatarUrl && res.user.nickname && res.user.nickname !== "微信用户") this.finish();
     } catch (error) {
-      if (!this.disposed) this.setData({ error: error.message || "登录失败，请重试" });
+      if (!this.disposed) this.setData({ error: error.message || "登录失败，请重试", invalidInvite: /邀请码无效/.test(error.message || "") ? attemptedInvite : "" });
     } finally {
       if (!this.disposed) this.setData({ loading: false });
     }

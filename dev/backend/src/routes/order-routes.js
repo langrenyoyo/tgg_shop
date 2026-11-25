@@ -61,7 +61,9 @@ async function handleOrderRoutes(ctx) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
-    const result = await orderService.submitOrder(state, user.id, await readBody(req));
+    const body = await readBody(req);
+    const result = await orderService.submitOrder(state, user.id, body);
+    if (result.ok && body.shippingSubscription) require('../services/shipping-notification-service').register(state, user.id, result.order.id, body.shippingSubscription);
     if (result.ok) await saveState();
     return send(ctx.res, result.ok ? 201 : result.status || 400, result.ok ? result.order : { error: result.error });
   }

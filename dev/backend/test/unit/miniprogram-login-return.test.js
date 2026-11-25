@@ -13,6 +13,7 @@ for (const depth of [1, 2]) {
       Page: value => { page = value; },
       getCurrentPages: () => Array(depth).fill({}),
       wx: {
+        getStorageSync: () => "",
         navigateBack: options => { destination = options.delta; },
         reLaunch: options => { destination = options.url; },
         showToast() { assert.fail("Login should succeed"); }

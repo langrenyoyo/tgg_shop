@@ -98,6 +98,15 @@ test('unpaid, pure-points, refunded and cancelled orders never enter shipping up
   }
 });
 
+test('terminal orders report stopped immediately, including legacy orders with no shipping job or a synced receipt', () => {
+  for (const status of ['refunded', 'cancelled', 'closed']) {
+    const f = fixture(); f.order.status = status;
+    assert.deepEqual(model.summary(f.state, f.order), { status: 'skipped' });
+    model.data(f.state).jobs[f.order.id] = { status: 'synced', receiptConfirmedAt: '2026-11-20T00:00:00Z' };
+    assert.deepEqual(model.summary(f.state, f.order), { status: 'skipped' });
+  }
+});
+
 test('transaction, payer, amount, app and existing shipping mismatches cannot trigger upload or complete local delivery', async () => {
   for (const field of ['transaction_id', 'openid', 'paid_amount', 'appid', 'logistics_type']) {
     const f = fixture('delivery'); f.order.fulfillmentStatus = 'delivered'; model.enqueue(f.state, f.order);

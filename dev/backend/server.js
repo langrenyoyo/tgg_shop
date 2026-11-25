@@ -23,6 +23,7 @@ const printWorker = require("./src/services/print-service").createWorker();
 const membershipWorker = require("./src/services/pospal-membership-service").createMembershipWorker();
 const { backfillActiveMemberships } = require("./src/services/pospal-membership-service");
 const wechatOrderWorker = require("./src/services/wechat-order-service").createWorker();
+const shippingNotificationWorker = require("./src/services/shipping-notification-service").createWorker();
 const refundWorker = require("./src/services/refund-service").createWorker();
 let refundTimer = null;
 let membershipTimer = null;
@@ -130,6 +131,7 @@ async function shutdown() {
   await refundWorker.stop().catch(() => {});
   if (wechatOrderTimer) clearInterval(wechatOrderTimer);
   await wechatOrderWorker.stop().catch(() => {});
+  await shippingNotificationWorker.stop().catch(() => {});
   if (rewardSweepTimer) clearInterval(rewardSweepTimer);
   if (taskSweepTimer) clearInterval(taskSweepTimer);
   if (deliveryConfirmTimer) clearInterval(deliveryConfirmTimer);
@@ -174,6 +176,7 @@ function runMembershipSync() {
 
 function runWechatOrders() {
   wechatOrderWorker.run().catch(() => console.error("WeChat order worker paused after a persistence failure; repair storage and restart to resume"));
+  shippingNotificationWorker.run().catch(() => console.error("Shipping notification worker paused after a persistence failure; repair storage and restart to resume"));
 }
 
 async function sweepMonthlyRewards(source) {

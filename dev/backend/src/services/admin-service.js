@@ -692,6 +692,7 @@ function listOrders(state, options = {}) {
   return (state.orders || []).map((order) => {
     const result = clonePlain(order);
     result.wechatOrderSync = require("../domain/wechat-orders").summary(state, order);
+    result.shippingNotification = require("./shipping-notification-service").summary(state, order);
     // The pickup code is a bearer secret. Only fulfillment operators need it;
     // ordinary order readers must use the dedicated verification workflow.
     if (!includePickupCode) delete result.pickupCode;

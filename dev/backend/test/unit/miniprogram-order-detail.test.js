@@ -10,7 +10,7 @@ function setup() {
   let page;
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../../../../wechat-miniprogram/pages/order-detail/index.js"), "utf8"), {
     Page: value => { page = value; },
-    require: name => name.endsWith("pickup-qr") ? require("../../../../wechat-miniprogram/utils/pickup-qr") : name.endsWith("payment") ? { pay: async value => paid.push(value) } : { request: (url, options) => new Promise((resolve, reject) => pending.push({ url, options, resolve, reject })) },
+    require: name => name.endsWith("shipping-notifications") ? require("../../../../wechat-miniprogram/utils/shipping-notifications") : name.endsWith("pickup-qr") ? require("../../../../wechat-miniprogram/utils/pickup-qr") : name.endsWith("payment") ? { pay: async value => paid.push(value) } : { request: (url, options) => new Promise((resolve, reject) => pending.push({ url, options, resolve, reject })) },
     wx: { getStorageSync: key => storage[key], showModal: value => modals.push(value), showToast() {} }
   });
   page.setData = value => Object.assign(page.data, value);

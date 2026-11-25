@@ -10,6 +10,7 @@ function detail(state, userId, orderId) {
   const order = state.orders.find(item => item.id === orderId && item.userId === userId);
   if (!order) return null;
   return { ...order, items: order.items.map(item => require("../domain/order-item-view").itemView(state, item)), wechatOrderSync: require("../domain/wechat-orders").summary(state, order),
+    shippingNotification: require("./shipping-notification-service").summary(state, order),
     wechatReceiptRequired: require("../domain/wechat-orders").requiresReceipt(state, order),
     refunds: state.refundOrders.filter(item => item.orderId === orderId && item.userId === userId), history: state.orderStatusLogs.filter(item => item.orderId === orderId) };
 }

@@ -3,7 +3,7 @@ import { renderAdminPage, promotionEditor } from "./render.js";
 import { productPreview } from "./product-editor.js";
 import { stationAccountClick, stationAccountSubmit } from "./station-accounts.js";
 import { printingClick, printingSubmit } from "./printing.js";
-import { wechatOrderClick } from "./wechat-orders.js";
+import { wechatOrderClick, wechatOrderSubmit } from "./wechat-orders.js";
 import { createAdminSearch } from "./global-search.js";
 import { createCatalogControls } from "./catalog-controls.js";
 import { createProductImport } from "./product-import.js";
@@ -1034,6 +1034,7 @@ document.body.addEventListener("submit", (event) => {
     return;
   }
   if (productImport.submit(event)) return;
+  if (wechatOrderSubmit(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   if (printingSubmit(event, state, { api, reload: loadDashboard })) return;
   if (stationAccountSubmit(event, state, { api, render: renderAdminPage, reload: loadDashboard })) return;
   const loginForm = event.target.closest("[data-admin-login]");

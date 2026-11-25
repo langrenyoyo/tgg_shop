@@ -21,6 +21,60 @@ tags:
   - name: POSPAL
   - name: Testing
 paths:
+  /api/shipping-notifications/config:
+    get:
+      tags: [Orders]
+      summary: Get the enabled flag and subscription template ID for points-order shipping reminders
+      responses:
+        "200": { description: Public template configuration only; no credentials or recipient identifiers }
+        "401": { description: Login required }
+  /api/orders/{orderId}/shipping-subscription:
+    parameters:
+      - { name: orderId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [Orders]
+      summary: Register the owner's one-time points-order shipping subscription
+      description: Requires explicit requestSubscribeMessage acceptance for the current template and a paid pure-points order. Idempotent per order; sent and uncertain attempts are never resent. Recipient comes from the authenticated account, never client input.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShippingSubscription' }
+      responses:
+        "200": { description: Safe notification status }
+        "400": { description: Missing acceptance, stale template or WeChat identity }
+        "401": { description: Login required }
+        "404": { description: Order not found or owned by another user }
+        "409": { description: Order not eligible or notification template unavailable }
+  /api/admin/integrations/wechat-orders/shipping-notifications:
+    post:
+      tags: [Admin]
+      security: [{ AdminBearerAuth: [] }]
+      summary: Configure points-order subscription reminders with integration write permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled, templateId, fields]
+              properties:
+                enabled: { type: boolean }
+                templateId: { type: string, maxLength: 128 }
+                fields:
+                  type: array
+                  maxItems: 5
+                  items:
+                    type: object
+                    required: [key, source]
+                    properties:
+                      key: { type: string, description: Exact WeChat template field name; supported prefixes character_string/thing/time/phrase }
+                      source: { type: string, enum: [orderNo, productName, shippingTime, status, deliveryMethod, pickupSite] }
+      responses:
+        "200": { description: Saved settings and safe counts; configuration changes are audited }
+        "400": { description: Invalid template ID, field mapping or duplicate field }
+        "401": { description: Admin login required }
+        "403": { description: Missing integration write permission }
   /api/orders/{orderId}/wechat-receipt:
     parameters:
       - { name: orderId, in: path, required: true, schema: { type: string } }
@@ -4105,6 +4159,12 @@ components:
           type: boolean
         points:
           type: integer
+    ShippingSubscription:
+      type: object
+      required: [templateId, accepted]
+      properties:
+        templateId: { type: string }
+        accepted: { type: boolean, enum: [true] }
     CreateOrderRequest:
       type: object
       required: [paymentMode, fulfillmentType, items]
@@ -4112,6 +4172,8 @@ components:
         idempotencyKey:
           type: string
           description: Persist across retries of the same checkout attempt to recover the original order.
+        shippingSubscription:
+          $ref: '#/components/schemas/ShippingSubscription'
         paymentMode:
           type: string
           enum: [cash, pure_points, points_plus_cash]

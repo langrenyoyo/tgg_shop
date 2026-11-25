@@ -17,7 +17,7 @@ function createOrderClient({ env = process.env, fetchImpl = globalThis.fetch, no
       // Provider error text can contain tokens, OpenIDs and request details.
       throw failure(String(Number(result.errcode)), '微信订单接口请求失败，请核查后台授权及错误码');
     }
-    if (path.startsWith('wxa/sec/order/') && String(result.errcode) !== '0') throw failure('network', '微信订单接口未返回明确结果，请查单核对');
+    if ((path.startsWith('wxa/sec/order/') || path === 'cgi-bin/message/subscribe/send') && String(result.errcode) !== '0') throw failure('network', '微信接口未返回明确结果，请核查');
     return result;
   }
   async function token() {
@@ -32,14 +32,15 @@ function createOrderClient({ env = process.env, fetchImpl = globalThis.fetch, no
     }).finally(() => { pending = null; });
     return pending;
   }
-  async function call(path, body) {
-    try { return await request('wxa/sec/order/' + path, body, await token()); }
+  async function callApi(path, body) {
+    try { return await request(path, body, await token()); }
     catch (error) {
       if (!['40001', '40014', '42001'].includes(error.code)) throw error;
       cached = null;
-      return request('wxa/sec/order/' + path, body, await token());
+      return request(path, body, await token());
     }
   }
+  const call = (path, body) => callApi('wxa/sec/order/' + path, body);
   return {
     configured, appId: () => env.WECHAT_APPID || '',
     async managementStatus() {
@@ -49,7 +50,8 @@ function createOrderClient({ env = process.env, fetchImpl = globalThis.fetch, no
       return { tradeManaged: managed.is_trade_managed === true, confirmationCompleted: confirmation.completed === true };
     },
     getOrder: transactionId => call('get_order', { transaction_id: transactionId }),
-    uploadShipping: body => call('upload_shipping_info', body)
+    uploadShipping: body => call('upload_shipping_info', body),
+    sendSubscription: body => callApi('cgi-bin/message/subscribe/send', body)
   };
 }
 function failure(code, message) { return Object.assign(new Error(message), { code }); }

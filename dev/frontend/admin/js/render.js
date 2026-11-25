@@ -225,7 +225,7 @@ function ordersRows(orders) {
     trustedHtml((order.items || []).map((item) => `${escapeHtml(item.title || item.name || item.productId)} x${escapeHtml(item.quantity)}`).join("<br>")),
     zh(order.paymentMode, "paymentMode"),
     zh(order.fulfillmentType, "fulfillmentType"),
-    trustedHtml(`${badge(order.status)} ${badge(order.stationStatus === "ready" || order.stationStatus === "received" ? "ready" : order.fulfillmentStatus, "orange")}`),
+    trustedHtml(`${badge(order.status)} ${["cancelled", "closed", "refunded"].includes(order.status) ? "" : badge(order.stationStatus === "ready" || order.stationStatus === "received" ? "ready" : order.fulfillmentStatus, "orange")}`),
     paymentText(order),
     wechatOrderCell(order, { escapeHtml, can, trustedHtml }),
     orderActionButtons(order)
@@ -736,9 +736,9 @@ function productActionButtons(item) {
 function orderActionButtons(order) {
   const actions = [];
   if (["paid","completed"].includes(order.status)) actions.push(gatedAction("order:fulfillment", `<button class="action" data-print-order-id="${escapeAttr(order.id)}">打印小票</button>`));
-  if (order.fulfillmentStatus === "pending_pickup") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-pickup-verify="${escapeAttr(order.id)}" data-pickup-code="${escapeAttr(order.pickupCode || "")}">核销自提</button>`, "无履约权限"));
-  if (order.fulfillmentStatus === "pending_ship") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-ship="${escapeAttr(order.id)}" data-staff-id="staff_001">分配配送</button>`, "无履约权限"));
-  if (order.fulfillmentStatus === "shipping") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-deliver="${escapeAttr(order.id)}">确认送达</button>`, "无履约权限"));
+  if (order.status === "paid" && order.fulfillmentStatus === "pending_pickup") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-pickup-verify="${escapeAttr(order.id)}" data-pickup-code="${escapeAttr(order.pickupCode || "")}">核销自提</button>`, "无履约权限"));
+  if (order.status === "paid" && order.fulfillmentStatus === "pending_ship") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-ship="${escapeAttr(order.id)}" data-staff-id="staff_001">分配配送</button>`, "无履约权限"));
+  if (order.status === "paid" && order.fulfillmentStatus === "shipping") actions.push(gatedAction("order:fulfillment", `<button class="action" data-order-deliver="${escapeAttr(order.id)}">确认送达</button>`, "无履约权限"));
   return trustedHtml(`<div class="table-actions">${actions.join("") || `<button class="action muted-action" disabled>暂无操作</button>`}</div>`);
 }
 

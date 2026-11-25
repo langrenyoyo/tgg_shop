@@ -1,5 +1,6 @@
 const { request } = require("../../utils/api");
 const cart = require("../../utils/cart");
+const shippingNotifications = require("../../utils/shipping-notifications");
 Page({
   data: { items: [], modes: [], modeIndex: 0, siteIndex: 0, deliverySlotIndex: 0, addresses: [], defaultAddress: null, fulfillmentType: "pickup", deliveryAddress: "", config: {}, needsMembership: false, busy: false, loading: true, fulfillmentError: "", error: "", purchaseError: "", needLogin: false },
   onLoad() { this.idempotencyKey = cart.checkoutIdempotencyKey(); this.ownerId = wx.getStorageSync("tgg_user")?.id; this.setData({ pending: cart.readCheckoutAttempt() }); this.load(); },
@@ -16,7 +17,8 @@ Page({
       return;
     }
     try {
-      const [user, config, sites, products] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/pickup-sites"), request("/api/products")]);
+      const [user, config, sites, products, shippingNotification] = await Promise.all([request("/api/me"), request("/api/config"), request("/api/pickup-sites"), request("/api/products"), request("/api/shipping-notifications/config").catch(() => null)]);
+      config.shippingNotification = shippingNotification;
       let addresses = [];
       try { const loadedAddresses = await request("/api/addresses"); addresses = Array.isArray(loadedAddresses) ? loadedAddresses : []; } catch { addresses = []; }
       if (!this.active(version, owner)) {
@@ -95,6 +97,11 @@ Page({
         ...(this.data.fulfillmentType === "delivery" && this.data.defaultAddress?.id ? { addressId: this.data.defaultAddress.id } : {}),
         ...(this.data.fulfillmentType === "delivery" ? { deliveryTimeSlot: this.data.config.deliveryTimeSlots[this.data.deliverySlotIndex] } : {})
       };
+      if (mode === "pure_points") {
+        const subscription = await shippingNotifications.requestAuthorization(this.data.config.shippingNotification);
+        if (this.disposed || wx.getStorageSync("tgg_user")?.id !== this.ownerId || cart.checkoutIdempotencyKey() !== this.idempotencyKey) return;
+        if (subscription) payload.shippingSubscription = subscription;
+      }
       cart.writeCheckoutAttempt(this.idempotencyKey, payload);
       this.setData({ pending: payload });
       }
