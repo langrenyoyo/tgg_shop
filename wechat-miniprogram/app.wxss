@@ -45,9 +45,9 @@ button[disabled] { opacity: .5; }
 .product-stepper .step-plus { background: #00b96b; color: #fff; }
 .product-stepper .step-minus { background: #effaf3; color: #00995b; border: 2rpx solid #b6e8cb; }
 .product-stepper button[disabled] { background: #e6ebe7; color: #9ba89e; }
-.product-tile .product-stepper { position: absolute; right: 20rpx; bottom: 16rpx; min-height: 60rpx; padding: 4rpx; gap: 6rpx; border-radius: 36rpx; background: #f0f9f3; border: 1rpx solid #e1f1e7; }
+.product-tile .product-stepper { position: absolute; right: 20rpx; bottom: 16rpx; min-height: 60rpx; padding: 0; gap: 6rpx; border-radius: 36rpx; background: transparent; border: 0; }
 .product-tile .product-stepper button { width: 68rpx; height: 68rpx; line-height: 64rpx; }
-.product-tile .step-plus { background: #00ad65; box-shadow: 0 4rpx 10rpx rgba(0,173,101,.18); }
+.product-tile .step-plus { background: #00ad65; box-shadow: none; }
 .product-tile .step-minus { background: #fff; border-color: #d4eade; }
 .product-tile .step-count { min-width: 34rpx; }
 .step-count { min-width: 34rpx; text-align: center; color: #203b30; font-size: 28rpx; font-weight: 600; }
