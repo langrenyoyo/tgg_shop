@@ -29,7 +29,7 @@ async function handleGrowthRoutes(ctx) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/coin-signin/status") return send(ctx.res, 200, coinSignin.status(state, user));
-  const coinAction = url.pathname.match(/^\/api\/coin-signin\/(start|round|step|claim)$/);
+  const coinAction = url.pathname.match(/^\/api\/coin-signin\/(start|round|begin|step|claim)$/);
   if (req.method === "POST" && coinAction) {
     const input = await ctx.readBody(req);
     const result = await coinSignin.execute(state, user, coinAction[1], input || {});

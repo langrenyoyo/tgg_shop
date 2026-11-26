@@ -7,7 +7,7 @@ const fail = (status, error) => ({ ok: false, status, error });
 const day = now => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
 const id = () => crypto.randomUUID();
 const data = state => state.coinSignin || { sessions: [], ledger: [] };
-const balance = (state, userId) => data(state).ledger.filter(entry => entry.userId === userId).reduce((sum, entry) => sum + entry.coins, 0);
+const balance = (state, userId) => data(state).ledger.filter(entry => entry.userId === userId && entry.rewardAsset !== 'points').reduce((sum, entry) => sum + entry.coins, 0);
 function unavailable(state, c, provider) {
   if (!rules.config(state).enabled) return "签到活动暂未开放";
   if (rules.validate(c)) return "签到规则或广告位尚未配置完整";
@@ -18,7 +18,9 @@ function unavailable(state, c, provider) {
 function status(state, user, now = Date.now(), provider = verifier) {
   const session = data(state).sessions.find(s => s.userId === user.id && s.date === day(now));
   const c = session?.config || rules.config(state);
-  return { ok: true, serverNow: now, date: day(now), balanceCoins: balance(state, user.id), unit: "金币", config: c,
+  const points = c.rewardAsset === 'points';
+  return { ok: true, serverNow: now, date: day(now), balanceCoins: points ? user.points : balance(state, user.id), balancePoints: user.points,
+    unit: points ? "积分" : "金币", nativeAdFlow: provider === verifier && verifier.nativeMode(), config: c,
     unavailableReason: unavailable(state, c, provider),
     session: session ? { id: session.id, rounds: session.rounds, completedRounds: session.completedRounds, claimed: Boolean(session.claimedAt), claimedAt: session.claimedAt || null,
       nextAt: session.nextAt, rewardCoins: c.rewardCoins } : null };
@@ -27,18 +29,26 @@ function attemptView(attempt, c) {
   return { id: attempt.id, expiresAt: attempt.expiresAt, nextStep: attempt.nextStep, completed: attempt.completed,
     steps: attempt.steps.map(step => ({ id: step.id, type: step.type, adUnitId: step.type === "rewarded" ? c.rewardedAdUnitId : c.interstitialAdUnitId })) };
 }
-async function transaction(state, fn, persist) {
+async function transaction(state, fn, persist, rewardMutation) {
   return exclusive(state, async () => {
     const before = structuredClone(data(state));
     state.coinSignin ||= { sessions: [], ledger: [] };
     try { const result = await fn(); if (result.ok) await persist(); else state.coinSignin = before; return result; }
-    catch (error) { state.coinSignin = before; throw error; }
+    catch (error) {
+      state.coinSignin = before;
+      if (rewardMutation?.entry) {
+        rewardMutation.user.points -= rewardMutation.entry.points;
+        state.pointLedger = state.pointLedger.filter(entry => entry !== rewardMutation.entry);
+      }
+      throw error;
+    }
   });
 }
 // Dependencies are supplied only by trusted application code/tests, never request fields.
 async function execute(state, user, action, input = {}, deps = {}) {
   const provider = deps.verifier || verifier, now = deps.now ?? Date.now(), persist = deps.persist || saveState;
   if (!user || !state.users.some(u => u.id === user.id)) return fail(401, "请先登录");
+  const rewardMutation = { user, entry: null };
   return transaction(state, async () => {
     const store = data(state), date = day(now);
     let s = store.sessions.find(item => item.userId === user.id && item.date === date);
@@ -60,9 +70,19 @@ async function execute(state, user, action, input = {}, deps = {}) {
       }
       if (s.claimedAt) return fail(409, "奖励流水待核对，请联系客服");
       if (s.completedRounds !== s.rounds) return fail(409, "请先完成全部签到轮次");
-      const total = balance(state, user.id) + s.config.rewardCoins;
-      if (!Number.isSafeInteger(total)) return fail(409, "金币余额超出范围，请联系客服");
+      const points = s.config.rewardAsset === 'points';
+      const pointKey = `signin-points:${user.id}:${date}`;
+      if (points && state.pointLedger.some(entry => entry.idempotencyKey === pointKey)) return fail(409, "签到积分流水需核对，请联系客服");
+      const total = (points ? user.points : balance(state, user.id)) + s.config.rewardCoins;
+      if (!Number.isSafeInteger(total)) return fail(409, "签到奖励余额超出范围，请联系客服");
       store.ledger.push({ id: id(), idempotencyKey: key, sessionId: s.id, userId: user.id, coins: s.config.rewardCoins, balanceAfter: total, reason: "签到固定奖励", createdAt: now });
+      store.ledger.at(-1).rewardAsset = points ? 'points' : 'coins';
+      if (points) {
+        user.points = total;
+        rewardMutation.entry = { id: id(), userId: user.id, changeType: 'signin_reward', direction: 'in', points: s.config.rewardCoins,
+          balanceAfter: total, bizNo: s.id, idempotencyKey: pointKey, remark: '完成广告签到固定积分奖励', createdAt: new Date(now).toISOString() };
+        state.pointLedger.unshift(rewardMutation.entry);
+      }
       s.claimedAt = now;
       return status(state, user, now, provider);
     }
@@ -84,15 +104,32 @@ async function execute(state, user, action, input = {}, deps = {}) {
         steps: s.config.sequence.map(type => ({ id: id(), type, receiptId: null })), createdAt: now };
       return { ...status(state, user, now, provider), attempt: attemptView(s.attempt, s.config) };
     }
-    if (action === "step") {
+    if (action === "begin" || action === "step") {
       const attempt = s.attempt;
       if (!attempt || attempt.id !== input.attemptId || attempt.expiresAt <= now) return fail(409, "本轮已失效，请重新获取");
       const index = attempt.steps.findIndex(step => step.id === input.stepId);
       if (index < 0 || index > attempt.nextStep) return fail(409, "请按顺序完成本轮广告");
       if (index < attempt.nextStep) return { ...status(state, user, now, provider), attempt: attemptView(attempt, s.config) };
       const step = attempt.steps[index], adUnitId = step.type === "rewarded" ? s.config.rewardedAdUnitId : s.config.interstitialAdUnitId;
+      const native = provider === verifier && verifier.nativeMode();
+      if (action === 'begin') {
+        if (!native) return fail(409, '当前签到使用服务端广告验证');
+        step.completionToken ||= crypto.randomBytes(24).toString('hex');
+        step.beganAt ||= now;
+        return { ...status(state, user, now, provider), completionToken: step.completionToken };
+      }
       let receipt;
-      try { receipt = await provider.verify({ userId: user.id, wechatOpenid: user.wechatOpenid || user.openid || "", sessionId: s.id, attemptId: attempt.id, stepId: step.id, stepIndex: index, adUnitId, adType: step.type, startedAt: attempt.createdAt }); }
+      try {
+        if (native) {
+          // SDK callbacks are client reports, not signed provider receipts.
+          // Bind reports to an issued step, authenticated owner and server time.
+          const report = input.nativeCompletion;
+          if (!step.completionToken || input.completionToken !== step.completionToken || !Number.isFinite(step.beganAt)
+            || now - step.beganAt < (step.type === 'rewarded' ? 1000 : 500) || report?.closed !== true
+            || step.type === 'rewarded' && report.isEnded !== true) return fail(409, '请完整观看当前广告后再继续');
+          receipt = { receiptId: `wx-client:${attempt.id}:${step.id}` };
+        } else receipt = await provider.verify({ userId: user.id, wechatOpenid: user.wechatOpenid || user.openid || "", sessionId: s.id, attemptId: attempt.id, stepId: step.id, stepIndex: index, adUnitId, adType: step.type, startedAt: attempt.createdAt });
+      }
       catch { return fail(503, "广告完成结果暂无法确认，请重试核对"); }
       if (!receipt || typeof receipt.receiptId !== "string" || !receipt.receiptId.trim()) return fail(409, "尚未确认广告完整完成，请稍后核对或重新获取本轮");
       if (store.sessions.some(session => (session.receipts || []).includes(receipt.receiptId))) return fail(409, "广告完成凭据已使用");
@@ -106,6 +143,6 @@ async function execute(state, user, action, input = {}, deps = {}) {
       return { ...status(state, user, checkedAt, provider), attempt: attemptView(attempt, s.config) };
     }
     return fail(400, "签到操作无效");
-  }, persist);
+  }, persist, rewardMutation);
 }
 module.exports = { status, execute, day };

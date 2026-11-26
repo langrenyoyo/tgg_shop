@@ -1,6 +1,6 @@
 <wxs src="../../utils/regular-price.wxs" module="retail"/>
 <view class="page category-page">
-  <view class="shop-heading"><view class="title">发现新鲜好物</view><view class="muted">挑选所爱，把日常过得更好</view></view>
+  <tgg-ad-slot class="shop-top-ad"/>
   <view class="search-box"><view class="search-icon"></view><input value="{{search}}" bindinput="inputSearch" bindconfirm="search" confirm-type="search" placeholder="搜索你喜欢的商品" placeholder-style="color:#91a08f"/></view>
   <view class="shop-layout {{categoryCollapsed ? 'category-collapsed' : ''}}">
     <view class="category-sidebar">
@@ -12,6 +12,7 @@
     <view class="shop-content">
       <view class="shop-section"><view>{{category === '' ? '全部好物' : category}}</view><text>{{total}} 件商品</text></view>
       <scroll-view class="product-scroll" scroll-y enhanced show-scrollbar="{{false}}" scroll-top="{{scrollTop}}" lower-threshold="160" bindscroll="onProductScroll" bindscrolltolower="loadMore">
+      <tgg-ad-slot/>
       <view wx:if="{{category === '纯积分兑换'}}" class="exchange-note">纯积分兑换无需会员，使用积分下单</view>
       <view wx:if="{{category === '买商品送会员'}}" class="exchange-note">购买实物商品赠会员，非会员也可购买；支付成功后发放，已有会员顺延。</view>
       <view wx:if="{{error}}" class="empty-state card">{{error}}<view><button class="btn btn-light" bindtap="load">重新加载</button></view></view>

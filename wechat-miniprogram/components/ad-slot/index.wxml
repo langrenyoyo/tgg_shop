@@ -1,0 +1,4 @@
+<view wx:if="{{unitId}}" class="slot {{failed ? 'slot-empty' : ''}}">
+  <ad-custom wx:if="{{kind === 'feed'}}" unit-id="{{unitId}}" bindload="loaded" binderror="failed"/>
+  <ad wx:else unit-id="{{unitId}}" ad-type="banner" bindload="loaded" binderror="failed"/>
+</view>

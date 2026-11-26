@@ -30,4 +30,5 @@
     <view>已停止直接付费开通会员。此订单仅供核对付款结果，未付款订单请联系客服处理。</view>
     <button bindtap="queryPayment" data-pay-no="{{item.payNo}}" disabled="{{busy || loading}}">已付款，查询结果</button>
   </view>
+  <tgg-ad-slot kind="feed"/>
 </view>

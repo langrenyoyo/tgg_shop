@@ -12,4 +12,5 @@
     <button wx:if="{{error}}" class="btn btn-light retry-button" bindtap="load">重新加载</button>
     <button wx:if="{{qrCode && !loading}}" class="btn btn-light retry-button" bindtap="saveQr" loading="{{saving}}" disabled="{{saving}}">保存二维码</button>
   </view>
+  <tgg-ad-slot kind="feed"/>
 </view>

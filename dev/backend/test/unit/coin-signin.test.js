@@ -87,7 +87,7 @@ test('new attempts reset partial groups, preserve whole rounds and enforce serve
   r = await complete(f, r);
   assert.equal(r.session.completedRounds, 1);
   assert.equal((await f.call('round', { sessionId, idempotencyKey: 'round-key-003' })).status, 409);
-  f.deps.now += 5000;
+  f.deps.now += f.state.config.coinSignin.intervalSeconds * 1000;
   r = await round(f, sessionId, 'round-key-003');
   assert.equal(r.session.completedRounds, 1); assert.equal(r.attempt.nextStep, 0);
   assert.equal((await f.call('start')).session.rounds, 2);

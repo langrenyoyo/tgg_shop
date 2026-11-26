@@ -1,4 +1,5 @@
 <view class="page">
+  <tgg-ad-slot/>
   <view class="card">
     <view class="title">邀请有礼</view>
     <view class="muted" style="margin-top:8rpx;">邀请奖励、提成和绑定关系</view>

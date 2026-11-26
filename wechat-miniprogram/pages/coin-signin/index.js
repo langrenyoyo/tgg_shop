@@ -3,11 +3,12 @@ const request = (path, options = {}) => apiRequest(path, { ...options, authRequi
 const { showSigninAd } = require("../../utils/signin-ad");
 const makeKey = () => "signin:" + Date.now() + ":" + Math.random().toString(36).slice(2);
 Page({
-  data: { loading: true, busy: false, error: "", needLogin: false, unavailableReason: "", session: null, config: {}, balanceCoins: 0, sheet: "", countdown: 0, dots: [], pendingStep: false, adLabel: "", bannerFailed: false, feedFailed: false },
+  data: { loading: true, busy: false, error: "", needLogin: false, unavailableReason: "", session: null, config: {}, balanceCoins: 0, sheet: "", countdown: 0, dots: [], pendingStep: false, adLabel: "", nativeAdFlow: false },
   onShow() { this.hidden = false; this.owner = wx.getStorageSync("tgg_user")?.id; clearInterval(this.timer); this.load(); this.timer = setInterval(() => this.tick(), 1000); },
   onHide() {
     this.hidden = true; this.version = (this.version || 0) + 1; clearInterval(this.timer); this.adTask?.cancel();
     this.roundKey = null; wx.removeStorageSync(this.storageKey());
+    this.currentAttempt = null;
     this.setData({ busy: false, pendingStep: false });
   },
   onUnload() { this.disposed = true; this.onHide(); },
@@ -30,28 +31,60 @@ Page({
     const session = status.session;
     const pendingStep = Boolean(pending && pending.sessionId === session?.id && !session.claimed && session.completedRounds < session.rounds);
     if (pending && !pendingStep) wx.removeStorageSync(this.storageKey());
-    this.setData({ session, config: status.config, balanceCoins: status.balanceCoins, unavailableReason: status.unavailableReason, pendingStep,
+    this.setData({ session, config: status.config, balanceCoins: status.balanceCoins, nativeAdFlow: status.nativeAdFlow === true, unavailableReason: status.unavailableReason, pendingStep,
       dots: Array.from({ length: session?.rounds || 0 }, (_, i) => ({ number: i + 1, done: i < session.completedRounds })) });
     this.tick();
     if (session && !session.claimed) wx.enableAlertBeforeUnload?.({ message: "已完成轮数将保留，本轮需重新完成" });
     else wx.disableAlertBeforeUnload?.();
   },
-  tick() { this.setData({ countdown: Math.max(0, Math.ceil(((this.data.session?.nextAt || 0) - Date.now() - (this.offset || 0)) / 1000)) }); },
+  tick() {
+    const previous = this.data.countdown;
+    this.setData({ countdown: Math.max(0, Math.ceil(((this.data.session?.nextAt || 0) - Date.now() - (this.offset || 0)) / 1000)) });
+    if (previous > 0 && this.data.countdown === 0 && this.data.nativeAdFlow && !this.data.busy && !this.hidden && !this.disposed
+      && this.data.session && this.data.session.completedRounds < this.data.session.rounds) this.prepareEntry();
+  },
   async load() {
     const version = this.version = (this.version || 0) + 1, owner = this.owner;
+    this.currentAttempt = null;
     this.setData({ loading: true, busy: false, error: "", session: null, sheet: "", pendingStep: false, balanceCoins: 0, config: {}, needLogin: false });
     if (!owner || !wx.getStorageSync("tgg_token")) { this.setData({ loading: false, needLogin: true, error: "请登录后签到" }); return; }
     try { const status = await request("/api/coin-signin/status"); if (this.valid(version, owner)) this.apply(status); }
     catch (error) { if (!this.handleLoginRequired(error, version, owner) && this.valid(version, owner)) this.setData({ error: error.message }); }
     finally { if (!this.disposed && version === this.version) this.setData({ loading: false }); }
+    if (this.valid(version, owner) && this.data.nativeAdFlow && !this.data.unavailableReason && !this.data.error
+      && !this.data.session?.claimed && !this.data.countdown && (!this.data.session || this.data.session.completedRounds < this.data.session.rounds)) await this.prepareEntry();
   },
   login() { wx.navigateTo({ url: "/pages/login/index" }); },
   async openSignin() {
     if (this.data.loading || this.data.busy || this.data.error || this.data.session?.claimed) return;
     if (!this.data.session && this.data.unavailableReason) return;
+    if (this.data.nativeAdFlow) {
+      if (this.data.countdown) return;
+      if (this.data.pendingStep) return this.retryVerification();
+      if (this.data.session?.completedRounds >= this.data.session?.rounds) return this.claim();
+      return this.prepareEntry(false);
+    }
     await this.perform(async () => {
       const result = await request("/api/coin-signin/start", { method: "POST", data: {} });
       return { result, sheet: "progress" };
+    });
+  },
+  async prepareEntry(entryOnly = true) {
+    if (this.data.busy || this.data.countdown || this.data.unavailableReason) return;
+    await this.perform(async alive => {
+      let result;
+      if (this.currentAttempt && !this.currentAttempt.attempt.completed) result = this.currentAttempt;
+      else {
+        result = await request('/api/coin-signin/start', { method: 'POST', data: {} });
+        if (!alive() || result.session.claimed || result.session.completedRounds >= result.session.rounds) return { result, sheet: '' };
+        this.apply(result);
+        if (this.data.countdown) return { result, sheet: '' };
+        this.roundKey ||= makeKey();
+        result = await request('/api/coin-signin/round', { method: 'POST', data: { sessionId: result.session.id, idempotencyKey: this.roundKey } });
+        if (!alive()) return;
+        this.roundKey = null;
+      }
+      return this.playAttempt(result, alive, entryOnly);
     });
   },
   async perform(operation) {
@@ -59,7 +92,7 @@ Page({
     const version = this.version, owner = this.owner;
     const alive = () => this.valid(version, owner);
     this.setData({ busy: true, error: "" });
-    try { const value = await operation(alive); if (alive() && value) { this.apply(value.result); this.setData({ sheet: value.result.session?.claimed ? "success" : value.sheet || "progress" }); } }
+    try { const value = await operation(alive); if (alive() && value) { this.apply(value.result); this.setData({ sheet: value.result.session?.claimed ? "success" : value.sheet ?? "progress" }); } }
     catch (error) { if (!this.handleLoginRequired(error, version, owner) && alive()) this.setData({ error: error.message, sheet: this.data.pendingStep ? "verify" : "progress" }); }
     finally { if (alive()) this.setData({ busy: false, adLabel: "" }); }
   },
@@ -74,23 +107,35 @@ Page({
       return this.playAttempt(result, alive);
     });
   },
-  async playAttempt(result, alive) {
+  async playAttempt(result, alive, entryOnly = false) {
     while (!result.attempt.completed) {
       if (!alive()) return;
       const step = result.attempt.steps[result.attempt.nextStep];
+      if (this.data.nativeAdFlow && entryOnly && step.type === 'rewarded') {
+        this.currentAttempt = result;
+        return { result, sheet: '' };
+      }
+      let completionToken;
+      if (this.data.nativeAdFlow) {
+        const started = await request('/api/coin-signin/begin', { method: 'POST', data: { sessionId: result.session.id, attemptId: result.attempt.id, stepId: step.id } });
+        if (!alive()) return;
+        completionToken = started.completionToken;
+      }
       this.setData({ adLabel: `本轮第 ${result.attempt.nextStep + 1}/${result.attempt.steps.length} 步 · ${step.type === "rewarded" ? "激励视频" : "插屏广告"}` });
       this.adTask = showSigninAd(step);
-      await this.adTask.promise;
+      const nativeCompletion = await this.adTask.promise;
       this.adTask = null;
       if (!alive()) return;
-      const pending = { sessionId: result.session.id, attemptId: result.attempt.id, stepId: step.id };
+      const pending = { sessionId: result.session.id, attemptId: result.attempt.id, stepId: step.id,
+        ...(this.data.nativeAdFlow ? { completionToken, nativeCompletion } : {}) };
       wx.setStorageSync(this.storageKey(), pending);
       this.setData({ pendingStep: true });
       result = await request("/api/coin-signin/step", { method: "POST", data: pending });
       if (!alive()) return;
+      this.currentAttempt = result;
       wx.removeStorageSync(this.storageKey()); this.setData({ pendingStep: false });
     }
-    return { result, sheet: "progress" };
+    return { result, sheet: this.data.nativeAdFlow && result.session.completedRounds < result.session.rounds ? '' : "progress" };
   },
   async retryVerification() {
     await this.perform(async alive => {
@@ -117,6 +162,7 @@ Page({
   cancelExit() { this.setData({ sheet: this.data.previousSheet || "progress" }); },
   confirmExit() {
     this.version = (this.version || 0) + 1; this.adTask?.cancel(); this.roundKey = null;
+    this.currentAttempt = null;
     wx.removeStorageSync(this.storageKey()); this.setData({ sheet: "", busy: false, pendingStep: false, error: "", adLabel: "" });
   },
   closeSuccess() { this.setData({ sheet: "" }); },

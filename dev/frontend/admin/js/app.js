@@ -1345,6 +1345,7 @@ document.body.addEventListener("change", async event => {
 function buildConfigPayload(group, formData) {
   const payloads = {
     coinSignin: () => ({ coinSignin: {
+      rewardAsset: 'points',
       enabled: formData.get("enabled") === "on", minRounds: Number(formData.get("minRounds")), maxRounds: Number(formData.get("maxRounds")),
       intervalSeconds: Number(formData.get("intervalSeconds")), rewardCoins: Number(formData.get("rewardCoins")),
       sequence: String(formData.get("sequence") || "").split(/[,，\s]+/).filter(Boolean),

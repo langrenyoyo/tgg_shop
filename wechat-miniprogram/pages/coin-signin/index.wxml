@@ -1,6 +1,5 @@
 <view class="signin-page">
-  <view wx:if="{{config.bannerAdUnitId && !bannerFailed}}" class="ad-slot"><ad unit-id="{{config.bannerAdUnitId}}" data-kind="banner" binderror="adError" /></view>
-  <view class="welcome"><view class="heading">今天，也有收获。</view><view class="muted">完成签到，领取固定积分奖励</view></view>
+  <tgg-ad-slot/>
   <view wx:if="{{loading}}" class="card">正在读取签到进度…</view>
   <view wx:if="{{needLogin}}" class="card"><view>{{error}}</view><button bindtap="login">登录</button></view>
   <view wx:elif="{{!loading && !config.rewardCoins}}" class="card"><view>{{error || '暂无法读取签到配置'}}</view><button bindtap="load">刷新查询</button></view>
@@ -8,15 +7,15 @@
     <view class="muted">{{session.claimed ? '今日奖励已到账' : '今日签到奖励'}}</view><view class="coin">鹿</view>
     <view class="reward">{{config.rewardCoins || 0}}<text> 积分</text></view>
     <view class="description">{{session ? '本次共 ' + session.rounds + ' 轮，已完成 ' + session.completedRounds + ' 轮' : '每次随机 ' + config.minRounds + '～' + config.maxRounds + ' 轮，开始后确定本次轮数'}}</view>
-    <button class="primary" bindtap="openSignin" disabled="{{busy || loading || error || session.claimed || (!session && unavailableReason)}}">{{session.claimed ? '今日已签到' : session ? '继续签到' : '立即签到'}}</button>
+    <button class="primary" bindtap="openSignin" disabled="{{busy || loading || session.claimed || countdown > 0 || unavailableReason}}">{{session.claimed ? '今日已签到' : countdown > 0 ? countdown + ' 秒后继续签到' : session && session.completedRounds >= session.rounds ? '领取签到积分' : session && session.completedRounds > 0 ? '继续签到' : '立即签到'}}</button>
     <view class="fine">已完成轮数保留 · 每日领取一次</view><view class="balance">我的积分 {{balanceCoins}}</view>
     <view wx:if="{{unavailableReason}}" class="notice">{{unavailableReason}}</view>
     <view wx:if="{{error}}" class="notice">{{error}}</view><button wx:if="{{error}}" bindtap="load" disabled="{{busy}}">刷新查询</button>
   </view>
   <view class="badges">固定奖励　·　无抽奖　·　无盲盒</view>
-  <view wx:if="{{config.feedAdUnitId && !feedFailed}}" class="ad-slot"><ad-custom unit-id="{{config.feedAdUnitId}}" data-kind="feed" binderror="adError" /></view>
-  <view wx:if="{{config.bannerAdUnitId && !bannerFailed}}" class="ad-slot"><ad unit-id="{{config.bannerAdUnitId}}" data-kind="banner" binderror="adError" /></view>
-  <view class="fine">签到奖励独立记录，暂不支持兑换或提现。</view>
+  <tgg-ad-slot/>
+  <view class="fine">完成全部轮次后领取固定积分，每日仅可领取一次。</view>
+  <tgg-ad-slot kind="feed"/>
   <view wx:if="{{sheet}}" class="mask" catchtouchmove="noop"><view class="dialog">
     <block wx:if="{{sheet === 'exit'}}"><view class="symbol warning">↗</view><view class="dialog-title">要暂时离开签到吗？</view><view class="description">已完成轮数将保留，本轮需重新完成。</view><view class="notice">已完成 {{session.completedRounds}} / {{session.rounds}} 轮<view>退出不扣除已有积分。</view></view><view class="actions"><button bindtap="cancelExit">取消</button><button class="primary" bindtap="confirmExit">确定退出</button></view></block>
     <block wx:elif="{{sheet === 'success'}}"><view class="symbol">✓</view><view class="dialog-title">签到成功，奖励已到账</view><view class="reward">+{{session.rewardCoins}}<text> 积分</text></view><view class="description">我的积分 {{balanceCoins}}</view><button class="primary" bindtap="closeSuccess">返回签到首页</button><view class="fine">今日已领取，明天再来。</view></block>

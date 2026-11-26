@@ -1,10 +1,11 @@
-const defaults = Object.freeze({ enabled: false, minRounds: 2, maxRounds: 4, intervalSeconds: 5, rewardCoins: 10,
+const defaults = Object.freeze({ enabled: false, minRounds: 2, maxRounds: 4, intervalSeconds: 20, rewardCoins: 10,
   sequence: ["interstitial", "rewarded", "interstitial"], bannerAdUnitId: "", feedAdUnitId: "", interstitialAdUnitId: "", rewardedAdUnitId: "" });
 const adFields = ["bannerAdUnitId", "feedAdUnitId", "interstitialAdUnitId", "rewardedAdUnitId"];
 function config(state) { return { ...defaults, ...(state.config.coinSignin || {}) }; }
 function validate(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "签到配置格式无效";
-  if (Object.keys(value).some(key => !Object.hasOwn(defaults, key))) return "签到配置包含不支持的字段";
+  if (Object.keys(value).some(key => !Object.hasOwn(defaults, key) && key !== 'rewardAsset')) return "签到配置包含不支持的字段";
+  if (value.rewardAsset !== undefined && !['points', 'coins'].includes(value.rewardAsset)) return "签到奖励类型无效";
   if (typeof value.enabled !== "boolean") return "请选择签到开关";
   for (const [key, min, max] of [["minRounds", 1, 10], ["maxRounds", 1, 10], ["intervalSeconds", 0, 300], ["rewardCoins", 1, 100000]]) {
     if (!Number.isSafeInteger(value[key]) || value[key] < min || value[key] > max) return `${key} 须为 ${min} 至 ${max} 的整数`;

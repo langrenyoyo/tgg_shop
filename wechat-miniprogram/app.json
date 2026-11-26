@@ -68,6 +68,7 @@
     "borderStyle": "white"
   },
   "style": "v2",
+  "usingComponents": { "tgg-ad-slot": "/components/ad-slot/index" },
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }

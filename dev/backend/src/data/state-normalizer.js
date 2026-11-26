@@ -14,8 +14,8 @@ function normalizeState(nextState) {
   nextState.config.withdrawNotice = require("../config/withdrawal-notice").withdrawalNotice(nextState.config.withdrawNotice);
   if (Array.isArray(nextState.config.homePromotionEntries)) {
     nextState.config.homePromotionEntries = nextState.config.homePromotionEntries.map(item =>
-      item.page === "dailySignin" && item.title === "签到领积分"
-        ? { ...item, title: "签到领金币", text: "完成签到领固定金币" } : item);
+      item.page === "dailySignin" && item.title === "签到领金币"
+        ? { ...item, title: "签到领积分", text: "完成签到领固定积分" } : item);
   }
   nextState.roles = mergeRoles(nextState.roles || [], seed.roles, nextState.config.rolePermissionOverrides || {});
   require("../domain/admin-accounts").ensureAdminUsers(nextState);

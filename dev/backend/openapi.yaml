@@ -1839,7 +1839,7 @@ paths:
   /api/coin-signin/status:
     get:
       tags: [Growth]
-      summary: Current Beijing-day sign-in session and independent coin balance
+      summary: Current Beijing-day sign-in session and reward balance
       description: Authenticated user only. Returns a rule snapshot, unavailableReason and public progress; no provider receipts or credentials.
       responses:
         "200":
@@ -1887,11 +1887,11 @@ paths:
         "401": { description: Login required }
         "409": { description: Cooldown, expired session or conflicting operation }
         "503": { description: Activity or verification unavailable }
-  /api/coin-signin/step:
+  /api/coin-signin/begin:
     post:
       tags: [Growth]
-      summary: Independently verify the next ad completion
-      description: Client completion flags never authorize progress. A trusted gateway must bind a unique receipt to the exact user, attempt, step and ad slot. Whole-group completion advances one round; retries are idempotent.
+      summary: Issue the owner's next native-ad step completion token
+      description: Available only when SIGNIN_AD_VERIFICATION_MODE=wechat_client. Binds a token to the current owner, date, session, attempt and ordered step, records server start time, and awards no progress.
       requestBody:
         required: true
         content:
@@ -1904,6 +1904,33 @@ paths:
                 attemptId: { type: string }
                 stepId: { type: string }
       responses:
+        "200": { description: Current status plus private per-step completionToken }
+        "401": { description: Login required }
+        "409": { description: Step not current, expired session, wrong mode or operation in progress }
+        "503": { description: Activity unavailable }
+  /api/coin-signin/step:
+    post:
+      tags: [Growth]
+      summary: Confirm the next ordered ad completion
+      description: External mode uses an independent receipt gateway. Explicit wechat_client mode accepts SDK onClose reports bound to a server-issued token and minimum elapsed time; rewarded completion requires isEnded=true. SDK reports are not provider-signed evidence. Whole-group completion advances one round; retries are idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, attemptId, stepId]
+              properties:
+                sessionId: { type: string }
+                attemptId: { type: string }
+                stepId: { type: string }
+                completionToken: { type: string, description: Required in native SDK mode; issued by begin }
+                nativeCompletion:
+                  type: object
+                  properties:
+                    closed: { type: boolean }
+                    isEnded: { type: boolean }
+      responses:
         "200":
           description: Verified status and updated attempt
           content:
@@ -1915,8 +1942,8 @@ paths:
   /api/coin-signin/claim:
     post:
       tags: [Growth]
-      summary: Claim a fixed coin reward after all rounds complete
-      description: One independent coin ledger entry per user and Beijing date. Completed sessions can claim on the same day after disabling the activity; old dates cannot claim. No points or withdrawal balance changes.
+      summary: Claim the configured fixed reward after all rounds complete
+      description: New points sessions update the spendable points balance and point ledger atomically, once per owner and Beijing date, without inviter commission. Legacy coin sessions keep their original asset. Completed sessions may claim that day after activity disabling; old dates cannot claim. Withdrawal balances never change.
       requestBody:
         required: true
         content:
@@ -4036,8 +4063,9 @@ components:
         enabled: { type: boolean, default: false }
         minRounds: { type: integer, minimum: 1, maximum: 10, default: 2 }
         maxRounds: { type: integer, minimum: 1, maximum: 10, default: 4 }
-        intervalSeconds: { type: integer, minimum: 0, maximum: 300, default: 5 }
+        intervalSeconds: { type: integer, minimum: 0, maximum: 300, default: 20 }
         rewardCoins: { type: integer, minimum: 1, maximum: 100000, default: 10 }
+        rewardAsset: { type: string, enum: [points, coins], description: Points for new admin configuration; omitted historical settings retain independent coins }
         sequence:
           type: array
           minItems: 1
@@ -4055,7 +4083,9 @@ components:
         serverNow: { type: integer, format: int64, description: Server epoch milliseconds }
         date: { type: string, format: date, description: Beijing date }
         balanceCoins: { type: integer, format: int64 }
-        unit: { type: string, enum: [金币] }
+        balancePoints: { type: integer, format: int64 }
+        nativeAdFlow: { type: boolean }
+        unit: { type: string, enum: [金币, 积分] }
         unavailableReason: { type: string }
         config: { $ref: '#/components/schemas/CoinSigninConfig' }
         session:

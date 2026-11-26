@@ -1,6 +1,7 @@
 .shop-heading { margin: 8rpx 4rpx 28rpx; }.shop-heading .title { font-size: 40rpx; }.shop-heading .muted { margin-top: 8rpx; }
 .category-page { height: 100vh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .category-page > .search-box { flex-shrink: 0; }
+.category-page > .shop-top-ad { flex-shrink: 0; }
 .shop-layout { display: flex; align-items: stretch; flex: 1; min-height: 0; gap: 18rpx; margin-top: 24rpx; }
 .category-sidebar { width: 168rpx; flex: 0 0 168rpx; min-height: 0; display: flex; flex-direction: column; }
 .category-sidebar-head { display: flex; align-items: center; justify-content: flex-end; height: 80rpx; flex-shrink: 0; margin-bottom: 10rpx; }
