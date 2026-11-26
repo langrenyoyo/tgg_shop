@@ -1,3 +1,10 @@
+.member-refund-notice {
+  margin: 12rpx 0;
+  color: #d93025;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
 .member-panel .member-open-button {
   display: flex;
   align-items: center;
