@@ -3,7 +3,7 @@ const request = (path, options = {}) => apiRequest(path, { ...options, authRequi
 const { showSigninAd } = require("../../utils/signin-ad");
 const makeKey = () => "signin:" + Date.now() + ":" + Math.random().toString(36).slice(2);
 Page({
-  data: { loading: true, busy: false, error: "", needLogin: false, unavailableReason: "", session: null, config: {}, balanceCoins: 0, sheet: "", countdown: 0, dots: [], pendingStep: false, adLabel: "", nativeAdFlow: false },
+  data: { loading: true, busy: false, error: "", needLogin: false, unavailableReason: "", session: null, config: {}, balanceCoins: 0, sheet: "", countdown: 0, adRetryCountdown: 0, dots: [], pendingStep: false, adLabel: "", nativeAdFlow: false },
   onShow() { this.hidden = false; this.owner = wx.getStorageSync("tgg_user")?.id; clearInterval(this.timer); this.load(); this.timer = setInterval(() => this.tick(), 1000); },
   onHide() {
     this.hidden = true; this.version = (this.version || 0) + 1; clearInterval(this.timer); this.adTask?.cancel();
@@ -39,8 +39,9 @@ Page({
   },
   tick() {
     const previous = this.data.countdown;
-    this.setData({ countdown: Math.max(0, Math.ceil(((this.data.session?.nextAt || 0) - Date.now() - (this.offset || 0)) / 1000)) });
-    if (previous > 0 && this.data.countdown === 0 && this.data.nativeAdFlow && !this.data.busy && !this.hidden && !this.disposed
+    this.setData({ countdown: Math.max(0, Math.ceil(((this.data.session?.nextAt || 0) - Date.now() - (this.offset || 0)) / 1000)),
+      adRetryCountdown: Math.max(0, Math.ceil(((this.adRetryAt || 0) - Date.now()) / 1000)) });
+    if (previous > 0 && this.data.countdown === 0 && !this.data.adRetryCountdown && !this.data.error && this.data.nativeAdFlow && !this.data.busy && !this.hidden && !this.disposed
       && this.data.session && this.data.session.completedRounds < this.data.session.rounds) this.prepareEntry();
   },
   async load() {
@@ -56,7 +57,7 @@ Page({
   },
   login() { wx.navigateTo({ url: "/pages/login/index" }); },
   async openSignin() {
-    if (this.data.loading || this.data.busy || this.data.error || this.data.session?.claimed) return;
+    if (this.data.loading || this.data.busy || (this.data.error && !this.data.nativeAdFlow) || this.data.session?.claimed || this.data.adRetryCountdown) return;
     if (!this.data.session && this.data.unavailableReason) return;
     if (this.data.nativeAdFlow) {
       if (this.data.countdown) return;
@@ -70,10 +71,11 @@ Page({
     });
   },
   async prepareEntry(entryOnly = true) {
-    if (this.data.busy || this.data.countdown || this.data.unavailableReason) return;
+    if (this.data.busy || this.data.countdown || this.data.adRetryCountdown || this.data.unavailableReason) return;
     await this.perform(async alive => {
       let result;
-      if (this.currentAttempt && !this.currentAttempt.attempt.completed) result = this.currentAttempt;
+      if (this.currentAttempt && this.currentAttempt.session.id === this.data.session?.id && !this.currentAttempt.attempt.completed
+        && this.currentAttempt.attempt.expiresAt > Date.now() + (this.offset || 0)) result = this.currentAttempt;
       else {
         result = await request('/api/coin-signin/start', { method: 'POST', data: {} });
         if (!alive() || result.session.claimed || result.session.completedRounds >= result.session.rounds) return { result, sheet: '' };
@@ -93,11 +95,18 @@ Page({
     const alive = () => this.valid(version, owner);
     this.setData({ busy: true, error: "" });
     try { const value = await operation(alive); if (alive() && value) { this.apply(value.result); this.setData({ sheet: value.result.session?.claimed ? "success" : value.sheet ?? "progress" }); } }
-    catch (error) { if (!this.handleLoginRequired(error, version, owner) && alive()) this.setData({ error: error.message, sheet: this.data.pendingStep ? "verify" : "progress" }); }
+    catch (error) {
+      if (!this.handleLoginRequired(error, version, owner) && alive()) {
+        if (error.retryAfterSeconds > 0) this.adRetryAt = Date.now() + error.retryAfterSeconds * 1000;
+        this.setData({ error: error.message, sheet: this.data.pendingStep ? "verify" : "progress" });
+        this.tick();
+      }
+    }
     finally { if (alive()) this.setData({ busy: false, adLabel: "" }); }
   },
   async getRound() {
-    if (!this.data.session || this.data.busy || this.data.countdown || this.data.pendingStep || this.data.unavailableReason) return;
+    if (!this.data.session || this.data.busy || this.data.countdown || this.data.adRetryCountdown || this.data.pendingStep || this.data.unavailableReason) return;
+    if (this.data.nativeAdFlow) return this.prepareEntry(false);
     await this.perform(async alive => {
       const sessionId = this.data.session.id;
       this.roundKey ||= makeKey();
@@ -111,6 +120,7 @@ Page({
     while (!result.attempt.completed) {
       if (!alive()) return;
       const step = result.attempt.steps[result.attempt.nextStep];
+      this.currentAttempt = result;
       if (this.data.nativeAdFlow && entryOnly && step.type === 'rewarded') {
         this.currentAttempt = result;
         return { result, sheet: '' };

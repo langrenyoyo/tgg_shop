@@ -3,14 +3,14 @@
   <tgg-ad-slot class="shop-top-ad"/>
   <view class="search-box"><view class="search-icon"></view><input value="{{search}}" bindinput="inputSearch" bindconfirm="search" confirm-type="search" placeholder="搜索你喜欢的商品" placeholder-style="color:#91a08f"/></view>
   <view class="shop-layout {{categoryCollapsed ? 'category-collapsed' : ''}}">
+    <view class="category-sidebar-head"><text wx:if="{{!categoryCollapsed}}" class="category-sidebar-title">分类</text><button class="category-toggle" bindtap="toggleCategoryMenu" hover-class="category-toggle-pressed" aria-label="{{categoryCollapsed ? '展开分类菜单' : '收起分类菜单'}}"><text class="category-toggle-icon">{{categoryCollapsed ? '›' : '‹'}}</text></button></view>
+    <view class="shop-section"><view>{{category === '' ? '全部好物' : category}}</view><text>{{total}} 件商品</text></view>
     <view class="category-sidebar">
-      <view class="category-sidebar-head"><text wx:if="{{!categoryCollapsed}}" class="category-sidebar-title">分类</text><button class="category-toggle" bindtap="toggleCategoryMenu" hover-class="category-toggle-pressed" aria-label="{{categoryCollapsed ? '展开分类菜单' : '收起分类菜单'}}"><text class="category-toggle-icon">{{categoryCollapsed ? '›' : '‹'}}</text></button></view>
       <scroll-view scroll-y class="category-scroll" enhanced show-scrollbar="{{false}}">
         <view wx:for="{{categories}}" wx:key="*this" data-category="{{item}}" bindtap="category" class="category-side-item {{category === item ? 'active' : ''}}"><text class="category-side-icon">{{item[0]}}</text><text class="category-side-name">{{item}}</text></view>
       </scroll-view>
     </view>
     <view class="shop-content">
-      <view class="shop-section"><view>{{category === '' ? '全部好物' : category}}</view><text>{{total}} 件商品</text></view>
       <scroll-view class="product-scroll" scroll-y enhanced show-scrollbar="{{false}}" scroll-top="{{scrollTop}}" lower-threshold="160" bindscroll="onProductScroll" bindscrolltolower="loadMore">
       <tgg-ad-slot/>
       <view wx:if="{{category === '纯积分兑换'}}" class="exchange-note">纯积分兑换无需会员，使用积分下单</view>

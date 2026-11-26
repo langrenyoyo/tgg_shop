@@ -1,7 +1,7 @@
 <view class="page">
   <view class="card member-panel">
     <view class="title">月会员</view>
-    <view class="member-refund-notice">购买会员的用户核销完无法申请退款</view>
+    <view class="member-refund-notice">买商品送会员专区中，“买礼包送会员（单独购买）”商品核销后视为已用，无法退款。</view>
     <view>购买专区实物商品赠送会员，也可使用积分开通。</view>
     <view>赠送天数以商品说明为准，支付成功后发放，已有会员顺延。</view>
     <view>纯积分兑换无需会员。</view>
@@ -31,4 +31,5 @@
     <button bindtap="queryPayment" data-pay-no="{{item.payNo}}" disabled="{{busy || loading}}">已付款，查询结果</button>
   </view>
   <tgg-ad-slot kind="feed"/>
+  <tgg-ad-slot/>
 </view>

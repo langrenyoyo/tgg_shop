@@ -91,6 +91,50 @@ test('a failed sign-in save does not roll back another operation ledger or point
   assert.equal(f.user.points, previous + 3);assert.ok(f.state.pointLedger.includes(other));
   assert.equal(f.state.pointLedger.some(entry => entry.idempotencyKey?.startsWith('signin-points:')), false);
 });
+test('native ad frequency failures retry the same unfinished step in round one or two without replaying the rewarded video', async t => {
+  for (const failAt of [2, 3, 5]) {
+    const f = native(t), storage = { tgg_user: { id: f.user.id }, tgg_token: 'token' }, calls = [], ads = [];
+    let page, failed = false;
+    const root = path.resolve(__dirname, '../../../../wechat-miniprogram');
+    vm.runInNewContext(fs.readFileSync(path.join(root, 'pages/coin-signin/index.js'), 'utf8'), {
+      Page: value => { page = value; }, setInterval: () => 1, clearInterval() {},
+      wx: { getStorageSync: key => storage[key], setStorageSync: (key, value) => { storage[key] = value; }, removeStorageSync: key => { delete storage[key]; }, enableAlertBeforeUnload() {}, disableAlertBeforeUnload() {} },
+      require: name => name.endsWith('/api') ? { request: async (url, options) => {
+        calls.push(url);const action = url.split('/').at(-1);
+        const result = action === 'status' ? service.status(f.state, f.user, f.deps.now) : await f.call(action, options.data);
+        if (!result.ok) throw Object.assign(Error(result.error), { statusCode: result.status });return result;
+      } } : { showSigninAd: step => {
+        const index = ads.length;ads.push(step.type);f.deps.now += 2000;
+        if (index === failAt && !failed) {
+          failed = true;return { promise: Promise.reject(Object.assign(Error('微信限制插屏播放（2002）'), { retryAfterSeconds: 60 })), cancel() {} };
+        }
+        return { promise: Promise.resolve({ closed: true, isEnded: true }), cancel() {} };
+      } }
+    });
+    page.setData = values => Object.assign(page.data, values);page.owner = f.user.id;page.hidden = false;
+    const nextRound = async () => {
+      f.deps.now += 20000;page.offset = f.deps.now - Date.now();page.tick();
+      for (let i = 0; i < 10 && page.data.busy; i++) await new Promise(setImmediate);
+    };
+    const recover = async () => {
+      assert.equal(page.data.adRetryCountdown, 60);
+      const before = calls.length, attempt = page.currentAttempt.attempt.id;
+      await page.getRound();await page.openSignin();assert.equal(calls.length, before, 'cooldown blocks repeated ad requests');
+      page.adRetryAt = Date.now() - 1;page.tick();await page.getRound();
+      assert.equal(page.currentAttempt.attempt.id, attempt, 'resume the same issued attempt');
+    };
+    await page.load();await page.openSignin();
+    if (failAt === 2) await recover();
+    assert.equal(page.data.session.completedRounds, 1);
+    await nextRound();
+    if (failAt === 3) await recover();else await page.openSignin();
+    if (failAt === 5) await recover();
+    assert.equal(page.data.session.completedRounds, 2, 'round two can complete after the failed step is retried');
+    assert.equal(calls.filter(url => url.endsWith('/round')).length, 2);
+    assert.equal(ads.filter(type => type === 'rewarded').length, 2, 'successful videos never replay on interstitial errors');
+    await page.claim();await page.claim();assert.equal(f.state.pointLedger.filter(entry => entry.changeType === 'signin_reward').length, 1);
+  }
+});
 test('ad slots stay in the requested positions and category banner is within scrollable products', () => {
   const root = path.resolve(__dirname, '../../../../wechat-miniprogram/pages');
   const read = page => fs.readFileSync(path.join(root, page, 'index.wxml'), 'utf8');

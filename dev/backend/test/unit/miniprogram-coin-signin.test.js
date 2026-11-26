@@ -11,7 +11,7 @@ const source = file => fs.readFileSync(path.resolve(__dirname, '../../../../wech
 function adHarness(mode) {
   const module = { exports: {} }, handlers = {}; let shown = 0, destroyed = 0;
   const ad = { onClose(fn) { handlers.close = fn; }, offClose() { delete handlers.close; }, onError(fn) { handlers.error = fn; }, offError() { delete handlers.error; },
-    load: async () => { if (mode === 'load-error') throw Error('no fill'); }, show: async () => { shown++; if (mode === 'show-error') throw Error('unavailable'); }, destroy: () => destroyed++ };
+    load: async () => { if (mode === 'load-error') throw Error('no fill'); }, show: async () => { shown++; if (mode === 'show-error') throw Error('unavailable'); if (typeof mode === 'number') throw { errCode: mode, errMsg: 'private provider details' }; }, destroy: () => destroyed++ };
   vm.runInNewContext(source('utils/signin-ad.js'), { module, wx: { createRewardedVideoAd: () => ad, createInterstitialAd: () => ad }, setTimeout, clearTimeout });
   return { show: module.exports.showSigninAd, handlers, stats: () => ({ shown, destroyed }) };
 }
@@ -32,6 +32,14 @@ test('native cancellation detaches listeners and never resolves completion', asy
   const h = adHarness(), task = h.show({ type: 'rewarded', adUnitId: 'adunit-rewarded01' });
   const rejected = assert.rejects(task.promise); task.cancel(); await rejected;
   assert.equal(h.stats().destroyed, 1); assert.equal(h.handlers.close, undefined);
+});
+test('SDK frequency and no-fill errors expose a safe code and retry delay without reporting ad completion', async () => {
+  for (const code of [2001, 2002, 2003, 1004, 1005]) {
+    const h = adHarness(code), task = h.show({ type: 'interstitial', adUnitId: 'adunit-interstitial01' });
+    await assert.rejects(task.promise, error => error.adCode === code && error.retryAfterSeconds === (code < 2000 ? code === 1004 ? 30 : 0 : 60)
+      && !error.message.includes('private provider details') && error.message.includes(String(code)));
+    assert.equal(h.stats().destroyed, 1);assert.equal(h.handlers.close, undefined);
+  }
 });
 function pageHarness(options = {}) {
   const state = createSeed(), user = state.users[0];

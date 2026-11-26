@@ -7,7 +7,7 @@
     <view class="muted">{{session.claimed ? '今日奖励已到账' : '今日签到奖励'}}</view><view class="coin">鹿</view>
     <view class="reward">{{config.rewardCoins || 0}}<text> 积分</text></view>
     <view class="description">{{session ? '本次共 ' + session.rounds + ' 轮，已完成 ' + session.completedRounds + ' 轮' : '每次随机 ' + config.minRounds + '～' + config.maxRounds + ' 轮，开始后确定本次轮数'}}</view>
-    <button class="primary" bindtap="openSignin" disabled="{{busy || loading || session.claimed || countdown > 0 || unavailableReason}}">{{session.claimed ? '今日已签到' : countdown > 0 ? countdown + ' 秒后继续签到' : session && session.completedRounds >= session.rounds ? '领取签到积分' : session && session.completedRounds > 0 ? '继续签到' : '立即签到'}}</button>
+    <button class="primary" bindtap="openSignin" disabled="{{busy || loading || session.claimed || countdown > 0 || adRetryCountdown > 0 || unavailableReason}}">{{session.claimed ? '今日已签到' : adRetryCountdown > 0 ? adRetryCountdown + ' 秒后重试广告' : countdown > 0 ? countdown + ' 秒后继续签到' : session && session.completedRounds >= session.rounds ? '领取签到积分' : error ? '重试当前广告' : session && session.completedRounds > 0 ? '继续签到' : '立即签到'}}</button>
     <view class="fine">已完成轮数保留 · 每日领取一次</view><view class="balance">我的积分 {{balanceCoins}}</view>
     <view wx:if="{{unavailableReason}}" class="notice">{{unavailableReason}}</view>
     <view wx:if="{{error}}" class="notice">{{error}}</view><button wx:if="{{error}}" bindtap="load" disabled="{{busy}}">刷新查询</button>
@@ -25,7 +25,7 @@
       <view wx:if="{{error}}" class="notice">{{error}}</view>
       <button wx:if="{{pendingStep}}" class="primary" bindtap="retryVerification" disabled="{{busy}}">核对本次广告完成结果</button>
       <button wx:elif="{{session.completedRounds >= session.rounds}}" class="primary" bindtap="claim" loading="{{busy}}" disabled="{{busy}}">完成签到</button>
-      <block wx:else><view class="fine">完整完成一组广告计为一轮，激励视频需完整观看。</view><view wx:if="{{unavailableReason}}" class="notice">{{unavailableReason}}</view><button class="primary" bindtap="getRound" loading="{{busy}}" disabled="{{busy || countdown > 0 || unavailableReason}}">{{countdown > 0 ? countdown + ' 秒后继续获取' : '获取 · 第 ' + (session.completedRounds + 1) + ' 轮'}}</button></block>
+      <block wx:else><view class="fine">完整完成一组广告计为一轮，激励视频需完整观看。</view><view wx:if="{{unavailableReason}}" class="notice">{{unavailableReason}}</view><button class="primary" bindtap="getRound" loading="{{busy}}" disabled="{{busy || countdown > 0 || adRetryCountdown > 0 || unavailableReason}}">{{adRetryCountdown > 0 ? adRetryCountdown + ' 秒后重试广告' : countdown > 0 ? countdown + ' 秒后继续获取' : error ? '重试当前广告' : '获取 · 第 ' + (session.completedRounds + 1) + ' 轮'}}</button></block>
       <button wx:if="{{error}}" bindtap="load" disabled="{{busy}}">刷新查询</button><button class="text-button" bindtap="exit">稍后继续</button>
     </block>
   </view></view>
