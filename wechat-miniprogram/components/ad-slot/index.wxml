@@ -1,4 +1,5 @@
 <view wx:if="{{unitId}}" class="slot {{failed ? 'slot-empty' : ''}}">
   <ad-custom wx:if="{{kind === 'feed'}}" unit-id="{{unitId}}" bindload="loaded" binderror="failed"/>
-  <ad wx:else unit-id="{{unitId}}" ad-type="banner" bindload="loaded" binderror="failed"/>
+  <ad wx:else unit-id="{{unitId}}" ad-type="banner" ad-intervals="60" bindload="loaded" binderror="failed"/>
 </view>
+<view wx:if="{{debug && diagnostic}}" class="ad-diagnostic">{{kind === 'feed' ? '信息流' : '横幅'}}广告：{{diagnostic}}</view>
