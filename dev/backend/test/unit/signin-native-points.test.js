@@ -139,7 +139,7 @@ test('ad slots stay in the requested positions and category banner is within scr
   const root = path.resolve(__dirname, '../../../../wechat-miniprogram/pages');
   const read = page => fs.readFileSync(path.join(root, page, 'index.wxml'), 'utf8');
   const home = read('home'); assert.ok(home.indexOf('<tgg-ad-slot') < home.indexOf('class="greet"'));assert.ok(home.indexOf('class="greet"') < home.indexOf('aria-label="商城公告"'));
-  const shop = read('shop');assert.doesNotMatch(shop, /发现新鲜好物/);assert.ok(shop.indexOf('<tgg-ad-slot/>', shop.indexOf('class="product-scroll"')) < shop.indexOf('class="product-grid"'));
+  const shop = read('shop');assert.doesNotMatch(shop, /发现新鲜好物/);assert.ok(shop.indexOf('<tgg-ad-slot id="categoryBanner" flush-top="{{true}}"/>', shop.indexOf('class="product-scroll"')) < shop.indexOf('class="product-grid"'));
   for (const page of ['customer-service', 'membership', 'coin-signin']) assert.match(read(page), /<tgg-ad-slot kind="feed"\/>/);
   assert.ok(read('invite').indexOf('<tgg-ad-slot') < read('invite').indexOf('邀请有礼'));assert.doesNotMatch(read('tasks'), /攒积分，兑好物/);
 });

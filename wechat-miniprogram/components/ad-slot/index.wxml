@@ -1,4 +1,4 @@
-<view wx:if="{{unitId}}" class="slot {{failed ? 'slot-empty' : ''}}">
+<view wx:if="{{unitId}}" class="slot {{flushTop ? 'slot-flush-top' : ''}} {{failed ? 'slot-empty' : ''}}">
   <ad-custom wx:if="{{kind === 'feed'}}" unit-id="{{unitId}}" bindload="loaded" binderror="failed"/>
   <ad wx:else unit-id="{{unitId}}" ad-type="banner" ad-intervals="60" bindload="loaded" binderror="failed"/>
 </view>

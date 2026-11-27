@@ -12,7 +12,7 @@
     </view>
     <view class="shop-content">
       <scroll-view class="product-scroll" scroll-y enhanced show-scrollbar="{{false}}" scroll-top="{{scrollTop}}" lower-threshold="160" bindscroll="onProductScroll" bindscrolltolower="loadMore">
-      <tgg-ad-slot/>
+      <tgg-ad-slot id="categoryBanner" flush-top="{{true}}"/>
       <view wx:if="{{category === '纯积分兑换'}}" class="exchange-note">纯积分兑换无需会员，使用积分下单</view>
       <view wx:if="{{category === '买商品送会员'}}" class="exchange-note">购买实物商品赠会员，非会员也可购买；支付成功后发放，已有会员顺延。</view>
       <view wx:if="{{error}}" class="empty-state card">{{error}}<view><button class="btn btn-light" bindtap="load">重新加载</button></view></view>

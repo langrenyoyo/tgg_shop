@@ -17,7 +17,7 @@ function config() {
   return pending;
 }
 Component({
-  properties: { kind: { type: String, value: 'banner' } },
+  properties: { kind: { type: String, value: 'banner' }, flushTop: { type: Boolean, value: false } },
   data: { unitId: '', failed: false, debug: false, diagnostic: '' },
   lifetimes: {
     attached() {
