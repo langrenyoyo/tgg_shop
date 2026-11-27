@@ -1,6 +1,7 @@
 .shop-heading { margin: 8rpx 4rpx 28rpx; }.shop-heading .title { font-size: 40rpx; }.shop-heading .muted { margin-top: 8rpx; }
-.category-page { height: 100vh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.category-page > .search-box { flex-shrink: 0; }
+.category-page { height: 100vh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-top: 0; }
+.category-page > .search-box { flex-shrink: 0; height: 64rpx; box-sizing: border-box; padding: 0 22rpx; }
+.category-page > .search-box input { height: 60rpx; }
 .category-page > .shop-top-ad { flex-shrink: 0; }
 .shop-layout { display: grid; grid-template-columns: 168rpx minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-items: stretch; flex: 1; min-height: 0; column-gap: 18rpx; margin-top: 16rpx; }
 .category-sidebar { width: 168rpx; flex: 0 0 168rpx; min-height: 0; display: flex; flex-direction: column; }

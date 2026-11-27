@@ -1,6 +1,6 @@
 <wxs src="../../utils/regular-price.wxs" module="retail"/>
 <view class="page category-page">
-  <tgg-ad-slot class="shop-top-ad"/>
+  <tgg-ad-slot id="shopTopBanner" class="shop-top-ad" flush-top="{{true}}"/>
   <view class="search-box"><view class="search-icon"></view><input value="{{search}}" bindinput="inputSearch" bindconfirm="search" confirm-type="search" placeholder="搜索你喜欢的商品" placeholder-style="color:#91a08f"/></view>
   <view class="shop-layout {{categoryCollapsed ? 'category-collapsed' : ''}}">
     <view class="category-sidebar-head"><text wx:if="{{!categoryCollapsed}}" class="category-sidebar-title">分类</text><button class="category-toggle" bindtap="toggleCategoryMenu" hover-class="category-toggle-pressed" aria-label="{{categoryCollapsed ? '展开分类菜单' : '收起分类菜单'}}"><text class="category-toggle-icon">{{categoryCollapsed ? '›' : '‹'}}</text></button></view>
