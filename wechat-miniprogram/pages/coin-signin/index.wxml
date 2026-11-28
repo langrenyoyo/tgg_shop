@@ -1,4 +1,5 @@
 <view class="signin-page">
+  <tgg-ad-slot/>
   <view wx:if="{{loading}}" class="card">正在读取签到进度…</view>
   <view wx:if="{{needLogin}}" class="card"><view>{{error}}</view><button bindtap="login">登录</button></view>
   <view wx:elif="{{!loading && !config.rewardCoins}}" class="card"><view>{{error || '暂无法读取签到配置'}}</view><button bindtap="load">刷新查询</button></view>
@@ -12,7 +13,6 @@
     <view wx:if="{{error}}" class="notice">{{error}}</view><button wx:if="{{error}}" bindtap="load" disabled="{{busy}}">刷新查询</button>
   </view>
   <view class="badges">固定奖励　·　无抽奖　·　无盲盒</view>
-  <tgg-ad-slot/>
   <view class="fine">完成全部轮次后领取固定积分，每日仅可领取一次。</view>
   <tgg-ad-slot kind="feed"/>
   <view wx:if="{{sheet}}" class="mask" catchtouchmove="noop"><view class="dialog">

@@ -146,7 +146,7 @@ test('ad slots keep requested positions with at most one banner per page', () =>
     const banners = (fs.readFileSync(template, 'utf8').match(/<tgg-ad-slot\b[^>]*>/g) || []).filter(tag => !/\bkind="feed"/.test(tag));
     assert.ok(banners.length <= 1, `${page} must not contain duplicate banners`);
   }
-  const signin = read('coin-signin');assert.ok(signin.indexOf('<tgg-ad-slot') > signin.indexOf('class="badges"'));
+  const signin = read('coin-signin');assert.match(signin, /^<view class="signin-page">\s*<tgg-ad-slot\/>/);
   for (const page of ['customer-service', 'membership', 'coin-signin']) assert.match(read(page), /<tgg-ad-slot kind="feed"\/>/);
   assert.ok(read('invite').indexOf('<tgg-ad-slot') < read('invite').indexOf('邀请有礼'));assert.doesNotMatch(read('tasks'), /攒积分，兑好物/);
 });
