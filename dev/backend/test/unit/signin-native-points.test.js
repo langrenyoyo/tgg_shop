@@ -135,11 +135,18 @@ test('native ad frequency failures retry the same unfinished step in round one o
     await page.claim();await page.claim();assert.equal(f.state.pointLedger.filter(entry => entry.changeType === 'signin_reward').length, 1);
   }
 });
-test('ad slots stay in the requested positions and category banner is within scrollable products', () => {
+test('ad slots keep requested positions with at most one banner per page', () => {
   const root = path.resolve(__dirname, '../../../../wechat-miniprogram/pages');
   const read = page => fs.readFileSync(path.join(root, page, 'index.wxml'), 'utf8');
   const home = read('home'); assert.ok(home.indexOf('<tgg-ad-slot') < home.indexOf('class="greet"'));assert.ok(home.indexOf('class="greet"') < home.indexOf('aria-label="商城公告"'));
-  const shop = read('shop');assert.doesNotMatch(shop, /发现新鲜好物/);assert.ok(shop.indexOf('<tgg-ad-slot id="categoryBanner" flush-top="{{true}}"/>', shop.indexOf('class="product-scroll"')) < shop.indexOf('class="product-grid"'));
+  const shop = read('shop');assert.doesNotMatch(shop, /发现新鲜好物/);assert.match(shop, /<tgg-ad-slot id="shopTopBanner"[^>]*\/>/);assert.doesNotMatch(shop.slice(shop.indexOf('class="product-scroll"')), /<tgg-ad-slot\b/);
+  for (const page of fs.readdirSync(root)) {
+    const template = path.join(root, page, 'index.wxml');
+    if (!fs.existsSync(template)) continue;
+    const banners = (fs.readFileSync(template, 'utf8').match(/<tgg-ad-slot\b[^>]*>/g) || []).filter(tag => !/\bkind="feed"/.test(tag));
+    assert.ok(banners.length <= 1, `${page} must not contain duplicate banners`);
+  }
+  const signin = read('coin-signin');assert.ok(signin.indexOf('<tgg-ad-slot') > signin.indexOf('class="badges"'));
   for (const page of ['customer-service', 'membership', 'coin-signin']) assert.match(read(page), /<tgg-ad-slot kind="feed"\/>/);
   assert.ok(read('invite').indexOf('<tgg-ad-slot') < read('invite').indexOf('邀请有礼'));assert.doesNotMatch(read('tasks'), /攒积分，兑好物/);
 });

@@ -1,5 +1,4 @@
 <view class="signin-page">
-  <tgg-ad-slot/>
   <view wx:if="{{loading}}" class="card">正在读取签到进度…</view>
   <view wx:if="{{needLogin}}" class="card"><view>{{error}}</view><button bindtap="login">登录</button></view>
   <view wx:elif="{{!loading && !config.rewardCoins}}" class="card"><view>{{error || '暂无法读取签到配置'}}</view><button bindtap="load">刷新查询</button></view>
